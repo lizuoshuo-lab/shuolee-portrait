@@ -1,0 +1,94 @@
+{
+  "updated": "2026-10-25T16:48:23.279589+00:00",
+  "release": "0.1.0-rc1",
+  "check": "new-video interface smoke006",
+  "config": {
+    "profile": "static_single_person",
+    "frame_stride": 8,
+    "max_image_size": 960,
+    "min_frames": 12,
+    "max_frames": 600,
+    "camera_model": "SIMPLE_RADIAL",
+    "matching": "exhaustive",
+    "min_track_observations": 50,
+    "max_sfm_mean_error_px": 2.0,
+    "fit_steps": 1200,
+    "max_fit_median_body_fraction": 0.03,
+    "max_fit_p90_body_fraction": 0.08,
+    "initial_points": 200000,
+    "iterations": 5,
+    "training_height": 768,
+    "seed": 6060,
+    "image_cache_frames": 8,
+    "quality_accepted": false
+  },
+  "completed": [
+    "extract",
+    "sfm",
+    "observations",
+    "prior",
+    "fit",
+    "fit-gate"
+  ],
+  "raw_video_freshly_decoded": true,
+  "fresh_sfm_frames": 23,
+  "old_cameras_loaded": false,
+  "new_masks": 23,
+  "new_whole_body_observations": 23,
+  "new_GVHMR_predictions": 23,
+  "fresh_static_fit_steps": 1200,
+  "old_subject_loaded": false,
+  "old_gaussian_loaded": false,
+  "body_geometry_gate": {
+    "median_body_fraction": 0.008568142423653613,
+    "p90_body_fraction": 0.020084728976458077,
+    "coarse_initialization_gate_passed": true,
+    "quality_accepted": false,
+    "from_scratch": true,
+    "physical_accuracy_proven": false,
+    "thresholds": "Diagnostic limits, not a calibrated quality guarantee",
+    "fit_sha256": "e81a027e72aec1fe10450e757cfbb32bb51966213c32a19a59601709ca3ed0fd"
+  },
+  "reviewed_mesh_overlay_frames": [
+    1,
+    14,
+    23
+  ],
+  "visual_findings": [
+    "Subject occupies the correct broad image region in reviewed views, but the overlay is an unclothed anatomical template; hair, loose jacket and trousers are not reconstructed surfaces.",
+    "Small head, hand and shoe contour differences remain. This is not proof of physically correct cameras or elimination of multi-view ghosting."
+  ],
+  "temporal_prior": {
+    "frames": 23,
+    "from_this_video": true,
+    "previous_person_parameters_loaded": false,
+    "camera_origin": "Current run full-image SfM",
+    "camera_count": 23,
+    "geometry_is_prior_not_ground_truth": true,
+    "median_frame_interval_seconds": 0.3329279999999999,
+    "frame_stride": 8,
+    "temporal_prior_cadence_requires_review": true
+  },
+  "gaussian_training_started": false,
+  "training_or_export_acceptance": false,
+  "fresh_server_install_verified": false,
+  "stable_release_accepted": false,
+  "quality_accepted": false,
+  "fixes": [
+    "RGB24 decode and pinned pycolmap3.10 API contracts",
+    "Pinned YOLO checkpoint loaded with scoped reviewed safe globals under torch2.7",
+    "Previously omitted 1759-byte official GVHMR COCO augmentation resource added to external assets"
+  ],
+  "source_hashes": {
+    "src/shuolee_portrait/cli.py": "97ce7199107d40aca3014b7fb29eef7da3d92c3a10d34160add309e0cb382897",
+    "src/shuolee_portrait/export.py": "f1ab832f0b132b5ae99a6c74a5bf67eb943be7b45afdddee88f01ece81f7acb5",
+    "src/shuolee_portrait/fitting.py": "3bd4117483a8d2bc48a3249a6d6e3aebf0ec060ee319a08d94ec34f3cc98c2c6",
+    "src/shuolee_portrait/fit_gate.py": "da64a031052714a0aca201f324f666531aeda965e8b17e859d17ecd73a7d8ddd",
+    "src/shuolee_portrait/observations.py": "04b520b253b03d5ff75adbc41d15e977c985683461260f8eefbc4f3a5bb448a2",
+    "src/shuolee_portrait/prior.py": "aad19b192ddc629e69b681d1488ea8d8b9fdc93e48be65086021f76815acac96",
+    "src/shuolee_portrait/runtime.py": "5f83ece0209bf63a1705a8915f92ea6dc43d89f7e857a5e61c2f3ae951c73cc4",
+    "src/shuolee_portrait/training.py": "3cee3cd701913b38dcc45ebb9c7461ce00aaa2dde7fc55a5a7462b9d5ceee629",
+    "src/shuolee_portrait/video_sfm.py": "da8b89c6b222391a9b9a1733099b11b71c7b63bc0440dffda3b6a76320cdfa6c",
+    "src/shuolee_portrait/__init__.py": "126fab6b55d42d631bd94c9de6a3312957cdf14cb0e0cb5ec2e1c2b1ac38f932"
+  }
+}

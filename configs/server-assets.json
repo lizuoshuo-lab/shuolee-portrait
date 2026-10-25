@@ -31,6 +31,12 @@
       "sha256": "6fd6dd687800da946d0a0492383f973b92ec20f166a0b829775882868c35fcdd"
     },
     {
+      "path": "gvhmr/hmr4d/utils/body_model/coco_aug_dict.pth",
+      "bytes": 1759,
+      "sha256": "9d045cc3e507e1f7d91ef89904cdfa26e29cf18710f52f9fd305a88ae5d4e539",
+      "source": "Existing official GVHMR repository resource"
+    },
+    {
       "path": "gvhmr/hmr4d/utils/body_model/seg_part_info.npy",
       "bytes": 59151,
       "sha256": "a9a9272563da3d16811bc455fb618902d31f3adcf719da2e46197853045a2a10"
@@ -91,14 +97,14 @@
       "sha256": "376021446ddc86e99acacd795182bbef903e61d33b76b9d8b359c2b0865bd992"
     },
     {
-      "path": "vposer/V02_05/snapshots/V02_05_epoch=08_val_loss=0.03.ckpt",
-      "bytes": 88644482,
-      "sha256": "a914aef21a5c1f4e4d1a616f28def84bc2550c4e7312a689a64e9a35eb7ebee3"
-    },
-    {
       "path": "vposer/V02_05/V02_05.yaml",
       "bytes": 1406,
       "sha256": "00150f36a3ed2c4e8e990b284290dcb02054121c05a0cc817ec09b78f3708b35"
+    },
+    {
+      "path": "vposer/V02_05/snapshots/V02_05_epoch=08_val_loss=0.03.ckpt",
+      "bytes": 88644482,
+      "sha256": "a914aef21a5c1f4e4d1a616f28def84bc2550c4e7312a689a64e9a35eb7ebee3"
     }
   ],
   "yolo_source": "https://github.com/ultralytics/assets/releases/download/v8.2.0/yolov8n.pt",

@@ -4,15 +4,35 @@ import numpy as np
 from PIL import Image
 from . import runtime as rt
 
+def load_detector():
+ """Load the pinned official YOLO model without disabling weights-only globally."""
+ import importlib,torch
+ from ultralytics import YOLO
+ path=rt.ASSETS/'detection/yolov8n.pt'
+ entry=next(x for x in rt.read(rt.PROJECT/'configs/server-assets.json')['files'] if x['path']=='detection/yolov8n.pt')
+ if rt.sha(path)!=entry['sha256']:raise RuntimeError('Detector checkpoint checksum mismatch.')
+ allowed={
+  'torch.nn.modules.pooling.MaxPool2d','torch.nn.modules.container.ModuleList',
+  'torch.nn.modules.container.Sequential','torch.nn.modules.batchnorm.BatchNorm2d',
+  'torch.nn.modules.activation.SiLU','torch.nn.modules.conv.Conv2d',
+  'torch.nn.modules.upsampling.Upsample','ultralytics.nn.tasks.DetectionModel',
+  'ultralytics.nn.modules.block.Bottleneck','ultralytics.nn.modules.block.C2f',
+  'ultralytics.nn.modules.block.SPPF','ultralytics.nn.modules.block.DFL',
+  'ultralytics.nn.modules.conv.Conv','ultralytics.nn.modules.conv.Concat',
+  'ultralytics.nn.modules.head.Detect'}
+ found=set(torch.serialization.get_unsafe_globals_in_checkpoint(path))
+ if not found<=allowed:raise RuntimeError(f'Unreviewed detector globals: {sorted(found-allowed)}')
+ objects=[getattr(importlib.import_module(name.rsplit('.',1)[0]),name.rsplit('.',1)[1]) for name in sorted(found)]
+ with torch.serialization.safe_globals(objects):return YOLO(str(path))
+
 def observe(root,cfg):
  import torch,onnxruntime as ort
- from ultralytics import YOLO
  from rtmlib import RTMPose
  from rtmlib.visualization.skeleton.coco133 import coco133
  from sam2.build_sam import build_sam2
  from sam2.sam2_image_predictor import SAM2ImagePredictor
  rows=rt.read(root/'data/inputs.json')['records'];maskdir=root/'data/masks';maskdir.mkdir()
- detector=YOLO(str(rt.ASSETS/'detection/yolov8n.pt'))
+ detector=load_detector()
  net=build_sam2('configs/sam2.1/sam2.1_hiera_t.yaml',str(rt.ASSETS/'sam2/sam2.1_hiera_tiny.pt'),device='cuda',apply_postprocessing=False)
  segmenter=SAM2ImagePredictor(net,max_hole_area=0,max_sprinkle_area=0)
  model=rt.ASSETS/'rtmw/rtmw-l-384x288.onnx'
