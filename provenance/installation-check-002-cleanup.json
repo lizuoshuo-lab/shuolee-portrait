@@ -1,0 +1,14 @@
+{
+  "created": "2026-10-25T18:33:11.841852+00:00",
+  "target": "/opt/gs-slam-lab/shuolee-portrait-clean-002/env",
+  "resolved_target": "/opt/gs-slam-lab/shuolee-portrait-clean-002/env",
+  "state": "complete",
+  "files": 42812,
+  "logical_bytes": 9237832210,
+  "keeper": "/opt/gs-slam-lab/shuolee-portrait-clean-001/env",
+  "evidence": "/opt/gs-slam-lab/shuolee-portrait-clean-002/install-evidence",
+  "training_outputs_or_assets_removed": false,
+  "source_checkout_removed": false,
+  "download_cache_removed": false,
+  "completed": "2026-10-25T18:33:12.389446+00:00"
+}

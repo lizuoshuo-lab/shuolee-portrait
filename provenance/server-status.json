@@ -22,9 +22,11 @@
   "ghosting_resolved": false,
   "quality_accepted": false,
   "wps_weights": "removed; runtime assets are outside D:/00",
-  "updated": "2026-10-25T18:12:41.012477+00:00",
+  "updated": "2026-10-25T18:32:52.292428+00:00",
   "local_isolated_environment_verified": true,
   "local_isolated_cuda_kernels_verified": true,
   "local_isolated_raw_video_run_verified": true,
-  "latest_interface_check": "008"
+  "latest_interface_check": "008",
+  "final_recipe_fresh_venv_one_shot_verified": true,
+  "tested_code_commit": "d4fa43c784ddc9affa6e7fd2f2146e8c582172cc"
 }
