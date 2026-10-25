@@ -1,14 +1,14 @@
 {
-  "updated": "2026-10-25T19:10:00.454410+00:00",
+  "updated": "2026-10-25T19:29:08.469428+00:00",
   "state": "active",
   "next_actions": [
-    "Await target server Linux/GPU details and original capture/calibration evidence;117budget remains closed.",
-    "Independent material/camera/staticity admission and full-frame new-person quality remain required.",
-    "Do not rerun formal Gaussian training on coarse-fit acceptance alone."
+    "Independent camera/material/staticity validators remain a required unfinished component, not satisfied by the blocking guard.",
+    "Await target-server Linux/GPU information and original capture/calibration evidence.117 remains closed; no extra calibration sweep.",
+    "Do not enable Gaussian training via an editable pass flag or coarse fitting residual alone."
   ],
   "no_active_training": true,
   "current_model_quality_accepted": false,
-  "current_report": "http://127.0.0.1:8870/body-smplx.html#server-check009",
+  "current_report": "http://127.0.0.1:8870/body-smplx.html#training-admission",
   "viewer": "D:/00/工作/查看器",
   "weights": "D:/GS-SLAM-Data/shuolee-portrait-runtime-assets",
   "diagnosis117": "bounded_complete_unresolved",
@@ -16,6 +16,6 @@
   "stable_release": false,
   "installation": "private_Git_clone_new_venv_one_shot_passed",
   "active_engineering_check": null,
-  "latest_code_fix": "prior_crop_255_endpoint_contract",
+  "latest_code_fix": "block_formal_training_until_independent_alignment_validators_exist",
   "latest_interface_check": "009"
 }

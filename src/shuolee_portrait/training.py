@@ -78,6 +78,8 @@ class Views:
 
 
 def train(root, cfg):
+    from .admission import require_alignment
+    require_alignment(root)
     import torch
     from scene.gaussian_model import GaussianModel
     from scene.smplx_gaussian_model import SMPLXGaussianModel

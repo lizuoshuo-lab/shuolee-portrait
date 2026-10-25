@@ -22,7 +22,7 @@
   "ghosting_resolved": false,
   "quality_accepted": false,
   "wps_weights": "removed; runtime assets are outside D:/00",
-  "updated": "2026-10-25T19:10:00.454410+00:00",
+  "updated": "2026-10-25T19:29:08.469428+00:00",
   "local_isolated_environment_verified": true,
   "local_isolated_cuda_kernels_verified": true,
   "local_isolated_raw_video_run_verified": true,
@@ -32,5 +32,7 @@
   "prior_crop_numeric_contract_passed": true,
   "post_crop_fix_real_video_verified": true,
   "independent_alignment_admission_implemented": false,
-  "post_crop_fix_check_scope": "23-frame existing-reference integration through fit-gate; not new-person/full-frame quality"
+  "post_crop_fix_check_scope": "23-frame existing-reference integration through fit-gate; not new-person/full-frame quality",
+  "training_entry_admission_guard_implemented": true,
+  "release_training_available": false
 }

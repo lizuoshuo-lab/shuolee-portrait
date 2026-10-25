@@ -1,0 +1,124 @@
+{
+  "updated": "2026-10-25T19:29:08.469428+00:00",
+  "state": "training_entry_defect_fixed_alignment_validators_pending",
+  "original_defect": "Only SfM/coarse fit residuals guarded the default Gaussian training entry.",
+  "change": "Added alignment-gate before training and a direct-call guard. This release cannot admit formal training because independent validators are missing.",
+  "windows_negative_path_tests": {
+    "passed": true,
+    "cases": [
+      "Coarse fit pass does not admit training; inspection is read-only.",
+      "A hand-written or stale pass report cannot bypass the boundary.",
+      "Stage and direct training entries reject before GPU imports, assets or Gaussian allocation.",
+      "Actual CLI returns exit3 for unavailable alignment; no body weights or CUDA needed.",
+      "Parent reconstruct stops at alignment-gate with an explicit non-training status; preprocessing was simulated only for this test.",
+      "A changed fitted artifact invalidates its recorded coarse-fit identity."
+    ],
+    "scope": "Negative-path training admission only",
+    "successful_alignment_verified": false,
+    "independent_alignment_validation_implemented": false,
+    "training_started": false,
+    "gpu_task": false,
+    "quality_accepted": false
+  },
+  "linux_negative_path_tests": {
+    "passed": true,
+    "cases": [
+      "Coarse fit pass does not admit training; inspection is read-only.",
+      "A hand-written or stale pass report cannot bypass the boundary.",
+      "Stage and direct training entries reject before GPU imports, assets or Gaussian allocation.",
+      "Actual CLI returns exit3 for unavailable alignment; no body weights or CUDA needed.",
+      "Parent reconstruct stops at alignment-gate with an explicit non-training status; preprocessing was simulated only for this test.",
+      "A changed fitted artifact invalidates its recorded coarse-fit identity."
+    ],
+    "scope": "Negative-path training admission only",
+    "successful_alignment_verified": false,
+    "independent_alignment_validation_implemented": false,
+    "training_started": false,
+    "gpu_task": false,
+    "quality_accepted": false
+  },
+  "actual009_read_only_readiness": {
+    "schema": "shuolee-training-readiness-v1",
+    "updated": "2026-10-25T19:29:09.843504+00:00",
+    "state": "alignment_not_admitted",
+    "training_admitted": false,
+    "independent_alignment_validation_implemented": false,
+    "release_training_available": false,
+    "quality_accepted": false,
+    "current_video_sha256": "5d4b6c5cb38edfb17c90faa8352e0edb93370a6d230076a463d3e3ec9c70714f",
+    "frames": 23,
+    "run_artifacts": {
+      "run.json": {
+        "present": true,
+        "sha256": "fb87fb47da2bb380fe517bd9395418c859a223de3c53d7301026a40b1dae2c44"
+      },
+      "config.json": {
+        "present": true,
+        "sha256": "89145eaf279791ac47a23de9ba9bfa7b8ffb0e2aea5a43159a55770bff370435"
+      },
+      "data/training-inputs.json": {
+        "present": true,
+        "sha256": "643b1f217caaf6c28d0bd1e3399e4b5d85d16981290850ca45ecb7251cd048f0"
+      },
+      "fit/geometry-gate.json": {
+        "present": true,
+        "sha256": "85df38e73022842137b937c1a3180832bddb840d27bb2366b90c3f608683ccb7"
+      },
+      "fit/fitted.npz": {
+        "present": true,
+        "sha256": "3a853ee248ccd9cdcbcf9e3863d01be1b65946b2c97f5d8a304065a14c9b546e"
+      },
+      "inference/crop-mapping.json": {
+        "present": true,
+        "sha256": "b7e275e92ea6fd975d38825caf72a218883d9320feab9255bf9d512b1d56e975"
+      }
+    },
+    "coarse_fit": {
+      "passed": true,
+      "matches_current_fit": true,
+      "independent_geometry_evidence": false
+    },
+    "required_checks": [
+      {
+        "id": "static_scene_camera",
+        "state": "not_implemented",
+        "evidence": "Independent static-scene tracks or capture calibration with held validation, coverage and uncertainty."
+      },
+      {
+        "id": "cross_view_material_identity",
+        "state": "not_implemented",
+        "evidence": "Source-verified shared physical points across views, including face and clothing; detector labels alone are insufficient."
+      },
+      {
+        "id": "subject_staticity",
+        "state": "not_implemented",
+        "evidence": "Subject residual motion separated from camera uncertainty, with static-scene negative controls."
+      }
+    ],
+    "reason": "Coarse body/SfM fitting residuals do not establish the three independent alignment conditions. This development release has no validator that can admit formal Gaussian training.",
+    "next_action": "Use bounded preprocessing/fit diagnostics. Implement and validate the independent alignment conditions before enabling formal training. No manual approval flag is supported.",
+    "scope": "Artifact identity and missing-validation report only; not a new camera experiment, physical calibration result or training-quality verdict."
+  },
+  "observed_cli_exit_code": 3,
+  "existing009_recorded_artifacts_unchanged": {
+    "run.json": "fb87fb47da2bb380fe517bd9395418c859a223de3c53d7301026a40b1dae2c44",
+    "config.json": "89145eaf279791ac47a23de9ba9bfa7b8ffb0e2aea5a43159a55770bff370435",
+    "status.json": "f56e05329658ea9b355aca7ad18c6e74e65409e45b002431d669b268a626c2eb",
+    "data/training-inputs.json": "643b1f217caaf6c28d0bd1e3399e4b5d85d16981290850ca45ecb7251cd048f0",
+    "fit/fitted.npz": "3a853ee248ccd9cdcbcf9e3863d01be1b65946b2c97f5d8a304065a14c9b546e",
+    "fit/geometry-gate.json": "85df38e73022842137b937c1a3180832bddb840d27bb2366b90c3f608683ccb7",
+    "inference/crop-mapping.json": "b7e275e92ea6fd975d38825caf72a218883d9320feab9255bf9d512b1d56e975"
+  },
+  "source_hashes": {
+    "src/shuolee_portrait/admission.py": "934056581912ae9c85926219d5de6b852c64ce08bdd610a12e8b643449462c9c",
+    "src/shuolee_portrait/cli.py": "bddfc230cbe9ef276dbf1370140b9394da38cdfdd280e3056f47399f0e0aa51f",
+    "src/shuolee_portrait/training.py": "d048687d978da636cd6c3532e5e47e5053511110f92af605bef5f212635a9c04",
+    "scripts/check_training_admission.py": "52b1b49741a658df9233a39d449badc0483b4a1042b4020b6a3da581fd9bef96"
+  },
+  "one_shot_full_reconstruction_delivered": false,
+  "independent_alignment_validators_implemented": false,
+  "ghosting_resolved": false,
+  "formal_training_started": false,
+  "new_model_created": false,
+  "quality_accepted": false
+}

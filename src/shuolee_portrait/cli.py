@@ -9,8 +9,9 @@ import subprocess
 import sys
 import traceback
 from . import runtime as rt
+from .admission import AlignmentNotAdmitted, inspect_alignment, require_alignment
 
-STAGES=('extract','sfm','observations','prior','fit','fit-gate','train','export')
+STAGES=('extract','sfm','observations','prior','fit','fit-gate','alignment-gate','train','export')
 
 
 def validate_config(cfg):
@@ -56,6 +57,11 @@ def doctor(assets):
 
 
 def stage(name,root,assets):
+    # Reject before asset configuration or CUDA imports. The training function
+    # also checks this boundary when invoked directly by another caller.
+    if name in ('alignment-gate','train'):
+        require_alignment(root)
+        if name=='alignment-gate':return
     cfg=rt.read(root/'config.json');rt.configure(assets,root)
     if name=='extract':
         from .video_sfm import extract
@@ -84,8 +90,8 @@ def stage(name,root,assets):
 
 
 def main():
-    parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command',choices=['doctor','reconstruct','_stage'])
+    parser=argparse.ArgumentParser(description=__doc__,epilog='Development release: reconstruct stops at alignment-gate with exit code 3 until independent alignment validation is implemented. It cannot yet complete formal Gaussian training.')
+    parser.add_argument('command',choices=['doctor','reconstruct','alignment-status','_stage'])
     parser.add_argument('--assets',type=Path,default=rt.PROJECT/'assets')
     parser.add_argument('--config',type=Path,default=rt.PROJECT/'configs/server.json')
     parser.add_argument('--video',type=Path);parser.add_argument('--output',type=Path)
@@ -93,9 +99,19 @@ def main():
     parser.add_argument('--stage',choices=STAGES,help=argparse.SUPPRESS)
     args=parser.parse_args();assets=args.assets.resolve()
     if args.command=='doctor':doctor(assets);return
+    if args.command=='alignment-status':
+        if not args.output:parser.error('alignment-status requires --output with an existing run directory')
+        if not args.output.is_dir():raise FileNotFoundError(args.output)
+        result=inspect_alignment(args.output.resolve())
+        print(json.dumps(result,indent=2),flush=True)
+        raise SystemExit(3 if not result['training_admitted'] else 0)
     if args.command=='_stage':
         if not args.stage or not args.output:parser.error('_stage requires --stage and --output')
-        stage(args.stage,args.output.resolve(),assets);return
+        try:stage(args.stage,args.output.resolve(),assets)
+        except AlignmentNotAdmitted as exc:
+            print(str(exc),file=sys.stderr,flush=True)
+            raise SystemExit(3)
+        return
     if not args.video or not args.output:parser.error('reconstruct requires --video and --output')
     video=args.video.resolve();root=args.output.resolve();cfg=rt.read(args.config);validate_config(cfg)
     if not video.is_file():raise FileNotFoundError(video)
@@ -117,8 +133,14 @@ def main():
                     subprocess.run([sys.executable,str(rt.PROJECT/'run.py'),'_stage','--stage',name,'--output',str(root),'--assets',str(assets)],stdout=log,stderr=subprocess.STDOUT,check=True)
                 completed.append(name)
                 if name==args.stop_after:break
-        except Exception:
-            rt.save(root/'status.json',dict(state='failed',stage=name,completed=completed,updated=rt.now(),quality_accepted=False,error=traceback.format_exc()))
+        except Exception as exc:
+            not_admitted=name in ('alignment-gate','train') and isinstance(exc,subprocess.CalledProcessError) and exc.returncode==3
+            rt.save(root/'status.json',dict(state='alignment_not_admitted' if not_admitted else 'failed',stage=name,completed=completed,updated=rt.now(),quality_accepted=False,error=traceback.format_exc(),
+                training_started=False if not_admitted else None,
+                alignment_report='alignment/training-readiness.json' if not_admitted else None))
+            if not_admitted:
+                print(f'Stopped before Gaussian training. Alignment evidence is not admitted; see {root/"alignment/training-readiness.json"}.',file=sys.stderr,flush=True)
+                raise SystemExit(3)
             raise
         rt.save(root/'status.json',dict(state='completed_pending_quality_review' if completed[-1]=='export' else 'diagnostic_stage_complete',completed=completed,updated=rt.now(),quality_accepted=False))
         print(f'Completed {completed[-1]}. Outputs: {root}. Quality acceptance remains pending.',flush=True)
