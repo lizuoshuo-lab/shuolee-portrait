@@ -1,0 +1,18 @@
+{
+  "dataset": "data/hover175",
+  "smplx_model": "assets/smplx/SMPLX_NEUTRAL.npz",
+  "vposer": "assets/vposer/V02_05",
+  "gvhmr_maps": "assets/gvhmr",
+  "frames": 175,
+  "initial_points": 200000,
+  "iterations": 18000,
+  "fit_steps": 1200,
+  "seed": 6060,
+  "training_height": 1536,
+  "static_shared_person": true,
+  "camera_source": "074 COLMAP estimated full-frame cameras; physical calibration accuracy not accepted",
+  "camera_optimization": false,
+  "resume_from_previous_experiment": false,
+  "quality_accepted": false,
+  "note": "Current material snapshot; local static adaptations, not complete official benchmark reproduction"
+}

@@ -1,4 +1,13 @@
-# Only code and configuration belong in Git.
+/assets/
+/weight-parts/
+*.part
+*.assembling
+/data/
+/runs/
+/outputs/
+/models/
+/weights/
+/private/
 *.ply
 *.splat
 *.spz
@@ -10,14 +19,15 @@
 *.mp4
 *.mov
 *.zip
-data/
-datasets/
-models/
-weights/
-outputs/
-private/
+*.so
+*.pyd
+*.dll
+*.exe
 .env
 .env.*
 !.env.example
 __pycache__/
 .venv/
+build/
+*.egg-info/
+/.gpu-task.lock

@@ -1,0 +1,2184 @@
+{
+  "files": [
+    {
+      "path": "data/hover175/images/000001.png",
+      "bytes": 3790054,
+      "sha256": "2a15343d68109486a02b346cf25e4d9e109f3c210ae023a7bcfedb4fe1ef3eba",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000001.png",
+      "bytes": 22666,
+      "sha256": "603398cfd923b06783cf6a24abf7b4976e56af56e0d0af9f7675da9b9d3718cf",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000002.png",
+      "bytes": 3855679,
+      "sha256": "2b0f55234fa72fb5c8f19e442b2bbe8cc4e6b4fb1e59eb8cafb11044a5e904d5",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000003.png",
+      "bytes": 3948192,
+      "sha256": "891584ea2f896f88cf09774debea23a68dd24f08801285a0b56aec72afab3e80",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000004.png",
+      "bytes": 4003311,
+      "sha256": "e1913f233c010897a6542e51a0a1679f36536b646690e4be9baf8d8bda5b3321",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000004.png",
+      "bytes": 22641,
+      "sha256": "6e03de6e80d349a6d523a0b82854dfcff809a8993b1cada87d1bc9195d49c2df",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000005.png",
+      "bytes": 4062698,
+      "sha256": "9513aa09c25e29a88d12bd3fe52eed8540d8a419b52849f00e2261da87466546",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000006.png",
+      "bytes": 4083200,
+      "sha256": "f9870ad527b9f9816d22e629b1c50c03d38b1508298bb1e18df3435eec49c432",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000007.png",
+      "bytes": 4155688,
+      "sha256": "0caa23378b10562c830dbae1f2e2603e72cb23cfbde0c983267acd47d23de846",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000007.png",
+      "bytes": 22665,
+      "sha256": "f9e81405f1943509779ca870232d8a09edf758f82d699b5cf2e73e3f51414bb7",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000008.png",
+      "bytes": 4172524,
+      "sha256": "ec4180195437a92a9270a701f880c14c15f7316b29ebe7ab198571ba19814443",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000009.png",
+      "bytes": 4200513,
+      "sha256": "355604c16bd2539c01aeafb675d6a964e56280962889b309affc9ca364ee274e",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000010.png",
+      "bytes": 4232788,
+      "sha256": "61f81da9888a901431484d25612f7cf6896bb837161f4a06b5165f0af3d66e49",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000010.png",
+      "bytes": 22436,
+      "sha256": "7bb978ddbea2bfd2eaa6751fc02b7fa529668c98cfd83027c61cc5b5c7f7a514",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000011.png",
+      "bytes": 4253284,
+      "sha256": "e99b8d1c2089ce72f3245338b6c53ff6ebd982687712e7b5b20d5fa10809bfea",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000012.png",
+      "bytes": 4255295,
+      "sha256": "65fd9b2ac670bc3f3a0b45f851fcfcb9d22af4ac1fb1946bce5392f07682f095",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000013.png",
+      "bytes": 4302009,
+      "sha256": "7254010f7d004d102f2d40c9012844f9a8e7a30d6ede6a7be6049e6d05e7560a",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000013.png",
+      "bytes": 22747,
+      "sha256": "4f2981cf108f83162ada698e9931fb0ac6bb545caa7e9ae5a60d868d29df4723",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000014.png",
+      "bytes": 4373028,
+      "sha256": "6a458d7a00fe50d70401e62f7112d934261d46547196adbed6afdb4b73364845",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000015.png",
+      "bytes": 4388290,
+      "sha256": "86c7efcf5ba3ec573dac0191573067df6c29366d164255088b3725c8e3969a16",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000016.png",
+      "bytes": 4372885,
+      "sha256": "a7e9980ed6d42e971ace7280196d3e48f3f4cb019bb5a8fb33fad7d8e8321989",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000016.png",
+      "bytes": 22985,
+      "sha256": "9be6f4f99075194664a0e1552cb6761d4bdb315a2b54b5316b927110a38a756b",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000017.png",
+      "bytes": 4375496,
+      "sha256": "61d429047791e840c5e1219071dbb0279d38e5cc7e5aaecb498c6018bba74a5f",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000018.png",
+      "bytes": 4361407,
+      "sha256": "884f38af1a2997a2075cc0c3e8d5045ab10e0a633470653a5b7b1ec649763642",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000019.png",
+      "bytes": 4311978,
+      "sha256": "90420f5c874c6d1a6a7db88c481334a21b41677c014dc40bdafdacdd0f6deee8",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000019.png",
+      "bytes": 23095,
+      "sha256": "053e954f332cecebea27fb024edede136666ed41285d1c93d243e65468a9272e",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000020.png",
+      "bytes": 4320935,
+      "sha256": "655a58b50cbd19e83c945f49d4541d75b9037b6699bb86504f20a3a0065984ec",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000021.png",
+      "bytes": 4328335,
+      "sha256": "1012e5eb19d5bcec3ba0a36e8e46270ddc4ddc70c2451eeda938e711170db759",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000022.png",
+      "bytes": 4312102,
+      "sha256": "de28f07ce15dc5ae758a4289a65429b9314f903969e58bd0c3b65553f8f7ac70",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000022.png",
+      "bytes": 23421,
+      "sha256": "4fd0566989dfb69d2f3b7a05d738daf44f7af646cea24804739b33896b7d5c20",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000023.png",
+      "bytes": 4335647,
+      "sha256": "023a0dc019f60899bf1337bb471a6a77c87509cff19c6bceba5bbd2f43a746e0",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000024.png",
+      "bytes": 4355775,
+      "sha256": "77fe382c5ebaf8b441686b9a6a54317d4b1c96dbed7eedaa5ea397b83150aecb",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000025.png",
+      "bytes": 3821035,
+      "sha256": "23235085bb0d909e1a19da0f11457ab0a0daae669b3e3e941a992111a4e0dd49",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000025.png",
+      "bytes": 23489,
+      "sha256": "2f64b05b144df31cebcbd86a942f4b2126f731789421ee0310087d000ca04eac",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000026.png",
+      "bytes": 3853613,
+      "sha256": "8130bff7ea687a9bbe4f6d78d003fd3caa352cc10830c2a5f0c9b6aeb342ab45",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000027.png",
+      "bytes": 3888125,
+      "sha256": "4d7879b44cc3fd67e04d80b783428ad32e0790e2c7a356130e9f12a33fab4b7d",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000028.png",
+      "bytes": 3918770,
+      "sha256": "e12f19ca85f89f331cfe36d6923baae4d5aefcf1183ef94097662a092b53f5c3",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000028.png",
+      "bytes": 23490,
+      "sha256": "69dd5350d8ed384c47f42cb97784a74224b68ff17467ded096c052e92a99bf16",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000029.png",
+      "bytes": 3947856,
+      "sha256": "c5810cb99707f916da526f8bb52ef168f17020c166222531203d418e8b95c70e",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000030.png",
+      "bytes": 3952897,
+      "sha256": "fb8fdcdb8afa1d75b98ac3cced83414d494db58599d05f9d308114ea770feea1",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000031.png",
+      "bytes": 3952320,
+      "sha256": "92b4e35c007e81da3f67c87477e6c0aa440bf376d4e75ae57e80aba5659598d5",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000031.png",
+      "bytes": 23753,
+      "sha256": "55a408eb1f378925027e43f9f51cddee1e8244a6d62f6467d88617dde405ea90",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000032.png",
+      "bytes": 3997287,
+      "sha256": "2b4ac030593812e20e8cf309f5f3d2253932e2d6b9267002513a66975e69303d",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000033.png",
+      "bytes": 4032299,
+      "sha256": "25ebce104383063bfde2c4559c663d9bbac106283ba601c4ba7406df675c382b",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000034.png",
+      "bytes": 4061383,
+      "sha256": "308a6a9c4f2511df210c452ccea082648a22f768b7fb13537ce61419686450d9",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000034.png",
+      "bytes": 24395,
+      "sha256": "80164ac830d339ddb01725c3b7d93e503f87d91dba0314daa04b039fa8f5c0e7",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000035.png",
+      "bytes": 4074306,
+      "sha256": "efffd8314fc23f551897f3b1eebc3f5544c0bbc64993d4d824793580d463bdd8",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000036.png",
+      "bytes": 4077646,
+      "sha256": "06440704ec2aa0b636e70c6245454a0777f8b9ae90d7d982b30bcd0eb0b3be2c",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000037.png",
+      "bytes": 4108330,
+      "sha256": "e7d0d7c2e6962a113c900d15ee77450147213d872c18627c7ee803c11384cb7d",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000037.png",
+      "bytes": 23907,
+      "sha256": "e515c000845971fb20be051e23ad75151edfeab4cdde3abc358542fecc4f1a12",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000038.png",
+      "bytes": 4109201,
+      "sha256": "e769c5fedfcdb966774c77829df5c7cfbfe4e71b73dbf20bd734ef501baf5712",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000039.png",
+      "bytes": 4115000,
+      "sha256": "c920107b1b19058f7cea791f988b3a0e50fd2a065be9736325d87517f06510dc",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000040.png",
+      "bytes": 4114307,
+      "sha256": "593e35806272585c42093a1406598de4d36075a3de7474b7ae97d913c89c94f6",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000040.png",
+      "bytes": 25230,
+      "sha256": "c7ad3216ce7a47576e98b08742434370f71d8a3e851d6019dadf74d631f58eec",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000041.png",
+      "bytes": 4098991,
+      "sha256": "09def87f3001e95ee793a29530f895e334a1e4e1fabe0b23d00966fe71c4854d",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000042.png",
+      "bytes": 4109405,
+      "sha256": "635b33f3a665d225f44e3f264270d212bb09faf94a525bb36979200bfd5922bb",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000043.png",
+      "bytes": 4096705,
+      "sha256": "8a4abf995db6b8cabe897f98d683679fb25be362c385f202771f3bcd824d9434",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000043.png",
+      "bytes": 24777,
+      "sha256": "7777c933f9dc7f9f3ff4a4a0196d045a7dc0870e870d1541e6fb66f50c384405",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000044.png",
+      "bytes": 4120637,
+      "sha256": "65ced08cb8e8a7f93f6bc05d09e2dbbafabcb96790828ad5ca42587e86ad3925",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000045.png",
+      "bytes": 4132314,
+      "sha256": "40e2a677cfbbbe5ef14682b5abf55e50e088be90a5afe0ac393fe18d566753c2",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000046.png",
+      "bytes": 4126175,
+      "sha256": "ee39030961fffa5d0f06accbb62722be81cf141d1ec06bc2b6323a2f5aedfe53",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000046.png",
+      "bytes": 24912,
+      "sha256": "247056464801c957c4014cf9b728f31585ce040a0ee34b0dfe15fff52c678607",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000047.png",
+      "bytes": 4119337,
+      "sha256": "d89cef7b83208c8a5ce07a1968389124ee89b0c61a6cbe337fc4ff2c95c5b759",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000048.png",
+      "bytes": 4106832,
+      "sha256": "e2db25705cc298d2de0882c5bdbca6b5ca4fa01e56c19ef3970e535ec65fd450",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000049.png",
+      "bytes": 4083219,
+      "sha256": "69375f7b069b54669cfa222aa70207100fe65ea10d50b2f7090612028e5f04be",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000049.png",
+      "bytes": 23936,
+      "sha256": "c8adcc59968d9a0d8740a482fac90988c12461c20704ef26a75c7db8ce7935d9",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000050.png",
+      "bytes": 3505328,
+      "sha256": "5dda7a2592411be5a9c97c3ff1cdba64f99e5c6f4ce1a930ecffe5234f9e5291",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000051.png",
+      "bytes": 3600654,
+      "sha256": "e66652f240500a690f7ed661fb7c34f4b7753c510e0417f1e290f7d4e7daec6d",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000052.png",
+      "bytes": 3646422,
+      "sha256": "153848ce5d1e57daeef9ef1d082f694bbe72de166732f5da9f33bf74bd632c4c",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000052.png",
+      "bytes": 26059,
+      "sha256": "ffd146de0176f3ce96c7c37a93ae21c40c5baa7084b8d737626be29be53f67a1",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000053.png",
+      "bytes": 3691093,
+      "sha256": "b198924155e7dc1e8b27532f7e0ee4908d20bd9b8f8581b4813c196ec0576254",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000054.png",
+      "bytes": 3700287,
+      "sha256": "f93c70e23fd7297b11b2e246d6d9de7f72528a3575ac8150c36373acb1b042b2",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000055.png",
+      "bytes": 3704271,
+      "sha256": "b95b7e39ed78a726dba8f2d562c376fc168c6467b67ea6fae001f55c6fa96768",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000055.png",
+      "bytes": 24839,
+      "sha256": "f0ca68e6ebab6f0d9bed23884b092b3f3735ece8077fb1f3768c7288a0506a87",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000056.png",
+      "bytes": 3706866,
+      "sha256": "7e56fff622c070ba56dbb6eacfd474d58a2af22ea3f9cb4fb63f5f7984b27ac6",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000057.png",
+      "bytes": 3657075,
+      "sha256": "1533825b68867abdb00a4508fce2a4fb1d9db37f3e9f4c7f251b7d2f94f29648",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000058.png",
+      "bytes": 3662446,
+      "sha256": "a700875a2f7545ac0e813174ea6be6e5c73181bab45738bbcff61a34c76e9203",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000058.png",
+      "bytes": 26097,
+      "sha256": "ce598be97d3faa91a825014d0d1fab0266fe8f97c51c3db4c5215cbccbe92c3c",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000059.png",
+      "bytes": 3654317,
+      "sha256": "bfd9448c0152ab9c3ed0fc16b991ed7968af37720ad1e47cac06385fcbd7b509",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000060.png",
+      "bytes": 3623046,
+      "sha256": "8dbd2c1f5044f94e47a45b7918c15c1d3e8fa19d9b39251bb9c39324acc78cec",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000061.png",
+      "bytes": 3661843,
+      "sha256": "82cdd88d7f644230ef21615b7cd1c13d1a7d86f356f30fdc18898f287dba4827",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000061.png",
+      "bytes": 26068,
+      "sha256": "d3431face906c9a96b0bc8461f3f19b67c8888f63b8129cb55c033db9946553c",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000062.png",
+      "bytes": 3686627,
+      "sha256": "6a46e341f16428661578d72bfaac4e0d7dbdaf593c74669cd1a62106085f4658",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000063.png",
+      "bytes": 3711562,
+      "sha256": "bed37a759a1aec7a1f2bc9395af7979613f086965fbad7c9b9f506b77099c692",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000064.png",
+      "bytes": 3720105,
+      "sha256": "bc6c48a7bf4f9d5f4844f8c81c0223a192230af553e8df337b46540a6ae63738",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000064.png",
+      "bytes": 26610,
+      "sha256": "bd0a764982475edd30eba6a20280d3533849783045042a1d990dd7fe0110c322",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000065.png",
+      "bytes": 3731050,
+      "sha256": "75bd528a701aa54308051093a10756ef709edb280857b336d610643ff24c3428",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000066.png",
+      "bytes": 3689143,
+      "sha256": "2ff9171a45bf92fb80bfc3ca65396f8d55532ed6ac568907c8881beaf6830d86",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000067.png",
+      "bytes": 3704394,
+      "sha256": "c194f60063c8d8469654efcc0dee682ecb713c9c99f4341ffc599200642f9a23",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000067.png",
+      "bytes": 26722,
+      "sha256": "e03e14393ea25cbf4c0df7079ed93ecf31f00bada0f50ed4a4ddc68c15413a0c",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000068.png",
+      "bytes": 3745394,
+      "sha256": "d3f9ed5500037f73df5b27f0b56a9fc3538ead15132fe441122c3770f7ca48ec",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000069.png",
+      "bytes": 3753277,
+      "sha256": "609834e29c4272af1a26a2c01df556d301b179d277e16a1e2008237971247aa8",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000070.png",
+      "bytes": 3723392,
+      "sha256": "7c073ab2899f1b7f1da681b74e4e8bad72c58da66e2fb7e5777da1b77ad0e4d8",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000070.png",
+      "bytes": 27506,
+      "sha256": "7c1659f336c859513e63c4882e7b5773deaa10678cab89fcb828d6d8c3e427b2",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000071.png",
+      "bytes": 3728446,
+      "sha256": "7fc9069c09f13d021c54696f8baf58a673fd0d33294aadae25b7caebd57e43b3",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000072.png",
+      "bytes": 3730844,
+      "sha256": "fbfc185e03ca52f60787481943b9591f9ff0a24c4912ea884e8cb0f61e06a3c4",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000073.png",
+      "bytes": 3748335,
+      "sha256": "dcedc6479cbaaaed57d259bf52e91b16ef60edfdbedb7beedb64b3961cc444b9",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000073.png",
+      "bytes": 27460,
+      "sha256": "06199bb171e3991386e80aa7cd1c7f4cc54bb4bef0c50e23f8c7d86ca8c9b8e8",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000074.png",
+      "bytes": 3752880,
+      "sha256": "8e35f68025ba663ebd0f3dcc75daeec806b5a49e92fc2d37801a21d33f1d836d",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000075.png",
+      "bytes": 3297894,
+      "sha256": "b948a47fff23f415e50aaba7d0bc30170207686ebce02cce9d857b59314d2923",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000076.png",
+      "bytes": 3387531,
+      "sha256": "bc433c445f908e65b90252e129964aabba9730a47118f3c4a296a3e237da89c7",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000076.png",
+      "bytes": 27938,
+      "sha256": "ec359f5edb4dc11093ccb5c805c98d3745484295a81804630ef44405bb2287d0",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000077.png",
+      "bytes": 3456530,
+      "sha256": "011f5a44d924972df1dfbc6167c2b04e0da925895f0a60c2b8e2d5c90a7a221f",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000078.png",
+      "bytes": 3500544,
+      "sha256": "cc09ece6d0ab1a34a8c0d5afc4a89d6649ae5458c7928dc86dad3b7c2394c9bb",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000079.png",
+      "bytes": 3539312,
+      "sha256": "e86bb8f6fdd5be20898edcd90c40f6b116c69d9a8004c0192559823843b7456e",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000079.png",
+      "bytes": 28055,
+      "sha256": "d08f88cc4382e13b7242ad36bc825ecd50c394a443917507cd8b4bbbab9f016d",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000080.png",
+      "bytes": 3572922,
+      "sha256": "48c517a7e47f60ba5309c23cc7af3914a631e2f84e0d9a60746d08057cbebdb1",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000081.png",
+      "bytes": 3617047,
+      "sha256": "76d4caf87756c6d04e8666df47013dc7b27f04bebf01dfa0aa006709fad41f04",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000082.png",
+      "bytes": 3631329,
+      "sha256": "465a9c9baead06ae499f661d277f21628d63124499e7d8f67dcbb4f68e15bd6f",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000082.png",
+      "bytes": 28566,
+      "sha256": "a669f4047d7019d976c77cd47d833b491f0c953148de7383a6ea1b8f342cb8be",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000083.png",
+      "bytes": 3640065,
+      "sha256": "38b46e5e4b9aca5357158ca54efe614b00dd162e01c6d398c5cf80475fbc73ce",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000084.png",
+      "bytes": 3652852,
+      "sha256": "4741cdfb64701753a55339868dcbc3b5e5227c4ed23651270040cc0ce0b42613",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000085.png",
+      "bytes": 3672525,
+      "sha256": "efb7940e23a697bddaa2d34d97efad35c3c3c2c681fcbc514b79861c52a03ad1",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000085.png",
+      "bytes": 27996,
+      "sha256": "eb4a30f0ec61d3c50fa733b95265c31189230e3bb5df0d31285ca23e45679f34",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000086.png",
+      "bytes": 3692778,
+      "sha256": "901ca356b6aafc0626d8ac46674efad80f31c99d040a6e5745b3a9b3138bb40e",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000087.png",
+      "bytes": 3698500,
+      "sha256": "d5cbed45235aada16c379dc22ac1059428d8771c7224d7055257e5c52545d790",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000088.png",
+      "bytes": 3701317,
+      "sha256": "b5be962e0bc69e6f8df7834ae809ba02dfed3e1c01c7192d615e110ab3073383",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000088.png",
+      "bytes": 28097,
+      "sha256": "1ecb46d5488b4f274f1892ec7a4bd5fca027c4da69083e54bdb32917d41b5c6e",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000089.png",
+      "bytes": 3718544,
+      "sha256": "9325ee9f6039bc09d4b85b601efc1ba2f0d2a49a8efaa50dc84c5659ad5b0d42",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000090.png",
+      "bytes": 3723146,
+      "sha256": "703e6e6a6fdee11b81fa2bb970c412e75ce882e8a7201227323c1d89a6a8b043",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000091.png",
+      "bytes": 3741000,
+      "sha256": "72dec7619846804f020571522d2a49bd50d6c5565b5417d85629137e0fb58672",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000091.png",
+      "bytes": 26898,
+      "sha256": "c9c7c23f5ff370f4a7bbc349bd2ebb3364deec81628bea10a98e8aaa6ed3fbeb",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000092.png",
+      "bytes": 3769556,
+      "sha256": "27e776b8442d1a7d2c363858df5782e5762ce61c22e9b7c9cdf5bdef153a061a",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000093.png",
+      "bytes": 3836614,
+      "sha256": "0faa05bb47139e1648cff3bb187a038014f2bc31c6a02a887e1e18458f3ab94b",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000094.png",
+      "bytes": 3809049,
+      "sha256": "dd50e164cfe36cf584538799fcea2c663008d2eb4f16f0c723473fed8f347467",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000094.png",
+      "bytes": 25511,
+      "sha256": "611371ce6ef752887d64d61be10296c809041e386575a24834a0cc76c1f639c8",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000095.png",
+      "bytes": 3824509,
+      "sha256": "48851f7da56b693d1e4d58341ae0d9d0e9732faf4c5f8d9ad924989ed0dd8af4",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000096.png",
+      "bytes": 3831888,
+      "sha256": "d9afc6e12b68ae03d1c8baf52a8d590673659e924d81bbc7b417b6cd15a2193d",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000097.png",
+      "bytes": 3849955,
+      "sha256": "c4b7b2f8953b6727b53f1686fb3718775a685483424568c46353c02161d564b0",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000097.png",
+      "bytes": 24806,
+      "sha256": "e088b13f3f9e7e2c1b3b1b1e8d64bac83a0b1b75bafe5bd09097f653ae45a934",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000098.png",
+      "bytes": 3865109,
+      "sha256": "5aa55add71c57cb5e61a652ee847483a1eac831d0cb4764f54d5e569b97a6f36",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000099.png",
+      "bytes": 3881441,
+      "sha256": "f52b2758d7c77c6b95a44c4e601caa236362781115ef5bd33662570b64904260",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000100.png",
+      "bytes": 3405905,
+      "sha256": "22ecd19c1576ca0e89541843b2a4d14519a3e0532050845dddecc621dff072c5",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000100.png",
+      "bytes": 25368,
+      "sha256": "1452b10161fac3535312319d2bd6868128272345ef4ba351a0f7c46c74c8202a",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000101.png",
+      "bytes": 3494006,
+      "sha256": "c5f3f39bebeec60ea0a39e7ad768f4a6c0e1a36f924eddfeddfab92371ced8f5",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000102.png",
+      "bytes": 3563330,
+      "sha256": "eec41aa1718a695224e15e4f8d9e65fa00eff21430c5b6c5354d75a583b24c7d",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000103.png",
+      "bytes": 3621249,
+      "sha256": "031913197480b6829f2751916a6f114f9bfb624474f0b607811fb799af4a6b05",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000103.png",
+      "bytes": 24986,
+      "sha256": "83717f26ab4a78a55e6c75246a8131dad6e339ecbffb68a56d03af468e2018e4",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000104.png",
+      "bytes": 3675600,
+      "sha256": "d51ab233a89bd705f2086657b1645a017bab7308b85dcc7a99c1e31e22b1ca1f",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000105.png",
+      "bytes": 3700868,
+      "sha256": "0c14927b1740fa9f8a5d0c29bcc621145d05f088e58991c9af598ae667208311",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000106.png",
+      "bytes": 3733046,
+      "sha256": "d49b65583e823005a550c3cafae01b675a32c5fc537c3e898ab263d38de84dc3",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000106.png",
+      "bytes": 24823,
+      "sha256": "6aed55c40752056a97f22516556b103dbdec531d3aa6763323ff63ec569cad0c",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000107.png",
+      "bytes": 3781760,
+      "sha256": "f5716f5726c1775d90e65533207d6dc65a842a7ce995202510092914ea4c8fc5",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000108.png",
+      "bytes": 3802372,
+      "sha256": "15c8d598b7d99b70cbaf72988cba69bea02c1d7e48ea60b57173901c09323db1",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000109.png",
+      "bytes": 3783241,
+      "sha256": "bdb2b3f97d51db9e9df7efd584d81b2fe4859c293a3567da55bf27a2a2fba3cf",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000109.png",
+      "bytes": 24578,
+      "sha256": "1bd30e68a5df975515cc3901bab114b9e71a361e3772ea6ca0c2b0bcd481f658",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000110.png",
+      "bytes": 3771962,
+      "sha256": "f94cf25de21c9ca81e7cb93cd76d44a224a35c4e46a60b912f2e8f52a60262aa",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000111.png",
+      "bytes": 3764554,
+      "sha256": "f8107881156c4a5565ac5a24b02d0854926da88d4b649ec60965f36c714bde0b",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000112.png",
+      "bytes": 3758153,
+      "sha256": "8ae8dc7155107fd35f704362e33531b3121df2fefb81559f1facfa13e8af7675",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000112.png",
+      "bytes": 24500,
+      "sha256": "44f0a4107d0fe3479c5ade3b30142154bfd99f8ce100038d65d57669a7a4663a",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000113.png",
+      "bytes": 3750194,
+      "sha256": "2b6a2f43ea840c30683da3d84ea048ef80aeb02b3ff938f21211edca4b24548d",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000114.png",
+      "bytes": 3771090,
+      "sha256": "5ddbece5c0c7362c6e2b0d4195f55b0cc546097b7a72e85771f21426aa804684",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000115.png",
+      "bytes": 3786067,
+      "sha256": "90f763a7f3f60d675df441f0211acf36b7d8300922150309ba2b031c2deb9b19",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000115.png",
+      "bytes": 24129,
+      "sha256": "bc560f6806c3e1507a22c5268038b0b917c22e0d1e0753d9c76887b87f7ff749",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000116.png",
+      "bytes": 3809180,
+      "sha256": "55ff126943c814f739e2311c4903dbe8712ccdbe191713c0a9cdbdb33b6067f8",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000117.png",
+      "bytes": 3815745,
+      "sha256": "03b1e306a412c0f7782b918194be87513aa77fceb10d357403dcada6c31ddb4a",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000118.png",
+      "bytes": 3825904,
+      "sha256": "4a30244f524b2b6320f209c0e50e81eebce028cccd60f88f147125ecfc684d70",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000118.png",
+      "bytes": 23701,
+      "sha256": "9e1a2277a8eff81292d112cee07343ce67dcf8750bcc40805dad0e14db7edf01",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000119.png",
+      "bytes": 3822090,
+      "sha256": "efbd85f2560508bf31ae6c38c6ab0d78d03846a1bb1e59f51168ac2157ad25c4",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000120.png",
+      "bytes": 3830609,
+      "sha256": "c0eed9a44b6f6dc4958806721b48dcd28922c4c1c801d871e82a4f5998e9c0ab",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000121.png",
+      "bytes": 3840363,
+      "sha256": "23fc1db961d046ae3694cbd56bea390dac0090b21d81cbb4f12d924d74cdec94",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000121.png",
+      "bytes": 23738,
+      "sha256": "62ffeb75f273469fae732364f4e7a74f2704b226789dbb5e14405f2699810187",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000122.png",
+      "bytes": 3861898,
+      "sha256": "6ea04029ff3cfc0dec20f779c48e40dab76b2855f2dd8a8e2ac748c36a03d7f0",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000123.png",
+      "bytes": 3918007,
+      "sha256": "6bfcb31b4bbf65f1c4259dc9a34ac04090b1f53d3d8f7fabb81e63c01360fc82",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000124.png",
+      "bytes": 3930978,
+      "sha256": "08d2904ae2b98da8dd7035fca86f5df4b72dceccc5e0357e32a727f307c73053",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000124.png",
+      "bytes": 24096,
+      "sha256": "8da5c6fa21af58e9a3284e0b6331ad9f6f012d42e7bc0d29f5ca579493097eab",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000125.png",
+      "bytes": 3448305,
+      "sha256": "ffb8f719cf7492b306e1dd8b6cefbad38d56ea624082498a73b5444237fd23fb",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000126.png",
+      "bytes": 3583959,
+      "sha256": "506d0628f2af72cd2fb4e4ea0fef4e6fc56438ddc6f3a0760969b3511b178339",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000127.png",
+      "bytes": 3685932,
+      "sha256": "752410f62042f18e246fda214588db8f9b077ac0872f1ca5e98dd091d3909957",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000127.png",
+      "bytes": 24244,
+      "sha256": "7f63e2423dd62516a5bd4b25729214c534c6e3edfa890dbe91b1a9adeaa23044",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000128.png",
+      "bytes": 3787156,
+      "sha256": "913b427f3b60f9250b813008172c4285cd26f85600ce0b86348d7bd1afc4fdfa",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000129.png",
+      "bytes": 3840265,
+      "sha256": "10c74007b886c90ec975167e615e694d291e7b4db077a350311c8e9c2530b1b6",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000130.png",
+      "bytes": 3914767,
+      "sha256": "7437d7924118d3a9154d7883ef746b4be37fe000960008c6bfa6d9377cc32222",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000130.png",
+      "bytes": 24343,
+      "sha256": "f02be2bae254aa3320fc3b7741a068380c59c33e3e6d1e41c64249fb77b2877a",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000131.png",
+      "bytes": 4012595,
+      "sha256": "009704d11520b22bff585e9460c078bdeeaa0600e636b75d80441ed6289634f1",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000132.png",
+      "bytes": 4076564,
+      "sha256": "7dc6bf6d1dce0e487f8059bca401eef41c5a20ca26c361a04a00bbef27146a1d",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000133.png",
+      "bytes": 4113968,
+      "sha256": "acfbb60bb538f53f693af3d5101ff2cec72cfd585a64763f2c48a1c462a55c5b",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000133.png",
+      "bytes": 24446,
+      "sha256": "0f1f92974a2fe6ddc8adbf53d285be690c2b0996ce99f8dd16e807bc1b1862fc",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000134.png",
+      "bytes": 4183274,
+      "sha256": "266e8c941beab1d538f715f22e862dd63e6c54b75e5e1d62d823b4d13b564693",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000135.png",
+      "bytes": 4235876,
+      "sha256": "18b9395fcadcda001b956538ff74607190da044028df583046af3e6d9022de0d",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000136.png",
+      "bytes": 4275452,
+      "sha256": "85ddbfe0a9635e85ecd14863c2c57a8823913746c1ae8aadfd5e6571d4fa1528",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000136.png",
+      "bytes": 24499,
+      "sha256": "014fb0f7b20aa237c9ae811191a8bd54e11fe8f40f9da362beb747f8617f122d",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000137.png",
+      "bytes": 4311054,
+      "sha256": "d981471bf6cb2b00fe194a98cb11c1664b5070a34b4d9183c8ab1f9510a7548a",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000138.png",
+      "bytes": 4363598,
+      "sha256": "c803bb03919ea4b77d18e417523a90e05c86dc59d033a36a764a9b492e5c38f0",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000139.png",
+      "bytes": 4389049,
+      "sha256": "9debe70e2a0ba303e6ce8dab04e54cd6cb9f0e6c3d1c5381b2691d55525421d2",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000139.png",
+      "bytes": 24442,
+      "sha256": "26cb4b1b82cb5655a4088103008b779397f70e2caaaa48621d48422891fe3a94",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000140.png",
+      "bytes": 4435542,
+      "sha256": "f41144a7fd71791167d9a53d3a3a66b4294d3d1ec9d845111b3f664cae6b6483",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000141.png",
+      "bytes": 4463772,
+      "sha256": "3c65a79635df13ee6414970525412da20e32449003ac9b9d4f67dd92dda12714",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000142.png",
+      "bytes": 4499176,
+      "sha256": "16b39fcabbd414ca766508ffa50170423627e2a62508f2c9e0064d230a36995b",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000142.png",
+      "bytes": 24463,
+      "sha256": "2b2a09c4580c1b839c080b12d9ebad973c9517556e141353cba059b606801b74",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000143.png",
+      "bytes": 4526085,
+      "sha256": "9b0c3b956f5ddcc724027e46e9345e73d2db78c188bab15e0a3bbf2e97a88099",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000144.png",
+      "bytes": 4550928,
+      "sha256": "d1ee7310fb8a79b487998971be52481009ac62356c602cd493d81e15461db7af",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000145.png",
+      "bytes": 4575883,
+      "sha256": "3fad244f969dbfad54a70bdf11443ba406117505903e45071b03856f47bace50",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000145.png",
+      "bytes": 24502,
+      "sha256": "07f24bd24e0093c919a24afde1905cf4439a0b94d7647fd804b1ad665681f723",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000146.png",
+      "bytes": 4605714,
+      "sha256": "b2150988a0033ad596426699b00595848e1bdf4c29f85075bf437abab7b059bf",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000147.png",
+      "bytes": 4609543,
+      "sha256": "cf5d28af6c9e357e822da791503539959f1e8b840a97f2fca968ac93ec2d4ade",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000148.png",
+      "bytes": 4647514,
+      "sha256": "c2eef2c525f008e8cf0333dcf368e7d6eba78d68f20908d6e8c5c7c0641582b0",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000148.png",
+      "bytes": 24102,
+      "sha256": "7ab35136fc11371bd34f3b31718625dfe6a707d36cb31d28e7de359ad6898b5d",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000149.png",
+      "bytes": 4664885,
+      "sha256": "c5f6f399d7c3a5dac0d63e4d6a5aadda361083c3b725538c99ec193e57eea5c0",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000150.png",
+      "bytes": 4128971,
+      "sha256": "948d4d85bfc6cb0204bf704a0b00540519d8b9110bc068bf73d64c063c18526a",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000151.png",
+      "bytes": 4232197,
+      "sha256": "bcfde52ee5b64224004a8de523dbdf02b37509c74a73d6d4a3ae195f432447b9",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000151.png",
+      "bytes": 24256,
+      "sha256": "d294a51af108b8135fc67e01fbf8b219a58e2518d09d4341bb2e82f3fa2bc2c6",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000152.png",
+      "bytes": 4255901,
+      "sha256": "66c79b2aa7a7ec029ac0af12e91ea9c89ccefbf7c879af322c0251da26afd700",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000153.png",
+      "bytes": 4279314,
+      "sha256": "e1b6a48f0f254ba80309c1627f04d8653d1817701396be00d93d305861aabab6",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000154.png",
+      "bytes": 4309120,
+      "sha256": "d39c02bad626864eb4e6bd0e369349e9c4f6a984ff90bc2dbe8d1852f811df20",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000154.png",
+      "bytes": 24252,
+      "sha256": "07ff59ccb2066a540519f8621802848b418e13bba8b896806d8ba4db4844162c",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000155.png",
+      "bytes": 4332600,
+      "sha256": "4dec4c2c556f2cdcfa897ebac8f6b20fa36ec63e371cebd2279a6f9137b14e82",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000156.png",
+      "bytes": 4345362,
+      "sha256": "9616bd3750f8ac1e7de8a2b4346fa5299ca62f1415f340a14605980408ffe048",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000157.png",
+      "bytes": 4381965,
+      "sha256": "4feed3a8e265e35408bae8939cec77461289436cdb17384392b7a38575018620",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000157.png",
+      "bytes": 24080,
+      "sha256": "96f9f279fea6486c9d905b60a086ed1aa222a086345522a253796470212f569e",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000158.png",
+      "bytes": 4392560,
+      "sha256": "b79a216de528854fda74a0988cc18f7301797438e73d24143c82e4d26606e8a6",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000159.png",
+      "bytes": 4408151,
+      "sha256": "c1a02ff658ad7e6f13ac8b18aff0e592be47b5095a5431c02dbe6c7173f0ccea",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000160.png",
+      "bytes": 4435037,
+      "sha256": "9516bdbd74089f7881ab95d6a758bdb78542dee2a262e0af9fb0313fb35f05c8",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000160.png",
+      "bytes": 23951,
+      "sha256": "4f50ae248c0ebecb4631b6594ec19cbd67e0df83bef624e92938743e998c4820",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000161.png",
+      "bytes": 4438966,
+      "sha256": "4103869c547434732da313ce4d35b2476815e133662c651496e46a469d397636",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000162.png",
+      "bytes": 4467931,
+      "sha256": "f3ca55f8c661b5b8a49c91802028cdca3ee1bd11a84b8bba3c82bd25728879c6",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000163.png",
+      "bytes": 4478525,
+      "sha256": "3cb73f62bbc3e9a0d996eba1e8b0b1f7b8c55f989b073ba5b7a6cbc45498166f",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000163.png",
+      "bytes": 23668,
+      "sha256": "166059b81750a970a86681bca285e04c16c28cff0098132791bc4636f5615ffa",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000164.png",
+      "bytes": 4492579,
+      "sha256": "254c12b42e1720109704ee0cc817a82840a9773db5ea108996a09147448c735a",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000165.png",
+      "bytes": 4511702,
+      "sha256": "b8467f90105edebb24f45fd773e71df1f2af5a4a6f8a6481bbcf52ae3d492bb9",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000166.png",
+      "bytes": 4515080,
+      "sha256": "74e7b5970d353a5920179167230652bfb32856bb4712f92d54aba9b0efd4caef",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000166.png",
+      "bytes": 23542,
+      "sha256": "86805711b98e1786154567731e47fa6765a7f6b699b2b911b5c3dbb6905d16f8",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000167.png",
+      "bytes": 4532204,
+      "sha256": "823288ab943f68d5a5c0217f852e17759cb7affaf047e68b82b04259a80f5b5f",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000168.png",
+      "bytes": 4513650,
+      "sha256": "95cdc0cd795e3e56df0d48c057bc77eca5743cacbc7418053529a8eb0eede58d",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000169.png",
+      "bytes": 4505919,
+      "sha256": "2d375e0addbaccb9aff75d579c8bb382780fcaf6c88f8d0b92975d55aa94e0f2",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000169.png",
+      "bytes": 23338,
+      "sha256": "adc1b39954d2f966bef0ce93a9ecaac98b6df6ddeb11049faa7aeff077eb80c7",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000170.png",
+      "bytes": 4519563,
+      "sha256": "204ec04566b4960ccb73f68553af71241b63de99f3ea9f59afb01cce6d8ace04",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000171.png",
+      "bytes": 4496448,
+      "sha256": "a3dcdeb7e113ce65c3f08f677c00d7639f915e4ea1938ccfe3db8b2ce32b0f8b",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000172.png",
+      "bytes": 4491129,
+      "sha256": "1d543ebe99aaabb1c54dad0898e7575b9851df04a26537d2378603be4faef2b5",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000172.png",
+      "bytes": 23493,
+      "sha256": "9f79e38b8b48b70c1d6e8adc5f7416288659e583370aeb9d37dcbf145c943a0c",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000173.png",
+      "bytes": 4487013,
+      "sha256": "2e537da9a3c9773a6425d84452bdc38107ee014ae2e139d757eb1cd1392fbc66",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000174.png",
+      "bytes": 4478426,
+      "sha256": "08831f19e3f0748a50eb4f852a338a47336c51c3c0b222ea9e582c0b25b6de78",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/images/000175.png",
+      "bytes": 3872527,
+      "sha256": "ae01fe27dc161db4c77ba79228495b2e978917a78e2c37630f6003e764e69e06",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000175.png",
+      "bytes": 23475,
+      "sha256": "714a5912dd6648d154e95c5322f6dec7213a50208dc420f7202b2166e7ebc793",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000002.png",
+      "bytes": 22556,
+      "sha256": "ed025b7e9596142294cbfc9f16ec97402d18cb405936e916f7416e8c554077b5",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000003.png",
+      "bytes": 22553,
+      "sha256": "eedaa7ee948c6b7ac20871607dc582a8dadde4b03f21c57246696df9afd5b6e6",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000005.png",
+      "bytes": 22489,
+      "sha256": "3df36c310c6cd50612550eb96a8062908777efc2b355b0a04839dbb90d85ca3f",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000006.png",
+      "bytes": 22444,
+      "sha256": "3d5664723678ba6002c891dd266f498539cc93fb086999f7975e6273bd33d099",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000008.png",
+      "bytes": 22523,
+      "sha256": "a113928038f6e64e9bf9fe0a8ccad3ab9c590a32708eb75d618ab2fd2275ece9",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000009.png",
+      "bytes": 22493,
+      "sha256": "44e51f8f8d295871a2cf464e471a01d6af53fdf678b9dc2f794e04d8a1bbc611",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000011.png",
+      "bytes": 22604,
+      "sha256": "40cf4071d725863c3e8d39fa1f2f81180bfca7485bafe9e96184d6b959c61160",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000012.png",
+      "bytes": 22818,
+      "sha256": "9206b655713c4d6073db896bfce9595b6d8314b4afa4da1d8ab8735ca387b0ae",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000014.png",
+      "bytes": 22640,
+      "sha256": "c12a469f454e7e024c8de7cc119455d7b0f3e432bc9c402bd44cd97548975c1a",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000015.png",
+      "bytes": 22759,
+      "sha256": "9fd9555ea8a073e9de6a499af7084353cd255e5253cf4a4fb27ba078cf2134cf",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000017.png",
+      "bytes": 22928,
+      "sha256": "ad330464bef89ae337cef0d730f76cce1bc2aa6e180f56a6ea88e44b5203ee80",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000018.png",
+      "bytes": 23032,
+      "sha256": "677474b63b21d6d8abaaad346dd1f8aca81279e06bb8ca1c810d4174d0f0436c",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000020.png",
+      "bytes": 23110,
+      "sha256": "0db8f6ff3b79f81af46af135156d06a6242ed277be1f19266e6f2830658f48de",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000021.png",
+      "bytes": 23481,
+      "sha256": "5a3e0b3142f59c17045c4edf8811d2a6f06c189330f092d0940c4269e5c982d5",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000023.png",
+      "bytes": 23471,
+      "sha256": "ff02d01d5b9aa9ba2128cb3bd508c64914a1532aba0b697690bf10b71bb548b5",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000024.png",
+      "bytes": 23458,
+      "sha256": "0dd21002d447e60ae684aed9da25c5b2ee36b06c6f4aa8262948d184c3049cdc",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000026.png",
+      "bytes": 23709,
+      "sha256": "2212f568ef754ac473194b236c3a2d84203e77807a1099f4b0be593131575697",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000027.png",
+      "bytes": 23677,
+      "sha256": "3be00c8c759e3f5db2a8daef7fbc1bd6f273d2f9ec6b1e832f689bf3e36b6adb",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000029.png",
+      "bytes": 23553,
+      "sha256": "988496264ab900aa08720cdd06c70e124f4725246669396a121d5d83511a77ce",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000030.png",
+      "bytes": 23364,
+      "sha256": "d0ad57165c8182536ed6d11be100843cfbd84173ee1e81efa90c99121d97db4c",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000032.png",
+      "bytes": 23786,
+      "sha256": "ddb5de0e2afc3cf0f77ad2db8f957df8f82c532de26fdefa813c0bbd441e287b",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000033.png",
+      "bytes": 23677,
+      "sha256": "a0eac01362fab1647897f5ce8db7aff6241c4796414fd7e857ade29b4e4a9bef",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000035.png",
+      "bytes": 23937,
+      "sha256": "74251b440a88c394377bd23a1282905ddd22d0af8001c7e39eecd23964cab093",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000036.png",
+      "bytes": 23626,
+      "sha256": "10b3ba923064a947ff651df72e95e42c1a8ee76bd59f1cc3af7554e9e186fd53",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000038.png",
+      "bytes": 23619,
+      "sha256": "0f5bc74f746989edd5759d48c62e1787482420529d1df1ff306c9f0c801ec951",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000039.png",
+      "bytes": 24601,
+      "sha256": "c4cb50bf58337e1d1086dbe5f3eaafdc6e2364e0e02709a268ebe74a9218cdc6",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000041.png",
+      "bytes": 25237,
+      "sha256": "41591447ad0cd5a896fdd130b56e2aa3f166eaa511d8f7fcd3b7e750c978e627",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000042.png",
+      "bytes": 26073,
+      "sha256": "8064742e62e4753e7bc73f7e991e0242b0d36d749d1569f9d2da1c38871237ca",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000044.png",
+      "bytes": 24316,
+      "sha256": "a1be6e4bccc025448a3a68fe6c7ab56fdba26027c9d5498d169667643dc471df",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000045.png",
+      "bytes": 24257,
+      "sha256": "2257452ab6467840582464e6c9b88bbe32646e6099bcf036dde9584351f8fb05",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000047.png",
+      "bytes": 25275,
+      "sha256": "f9d2b179a522168c759b79c9811228380911bb6827fc643c3dad859b377589c1",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000048.png",
+      "bytes": 24236,
+      "sha256": "51ae2880df61f708686c11e4e48499322a632747c881ef17b40955039c844b38",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000050.png",
+      "bytes": 24065,
+      "sha256": "441c761e09db74e3693ef11c33e2552ffe85033e882eb513cbc658b8b30d93d1",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000051.png",
+      "bytes": 24868,
+      "sha256": "a4bab16a966514f996fc430a46d3cb8c7f84a7c4ad351ea7d4dcf9b3ab0c3f28",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000053.png",
+      "bytes": 24159,
+      "sha256": "5965b8ea6ed9f5de973b587b2e32db907591035c731eda26326f15b824a546c0",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000054.png",
+      "bytes": 25749,
+      "sha256": "220a4662a8e205217494251b2ed550e598a2a2485f7da480fafe3c489a54da8f",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000056.png",
+      "bytes": 25786,
+      "sha256": "c9760f4acfec39a8bcaae15750d0162688ccbb15742fa0725311b4a66771ef54",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000057.png",
+      "bytes": 26080,
+      "sha256": "91247fb779cac6c40fe31cb6c40946f5a62b0bdb22a65042000effbfa7cebfa2",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000059.png",
+      "bytes": 25982,
+      "sha256": "cd8d08cf9b67186e85500663c8a4d917c6fbf74173ed8c614a2cd22c0c7d71cd",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000060.png",
+      "bytes": 26071,
+      "sha256": "71ea433e793dfaa1e872f6f27f1ca0aa31e3637dc94fdf2d0905fb2d5a234ac5",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000062.png",
+      "bytes": 26329,
+      "sha256": "81b4eeac2fcfb1c401823cbef9221b8a699391e6fbe55a67eaf5f4078526674e",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000063.png",
+      "bytes": 26461,
+      "sha256": "c274265ec80f1ff1375d86e8ff32d4712b1c494a7bf80a567a304b1ac13fcedd",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000065.png",
+      "bytes": 26737,
+      "sha256": "3d6e4059b4295f1de9c5611626174b0a56e7982db7c9056802d1113f93803547",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000066.png",
+      "bytes": 26658,
+      "sha256": "dec1018408a0b80b02b10cb3c1186d7ef0620b5f5a3cb8a1435248758521ee8f",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000068.png",
+      "bytes": 26732,
+      "sha256": "a308a7869c7270b2539fcd51afbca11cc50ebc38e78c997d9ae68f93004865b8",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000069.png",
+      "bytes": 26741,
+      "sha256": "d9900acd797cb877f231fe036060c3cc795961efa2426652a876ba6792bcc11c",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000071.png",
+      "bytes": 27155,
+      "sha256": "1439aa9ae1e4e7adfb21a875413fabd7328ebbbf9d96fb0f526db637fe203e66",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000072.png",
+      "bytes": 27389,
+      "sha256": "b44d039566a0236fa708eec178779a3f8a6a49780aa4110b35118fd4495d1f72",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000074.png",
+      "bytes": 27715,
+      "sha256": "e49c1a964f6e1ab322d208dfae40fc803988e58c526bec493bbf2f58556e9470",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000075.png",
+      "bytes": 27750,
+      "sha256": "df1cf55945ec752999c4e64c5ed52f4b7b1d5913bfc33e68b5ccf250e2ff5771",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000077.png",
+      "bytes": 27929,
+      "sha256": "1890b3314eef4b2a68e42e9bd9325de4bffffaaee75dc61ae5afc308210e14d0",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000078.png",
+      "bytes": 27917,
+      "sha256": "221a98da432d77c02338a00ce78f3a722e471edb2a12384c6a5bc2eda1082edf",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000080.png",
+      "bytes": 28415,
+      "sha256": "d8f920f4398fa976f5c963ff841aff815232e807e5ed7d62a282768ff80a706d",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000081.png",
+      "bytes": 28271,
+      "sha256": "f2c6b6291a087b17063345e580a6416c35ceda85829d72822fe2d5eaa6270954",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000083.png",
+      "bytes": 28069,
+      "sha256": "05badccbe9c2a8edb010aa31f76a72a050c4c679b5af1a4c9bef42defc7c1d9f",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000084.png",
+      "bytes": 28075,
+      "sha256": "6fd4e62a6372e1e2b1df0f4cd51e7d7b6c2573ec72c83eab13d684e9ce75b96b",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000086.png",
+      "bytes": 27798,
+      "sha256": "1c0cfd6bf924b6ac64614cdd905bffee0708a7b561afcbb6dc8621c499a4408a",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000087.png",
+      "bytes": 27772,
+      "sha256": "733434b2b243e1e09086d665d3164e333b7a8cea6ffd5ef1ea0f27c0bcc2b843",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000089.png",
+      "bytes": 27220,
+      "sha256": "f884f6e0d4b44ccc36dca2adb8cb8ccf18f4700c5a69cf394fbe881b06e61245",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000090.png",
+      "bytes": 27174,
+      "sha256": "14dbc9bbbe04bd5e1d32ee986dad922220c61496a1bfff3e3ac44f5d42411acf",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000092.png",
+      "bytes": 26489,
+      "sha256": "780975e8ab99e0e8cf4eca5373ea9ba7c176a8a7b7f194528bbc5326865422f2",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000093.png",
+      "bytes": 25640,
+      "sha256": "85fdab5fec1db6f8704c9bd049fe379934a82a4eb0003cabc9ffaa3201dd55f5",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000095.png",
+      "bytes": 25225,
+      "sha256": "de082633ad8b0d431f207352a181673eb7fc9238ea94c9a421cac27f956ee347",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000096.png",
+      "bytes": 25301,
+      "sha256": "61ce3063a9f0e650675d6975326b895d0bd35fcc88220d597423a0f5a5c6896e",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000098.png",
+      "bytes": 24856,
+      "sha256": "328ca2e3698d903102c223b3e7bc2bd9bc9dc9e6c41cfa33cb75c24750fec138",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000099.png",
+      "bytes": 25022,
+      "sha256": "e51a1339dfb00b759bda679d79f9650378c8bca24c63239f91a4e157afbf2e3f",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000101.png",
+      "bytes": 25327,
+      "sha256": "eb4df74a82d78666463b287ee19413ee4e61ebf2abb1007b99b0f43eb44d748c",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000102.png",
+      "bytes": 25087,
+      "sha256": "b1088a5b30a66eb6b01d91b89c841696db106ba5dfe6d8d575dee7a7e5c3e70b",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000104.png",
+      "bytes": 25142,
+      "sha256": "977af108ebc86cde2ac615ea4175c0ce2f3e550288f27c22afdffb36783c93d3",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000105.png",
+      "bytes": 25014,
+      "sha256": "137d2938e984cc83eff736ef84811609eb07640b6de7e0f2d9c97d05502e792a",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000107.png",
+      "bytes": 25396,
+      "sha256": "7b26364b4fd043cf6e7d13ccbb796ffbdcf5b15a5b3ef2770d9980408dc19831",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000108.png",
+      "bytes": 24757,
+      "sha256": "e89a6297428e2a95cca474fd53e337f8509b61d53dbf830c362c2dfbc7b38c83",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000110.png",
+      "bytes": 24820,
+      "sha256": "716ecbeaa848b238071ea3cbab2e1af3f9c36da9c3197fab0a2747f2f796d180",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000111.png",
+      "bytes": 24727,
+      "sha256": "30c3259cae8a9da82f3f4f23d8063e49a444b190ad6626fc32bfc3d4c45badc5",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000113.png",
+      "bytes": 24212,
+      "sha256": "6aa6adfad926ff4945c9b4cb1731e76945eaa13b6c50b66504cdb61549773432",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000114.png",
+      "bytes": 24201,
+      "sha256": "dee7f838ddf3cee27906dabe5b9d1de482a2d952af6aef589ff074e58bd9c1ff",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000116.png",
+      "bytes": 23941,
+      "sha256": "d0819cb2cdbe7429f7ceb34146aba53907018c27a43bac18d84f0e88e001adfc",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000117.png",
+      "bytes": 23956,
+      "sha256": "556bb2d5b991dcab6a3a29c36a2ae341dd337f5b74bd2d5738de533c12cf6632",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000119.png",
+      "bytes": 23687,
+      "sha256": "0fd7c75ab8e8d89c783716cc423a08bd7f97b25bf4e848af91f332ea7ad1d6d9",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000120.png",
+      "bytes": 23754,
+      "sha256": "497ed73f2af18a094ae59ba15221966f3984d87fd5de60138b97a23844ec5492",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000122.png",
+      "bytes": 23882,
+      "sha256": "004c03876abe14fd48e2f4ff97d6573df746dce672bd823329cea5823bbb2634",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000123.png",
+      "bytes": 24225,
+      "sha256": "1d6d28cc22199a17a95f05288ac61c86364dada250fb4b2b05fe8a4438ab3317",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000125.png",
+      "bytes": 24157,
+      "sha256": "de275942d8c842ea62b47dbe07e5622b5dea67b6f2c9f462216461148ac4f70a",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000126.png",
+      "bytes": 24116,
+      "sha256": "00ad02f0e4957b9de474523730fd8a3db745d931331b1336fb5403f69e1a1364",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000128.png",
+      "bytes": 24411,
+      "sha256": "72b2e45fa8857c08b69fef4f4f271f718a2c23bc901ac2969efcc2565aab8428",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000129.png",
+      "bytes": 24455,
+      "sha256": "7cbe3bc7cb3dc59aa36dc182fce48ed3681105645213e80d183bc9aed4957fbc",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000131.png",
+      "bytes": 24468,
+      "sha256": "42d99b6115b63f327b99b907cdf723fb117d53a56dd0e45c000ea825a9feea17",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000132.png",
+      "bytes": 24518,
+      "sha256": "6a942f9adb6226016e337a960f4fa4dd5cef289779bf939c59e8873624db02c8",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000134.png",
+      "bytes": 24443,
+      "sha256": "d0421aed4a4d0634e9d94d5428e3c25ce06c6f6d2059f23825267621b81c7b59",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000135.png",
+      "bytes": 24448,
+      "sha256": "62d06e619b847ffd27fa242fc308b8a0ee98b0a25a59586a787a0cb1b580df8f",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000137.png",
+      "bytes": 24528,
+      "sha256": "6a319a828221c4c75d37613ad5e8df9dfd59d5fb3f4427b7b224ef37786b6b35",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000138.png",
+      "bytes": 24444,
+      "sha256": "2a7077b81e0e27bc350207e3c6e345ef6bd99bd5539d48694e7e577f2c56e2d8",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000140.png",
+      "bytes": 24482,
+      "sha256": "085b7a44af09bf71414de4a2b1e37879d9007f1aa7da261e580b2ae43a0d5d7e",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000141.png",
+      "bytes": 24470,
+      "sha256": "6461b0e68401d91f1a19705341927f2675d861f84710bc2dfba59bc798ab8d6d",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000143.png",
+      "bytes": 24428,
+      "sha256": "b4d9ab2bb8ec7cb9dc1065966c71de847472985a1d71ebd52e5cba7719df0e0d",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000144.png",
+      "bytes": 24321,
+      "sha256": "2e79d12ac7f406e0f8c40fd23093180ca9f73765027241f2cc659f879b28990e",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000146.png",
+      "bytes": 24514,
+      "sha256": "d638a32b83adbd38d9ca58e36f70e2f5f886428c1f9185670df36ae12e33c975",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000147.png",
+      "bytes": 24302,
+      "sha256": "a6d6ce8b4bfae62639287bfc6382b385b7ab75e9f142a9c10a3fedb45ad8469b",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000149.png",
+      "bytes": 24144,
+      "sha256": "8767987d2c603d62247c71229f14807f694d88313520c48b5064dbebd88598e8",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000150.png",
+      "bytes": 24263,
+      "sha256": "fbd0671b07a4a3079c75687a856eeccebffa2b40ff41cb092eedab0ad6ba04c6",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000152.png",
+      "bytes": 24231,
+      "sha256": "f437f63d130bb194c73e30cf58af9775f9ce23bf3bd420c7c5c1b2bce29882cc",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000153.png",
+      "bytes": 24220,
+      "sha256": "e6679d44d6303b1ed6c3ff3f3316947af268f9a75d1bb87081f9bdbc72240726",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000155.png",
+      "bytes": 24155,
+      "sha256": "d4becf4a27b9f0f8944e5b7953cfd2a45137a2f50f8ecb7e050f94669d48ed5d",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000156.png",
+      "bytes": 24123,
+      "sha256": "4d90fb5c68c8ebdf53022e6191c7c1eac52f2d8c41f767a60db48d6efc9c0605",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000158.png",
+      "bytes": 23991,
+      "sha256": "d817275722a240e12c0b8bca8ab897823aa738b10a42b308a46a25598afe06fa",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000159.png",
+      "bytes": 23989,
+      "sha256": "15cda438c1673b400be5d7a340813ace4ca27e677659cb2689f27b74c620c168",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000161.png",
+      "bytes": 23927,
+      "sha256": "d3328b994841ad549f464c72f60efd5edf8e928573894911d240bd5d471c0940",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000162.png",
+      "bytes": 23869,
+      "sha256": "77ebe9f3f84f202a7e70bbe18fbb48b047504dbe7a2f64ee90dee56d0169860e",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000164.png",
+      "bytes": 23502,
+      "sha256": "4e940ccb9df92b7de12c7a0e169fce81663ac767169e40ad8dac1111e0d67590",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000165.png",
+      "bytes": 23676,
+      "sha256": "6004d9b74e786ffcb5683ede9b8c43d6bb5030c107a403e4fb6c8ddca685ff00",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000167.png",
+      "bytes": 23432,
+      "sha256": "5e1e7ccb70fb0479daa6b2156537efe133e075d04aee95dfbf9fb5e4595b40de",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000168.png",
+      "bytes": 23395,
+      "sha256": "f3d29bbd7ed3a440e451fa89ea940eb115f5edc2974f37a76217017b1225e5e6",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000170.png",
+      "bytes": 23467,
+      "sha256": "28b07f4a7438a459125d547838fa2f83548e3127315477068bdcc6e48dee6bf4",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000171.png",
+      "bytes": 23421,
+      "sha256": "5c1a1597edeadb8934dca5bc8f310c99ab6f882d47d808de1f03a4c551d7aa8a",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000173.png",
+      "bytes": 23381,
+      "sha256": "30a18d9e00f1157adb82c8fcbd4e3f9b6b85d1c0ca624d677b1519865e517a08",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/masks/000174.png",
+      "bytes": 23314,
+      "sha256": "ad47530560660e579a6cc745f77c31c4345d09c100c38e6977836ae67d00e7a2",
+      "kind": "original_observation"
+    },
+    {
+      "path": "data/hover175/observations.npz",
+      "bytes": 573786,
+      "sha256": "1d46158ab270b24632cec247f7dc31a0f2625575ba4c53043fd9476e1d43ab62",
+      "kind": "original_detector_observation"
+    },
+    {
+      "path": "data/hover175/inference/prediction-postprocessed.npz",
+      "bytes": 50307228,
+      "sha256": "0dca388c3ef7ad6191d2f3031f54c61870f565b7600e453871d09c8c189e043e",
+      "kind": "original_pretrained_detector_output"
+    },
+    {
+      "path": "data/hover175/inference/time-camera-inputs.npz",
+      "bytes": 27891,
+      "sha256": "b313426103f9d9e6ead4fdbbb850446ac8d90f7b20e27be48f4ca1fcedb84746",
+      "kind": "original_pretrained_detector_output"
+    },
+    {
+      "path": "data/hover175/inference/vitpose-keypoints.pt",
+      "bytes": 46127,
+      "sha256": "274d37fd35f89212742cc5e72fd9ba7c9ba3cd751ce03746cb853906c42fc450",
+      "kind": "original_pretrained_detector_output"
+    },
+    {
+      "path": "data/hover175/hand-observations.npz",
+      "bytes": 57024,
+      "sha256": "7e7ea03a49c0ba310bfb0d1b0043ef3f973d1dd6f39c0a29c9c66cc38c60e3b1",
+      "kind": "original_pretrained_hand_observation"
+    },
+    {
+      "path": "data/hover175/inspection/floor-reference.json",
+      "bytes": 690,
+      "sha256": "e2e79616d2ec14cc60edcf8824273f346cc2dbacac8c370762acee138ec6585d",
+      "kind": "read_only_inspection_reference"
+    },
+    {
+      "path": "data/hover175/inspection/surface-support.npz",
+      "bytes": 12984,
+      "sha256": "684638e2d4e34b6862e3ec6a55f168cd91f8360abcf994bae0e09758d5e737bb",
+      "kind": "read_only_inspection_reference"
+    },
+    {
+      "path": "data/hover175/inspection/route-comparison.json",
+      "bytes": 14854,
+      "sha256": "b15b9a6a9df9f12ace273449fecbacb1e6511ef059ce19753375443753cf5d28",
+      "kind": "read_only_inspection_reference"
+    },
+    {
+      "path": "assets/smplx/SMPLX_NEUTRAL.npz",
+      "bytes": 108752058,
+      "sha256": "376021446ddc86e99acacd795182bbef903e61d33b76b9d8b359c2b0865bd992",
+      "kind": "licensed_template_not_git"
+    },
+    {
+      "path": "assets/vposer/V02_05/V02_05.yaml",
+      "bytes": 1406,
+      "sha256": "00150f36a3ed2c4e8e990b284290dcb02054121c05a0cc817ec09b78f3708b35",
+      "kind": "licensed_prior_not_git"
+    },
+    {
+      "path": "assets/vposer/V02_05/snapshots/V02_05_epoch=08_val_loss=0.03.ckpt",
+      "bytes": 88644482,
+      "sha256": "a914aef21a5c1f4e4d1a616f28def84bc2550c4e7312a689a64e9a35eb7ebee3",
+      "kind": "licensed_prior_not_git"
+    },
+    {
+      "path": "assets/gvhmr/hmr4d/utils/body_model/smplx2smpl_sparse.pt",
+      "bytes": 208935,
+      "sha256": "0fc821a9e79ec3e76d6a9796b96d5bef8cd67055e18497bbe370d8aed9e07e06",
+      "kind": "body_mapping_not_git"
+    },
+    {
+      "path": "assets/gvhmr/hmr4d/utils/body_model/smpl_coco17_J_regressor.pt",
+      "bytes": 469227,
+      "sha256": "bacdaf756629493994cc869f4c27d179f5e4a5d06b8797ee3dcb94571522079f",
+      "kind": "body_mapping_not_git"
+    }
+  ],
+  "learned_person_fit_included": false,
+  "old_gaussians_included": false
+}

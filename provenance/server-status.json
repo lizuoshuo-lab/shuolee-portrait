@@ -1,0 +1,21 @@
+{
+  "release": "0.1.0-rc1",
+  "stable_release_accepted": false,
+  "fresh_server_install_verified": false,
+  "local_existing_environment_doctor_passed": true,
+  "local_asset_files_sha256_verified": 20,
+  "numeric_camera_projection_and_ply_transform_passed": true,
+  "real_video_test": {
+    "kind": "bounded_preprocessing_integration_check",
+    "selected_frames": 23,
+    "fresh_sfm_registered_frames": 23,
+    "old_camera_or_subject_fit_loaded": false,
+    "state": "RGB24 decoding and pycolmap API issues identified and corrected; corrected full command requires rerun",
+    "human_prior_inference_verified": false,
+    "fresh_body_fit_verified": false,
+    "gaussian_training_started": false
+  },
+  "ghosting_resolved": false,
+  "quality_accepted": false,
+  "wps_weights": "removed; runtime assets are outside D:/00"
+}

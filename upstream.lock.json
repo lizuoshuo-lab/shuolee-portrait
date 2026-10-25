@@ -1,0 +1,23 @@
+{
+  "GaussianAvatar": {
+    "url": "https://github.com/aipixel/GaussianAvatar",
+    "commit": "d981c62238ef64e89dcc04719d2ebbb4758b080a"
+  },
+  "GaussianAvatars_SMPLX": {
+    "url": "https://github.com/jmaraval/GaussianAvatars_SMPLX",
+    "commit": "e44c1a6c5fbb7f76089f14982eba98d94e553214",
+    "missing_upstream": "train_smplx.py and scene/smplx_gaussian_model.py; this package includes explicitly local adapters"
+  },
+  "human_body_prior": {
+    "url": "https://github.com/nghorbani/human_body_prior",
+    "commit": "6b883ecc3000697409a8caa2744523afe041e48a"
+  },
+  "GVHMR": {
+    "url": "https://github.com/zju3dv/GVHMR",
+    "commit": "ee960bb6e2ea2d381aa97f08e9b71ef320b624b1"
+  },
+  "SAM2": {
+    "url": "https://github.com/facebookresearch/sam2",
+    "commit": "2b90b9f5ceec907a1c18123530e92e794ad901a4"
+  }
+}

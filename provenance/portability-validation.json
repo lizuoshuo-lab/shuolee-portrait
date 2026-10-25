@@ -1,0 +1,27 @@
+{
+  "status": "passed",
+  "cpu_input_audit": {
+    "frames": 175,
+    "training_masks": 175,
+    "fit_masks": 59,
+    "camera_matrices_valid": true,
+    "input_bytes_verified": true,
+    "physical_calibration_accuracy_accepted": false,
+    "old_subject_fit_loaded": false
+  },
+  "imports": true,
+  "smplx_template_vertices": 10475,
+  "uv_atlas_available": true,
+  "vposer_loaded": true,
+  "GaussianAvatar_network_constructed": true,
+  "export_helpers_imported": true,
+  "review_cameras": 7,
+  "torch": "2.7.1+cu128",
+  "cuda": "12.8",
+  "gpu": "NVIDIA GeForce RTX 5080",
+  "optimizer_updates": 0,
+  "training_started": false,
+  "target_server_tested": false,
+  "runtime": "Existing local WSL environment; build sources supplied but clean remote build not tested",
+  "known_limitation": "Coarse fitting masks 59/175; physical camera accuracy and ghosting not accepted"
+}

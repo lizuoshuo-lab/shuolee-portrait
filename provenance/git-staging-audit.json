@@ -1,0 +1,14 @@
+{
+  "staged_files": 2320,
+  "bytes": 25901860,
+  "forbidden_assets": [],
+  "credentials": [],
+  "allowed_upstream_documents": [
+    {
+      "path": "src/avatar_core/submodules/diff-gaussian-rasterization/third_party/glm/doc/manual.pdf",
+      "kind": "vendored GLM manual",
+      "sha256": "ba41fd1afc6b20bb5fdfe1529e0634d6166deba30b015bc9f0ecf2127bb8e474"
+    }
+  ],
+  "private_repository_required": true
+}

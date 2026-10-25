@@ -1,0 +1,20 @@
+{
+  "profile": "static_single_person",
+  "frame_stride": 1,
+  "max_image_size": 1920,
+  "min_frames": 12,
+  "max_frames": 600,
+  "camera_model": "SIMPLE_RADIAL",
+  "matching": "exhaustive",
+  "min_track_observations": 50,
+  "max_sfm_mean_error_px": 2.0,
+  "fit_steps": 1200,
+  "max_fit_median_body_fraction": 0.03,
+  "max_fit_p90_body_fraction": 0.08,
+  "initial_points": 200000,
+  "iterations": 18000,
+  "training_height": 1536,
+  "seed": 6060,
+  "image_cache_frames": 8,
+  "quality_accepted": false
+}

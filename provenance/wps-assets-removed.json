@@ -1,0 +1,16 @@
+[
+  {
+    "source": "D:\\00\\工作\\人体重建\\assets",
+    "destination": "D:\\GS-SLAM-Data\\shuolee-portrait-transfer-cache\\assets",
+    "files": 18,
+    "bytes": 863812319.0,
+    "preserved": true
+  },
+  {
+    "source": "D:\\00\\工作\\人体重建\\weight-parts",
+    "destination": "D:\\GS-SLAM-Data\\shuolee-portrait-transfer-cache\\weight-parts",
+    "files": 13,
+    "bytes": 5258573669.0,
+    "preserved": true
+  }
+]
