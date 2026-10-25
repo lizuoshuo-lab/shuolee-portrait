@@ -1,0 +1,29 @@
+{
+  "updated": "2026-10-25T17:08:56.725763+00:00",
+  "source": "local bounded117 audit; no personal image/points uploaded",
+  "mapping_identity_checked_frames": 175,
+  "K_copy_max_difference": 0.0,
+  "E_copy_max_difference": 0.0,
+  "K_only_candidate_accepted": false,
+  "material_identity_proven": false,
+  "person_motion_identifiable": false,
+  "root_cause_resolved": false,
+  "lower_face_ambiguous_local_peak": {
+    "count": 15,
+    "total": 17
+  },
+  "screen_is_physical_accuracy": false,
+  "formal_training_admitted": false,
+  "server_interface_check006_passed": true,
+  "stable_release": false,
+  "limits": [
+    "Original three-view patches were reviewed without warping or text burned into images. Many facial patches are smooth skin, nose/cheek shading or lens-adjacent regions, rather than isolated permanent texture.",
+    "Lens reflections vary visibly across views. Side-view images hide the far eye and change the visible jaw outline. Detector index alone does not identify a common physical surface point.",
+    "Jacket lettering, seams, shoe features and rigid scene edges are visibly recognizable at broad scale. Some matching tests still fail under viewpoint/appearance/blur changes; this does not prove these original tracks are wrong.",
+    "Local peak ambiguity occurs in15/17 lower-face tracks. Only0/17lower-face,1/16upper-face,15/65background,3/58torso and3/75leg tracks pass the conjunction of image-only screens. These are diagnostic screen counts, not reconstruction accuracies.",
+    "Direct long-baseline pyramidal LK can leave the original correspondence basin even when initialized at it. Large LK displacements are algorithm failures/sensitivity, not measured physical person motion.",
+    "The reused bank and identical-ID anatomical labels are not independent ground truth. Correct-looking source crops and cycle consistency cannot establish subpixel physical correspondence.",
+    "All175observation frame IDs and K/E arrays exactly match the training manifest. No array permutation or camera-copy mismatch was found in this specific path. Physical calibration may still be wrong."
+  ],
+  "next_action": "Clean-server installation and implementation acceptance may continue; do not train this source as an accepted camera/material solution."
+}

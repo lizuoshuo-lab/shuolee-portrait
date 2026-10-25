@@ -1,16 +1,17 @@
 {
-  "updated": "2026-10-25T16:48:23.279589+00:00",
+  "updated": "2026-10-25T17:08:56.725763+00:00",
   "state": "active",
   "next_actions": [
-    "Inspect fixed-camera material correspondence under117D2 using existing observations; no new weight sweep.",
-    "Complete independent camera, whole-body and face protection before any18k person training.",
-    "After admission, validate a full frame fresh run and native/+Y export; do not resume smoke fits.",
-    "Validate installation on a clean target-compatible Linux environment before stable release.",
-    "Keep Git code separate from external runtime weights and selected WPS evidence."
+    "Verify clean Linux environment installation and runtime/export contract without claiming real reconstruction quality.",
+    "Await original calibration/capture evidence before more117camera fits or actual long training.",
+    "Keep WPS documents and curated output small; runtime weights remain outsideD:/00."
   ],
   "no_active_training": true,
   "current_model_quality_accepted": false,
   "current_report": "http://127.0.0.1:8870/body-smplx.html#server-check006",
   "viewer": "D:/00/工作/查看器",
-  "weights": "D:/GS-SLAM-Data/shuolee-portrait-runtime-assets"
+  "weights": "D:/GS-SLAM-Data/shuolee-portrait-runtime-assets",
+  "diagnosis117": "bounded_complete_unresolved",
+  "quality_accepted": false,
+  "stable_release": false
 }
