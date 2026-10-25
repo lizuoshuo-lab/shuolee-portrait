@@ -26,24 +26,26 @@ def inference_settings():
   if previous is not None:GlobalHydra.instance().initialize(previous)
 
 def infer(root,cfg):
- import torch,cv2
+ import torch
  import hmr4d
  hmr4d.PROJ_ROOT=rt.ASSETS/'gvhmr'
  from hmr4d.network.hmr2.configs import get_config
  from hmr4d.network.hmr2 import HMR2
  from hmr4d.network.hmr2.utils.preproc import IMAGE_MEAN,IMAGE_STD
+ from .crops import prepare_prior_crop
  rows=rt.read(root/'data/inputs.json')['records'];out=root/'inference';out.mkdir()
  def progress(name,done=0):
   rt.save(root/'progress.json',dict(stage='prior',component=name,done=done,total=len(rows),updated=rt.now()))
   print(f'prior {name} {done}/{len(rows)}',flush=True)
  progress('prepare_crops')
- crops=[];boxes=[]
+ crops=[];boxes=[];crop_records=[]
  for r in rows:
-  rgb=np.array(Image.open(r['image']).convert('RGB'));b=np.array(r['initial_box_xyxy']);center=(b[:2]+b[2:])/2;size=max(b[2:]-b[:2])*1.2
-  # Identical isotropic raster map for the square HMR crop and reverse landmark map.
-  M=np.array([[256/size,0,127.5-center[0]*256/size],[0,256/size,127.5-center[1]*256/size]],np.float32)
-  crops.append(cv2.warpAffine(rgb,M,(256,256),flags=cv2.INTER_LINEAR,borderMode=cv2.BORDER_CONSTANT));boxes.append([*center,size])
- imgs=((torch.from_numpy(np.stack(crops)).float()/255-IMAGE_MEAN)/IMAGE_STD).permute(0,3,1,2);boxes=torch.tensor(boxes,dtype=torch.float32)
+  rgb=np.array(Image.open(r['image']).convert('RGB'))
+  crop,box,mapping=prepare_prior_crop(rgb,r['initial_box_xyxy'])
+  crops.append(crop);boxes.append(box)
+  crop_records.append(dict(frame=r['frame'],source_sha256=r['source_sha256'],**mapping))
+ rt.save(out/'crop-mapping.json',dict(records=crop_records,training_image_warped=False,physical_camera_accuracy_proven=False))
+ imgs=((torch.from_numpy(np.stack(crops)).float()/255-IMAGE_MEAN)/IMAGE_STD).permute(0,3,1,2);boxes=torch.tensor(np.asarray(boxes),dtype=torch.float32)
  def load(path):
   unsafe=torch.serialization.get_unsafe_globals_in_checkpoint(path)
   if unsafe:raise RuntimeError(f'Unreviewed checkpoint globals: {unsafe}')

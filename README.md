@@ -54,9 +54,12 @@ doctor 检查模型完整性、FFmpeg、CUDA、关键依赖和完整 GVHMR 推�
 ~~~bash
 PYTHONNOUSERSITE=1 python scripts/check_environment.py --output /data/install-check/environment.json
 python scripts/check_projection_export.py --output /data/install-check/projection-export.json
+python scripts/check_prior_crop.py --output /data/install-check/prior-crop.json
 ~~~
 
 前者实际执行 CUDA 算子并检查包是否来自本环境；后者使用合成相机和点，检查投影、PLY 位置、协方差及 SH 旋转。通过这些检查不代表输入视频的物理内外参正确，也不代表人像重影已经解决。
+
+裁剪检查使用编码源图像坐标的测试图片，验证 HMR2／ViTPose 输入裁剪与原图的正反映射。新工程已改为调用固定版本 GVHMR 的 `crop_and_resize`：256 像素裁剪覆盖的像素中心是 0–255，不能用 256／框大小替代上游的 255／框大小。每次新运行会保存 `inference/crop-mapping.json`，包含各帧的原图到裁剪及其逆变换。整图相机和高斯训练图片不随这项修正变形。008 的拟合及对照图来自修正前代码，尚未重跑；本次只完成裁剪坐标验证，未证明历史重影的根因。
 
 ## 新视频一条命令
 
@@ -84,6 +87,8 @@ python run.py reconstruct \
 7. export：输出标准世界 PLY 与 +Y 版本，旋转中心、完整协方差和球谐系数；原生回读与同相机渲染通过才发布。+Y 来源是身体根方向，不等于实测重力。
 
 自动门槛用于拦截明显失败。SfM 自身残差和用于拟合的特征点不是独立真值，不能据此宣布物理标定准确或重影消失。还需检查面部、眼镜、肩袖、衣摆、腿脚，以及连续未知视角。
+
+当前自动门槛仍只有 SfM 拟合残差和粗身体误差，独立跨视角材料对应、相机精度及人物静止性准入尚未实现，不能把 `fit-gate` 的通过当作正式训练条件已满足。现有参考视频的正式重训仍受 117 诊断结论限制；可先按下方的有界命令完成接口检查，等待新的采集／标定证据。
 
 ## 看进度和结果
 

@@ -1,0 +1,84 @@
+{
+  "updated": "2026-10-25T18:48:27.849042+00:00",
+  "state": "prior_crop_pixel_contract_fixed_numeric_review_passed",
+  "defect": "Local server adapter used256/size; pinned GVHMR crop maps pixel centres0..255 with255/size.",
+  "fix": "Use pinned upstream crop_and_resize; record source/crop forward and inverse transforms per fresh frame.",
+  "tests": {
+    "passed": true,
+    "checks": [
+      {
+        "box": [
+          290,
+          180,
+          550,
+          580
+        ],
+        "source_pixel_raster_error_max": 0.014705882353041488,
+        "outside_image_padding_error_max": 0.0,
+        "roundtrip_error_max": 1.4210854715202004e-14,
+        "crop_endpoint_error_max": 5.684341886080802e-14,
+        "previous_map_source_error_max": 0.9375
+      },
+      {
+        "box": [
+          110.25,
+          99.75,
+          500.5,
+          620.25
+        ],
+        "source_pixel_raster_error_max": 0.016183965346385776,
+        "outside_image_padding_error_max": 0.0,
+        "roundtrip_error_max": 2.842170943040401e-14,
+        "crop_endpoint_error_max": 4.983658357105014e-06,
+        "previous_map_source_error_max": 1.225587478338504
+      },
+      {
+        "box": [
+          470.1,
+          210.8,
+          650.6,
+          390.4
+        ],
+        "source_pixel_raster_error_max": 0.01609897987512454,
+        "outside_image_padding_error_max": 0.0,
+        "roundtrip_error_max": 1.1368683772161603e-13,
+        "crop_endpoint_error_max": 4.311346572194452e-05,
+        "previous_map_source_error_max": 0.4312744140625
+      }
+    ],
+    "weights_loaded": false,
+    "gpu_task": false,
+    "new_video_fit_run": false,
+    "ghosting_resolved": false,
+    "quality_accepted": false,
+    "scope": "Coordinate-coded synthetic RGB only; prior crop mapping, not physical calibration",
+    "source_sha256": "708e6cac8f98f30170cce4e59fc611bad814b4f7acf60aeaecfdac6338b36af0",
+    "prior_source_sha256": "6700067c84b857dcbb1726e98858b444c753e6ff1ca9aa0257651d9ed70e5b60",
+    "upstream_sha256": "547c3379e846aa8cde498a241a8330e2b9aa9d940414bde9c0cf6c7062da6e05"
+  },
+  "existing008_read_only_audit": {
+    "created": "2026-10-25T18:46:14.927196+00:00",
+    "state": "read_only_prior_crop_contract_audit",
+    "frames": 23,
+    "manifest_sha256": "77e4f40dd5e53ae6cb93768195092f765e1173798be1d9b7af6295b2ffe13989",
+    "maximum_axis_shift_in_008_rectified_pixels": 1.6876866006851543,
+    "training_images_modified": false,
+    "model_inference_run": false,
+    "new_fit_run": false,
+    "historical_114_mapping_retested": false,
+    "historical_ghosting_root_cause_proven": false,
+    "camera_calibration_changed": false,
+    "quality_accepted": false,
+    "scope": "New server adapter crop only. Full-image cameras and RTMW observations unchanged."
+  },
+  "original008_fit_and_images_preserved": true,
+  "post_fix_prior_inference_or_fit_verified": false,
+  "historical114_root_cause_proven": false,
+  "camera_calibration_accepted": false,
+  "staticity_or_material_identity_accepted": false,
+  "ghosting_resolved": false,
+  "quality_accepted": false,
+  "automatic_pretrain_gate": "Still only SfM fitting residual and coarse body error; independent alignment admission missing.",
+  "initial_fixture_failure": "First coordinate-ramp check treated padded pixels as image samples; corrected the fixture to verify zero padding separately.",
+  "input_color_review": "Source inspection: RTMW consumes RGB normalized with to_rgb=true metadata; its BaseTool does not perform another channel reversal. No color-order change made."
+}
