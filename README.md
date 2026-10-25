@@ -57,7 +57,7 @@ python scripts/check_projection_export.py --output /data/install-check/projectio
 python scripts/check_prior_crop.py --output /data/install-check/prior-crop.json
 ~~~
 
-前者实际执行 CUDA 算子并检查包是否来自本环境；后者使用合成相机和点，检查投影、PLY 位置、协方差及 SH 旋转。通过这些检查不代表输入视频的物理内外参正确，也不代表人像重影已经解决。
+`check_environment.py` 实际执行 CUDA 算子并检查包是否来自本环境；`check_projection_export.py` 使用合成相机和点，检查投影、PLY 位置、协方差及 SH 旋转。通过这些检查不代表输入视频的物理内外参正确，也不代表人像重影已经解决。
 
 裁剪检查使用编码源图像坐标的测试图片，验证 HMR2／ViTPose 输入裁剪与原图的正反映射。新工程已改为调用固定版本 GVHMR 的 `crop_and_resize`：256 像素裁剪覆盖的像素中心是 0–255，不能用 256／框大小替代上游的 255／框大小。每次新运行会保存 `inference/crop-mapping.json`，包含各帧的原图到裁剪及其逆变换。整图相机和高斯训练图片不随这项修正变形。008 的拟合及对照图来自修正前代码，尚未重跑；本次只完成裁剪坐标验证，未证明历史重影的根因。
 
