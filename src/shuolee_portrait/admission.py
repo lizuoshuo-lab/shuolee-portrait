@@ -47,7 +47,10 @@ def inspect_alignment(root):
             physical_validation_complete=False,
             entry='scripts/evaluate_fixed_tracks.py'), appearance_material_candidates=dict(
             implemented=True, stage='material-tracks',
-            camera_fit_independence_established=False, physical_identity_verified=False)),
+            camera_fit_independence_established=False, physical_identity_verified=False),
+            pre_sfm_measurement_exclusion=dict(implemented=True,
+            entry='sfm/holdout/usage-after-mapping.json',
+            native_synthetic_geometry_checked=True, physical_track_independence_established=False)),
         required_checks=[
             dict(id='static_scene_camera', state='not_implemented',
                  evidence='Independent static-scene tracks or capture calibration with held validation, coverage and uncertainty.'),

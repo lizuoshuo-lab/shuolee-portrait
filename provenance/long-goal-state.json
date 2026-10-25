@@ -1,11 +1,11 @@
 {
-  "updated": "2026-10-25T19:59:50.869332+00:00",
+  "updated": "2026-10-25T20:20:48.882748+00:00",
   "state": "active",
   "next_actions": [
-    "Implement validation observation freezing before camera solving and retain actual solver usage; do not infer independence from new feature IDs.",
-    "117 reference diagnosis remains closed; do not rerun calibration/correspondence sweeps or train on it without new capture evidence.",
-    "Independent physical material identity, scene/camera uncertainty and subject-staticity validation remain unfinished. Candidate tracks cannot admit training.",
-    "Await target-server Linux/GPU information and original capture/calibration evidence."
+    "Attach target-mask/face/background ROI labels to frozen pre-SfM tracks without changing the original split; retain unknown regions and all coverage failures.",
+    "Add bounded scene-support/observability and residual reporting before body fitting; this is unfinished development, not positive training admission.",
+    "117 reference diagnosis stays closed. No captured-video sweep or formal training without new capture evidence.",
+    "Await target-server Linux/GPU details and capture metadata; physical identity, calibration and staticity remain unverified."
   ],
   "no_active_training": true,
   "current_model_quality_accepted": false,
@@ -19,5 +19,5 @@
   "active_engineering_check": null,
   "latest_code_fix": "block_formal_training_until_independent_alignment_validators_exist",
   "latest_interface_check": "009",
-  "latest_engineering_component": "source_image_mutual_and_cycle_material_candidates"
+  "latest_engineering_component": "pre_sfm_native_observation_holdout"
 }

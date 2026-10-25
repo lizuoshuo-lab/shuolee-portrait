@@ -22,6 +22,8 @@ def validate_config(cfg):
     if cfg['min_frames']<3 or cfg['max_frames']<cfg['min_frames'] or cfg['initial_points']<20908:
         raise ValueError('Invalid camera budget or too few points to cover the full mesh.')
     if cfg.get('quality_accepted') is not False:raise ValueError('Quality cannot be pre-approved in an input config.')
+    from .sfm_holdout import validate_settings
+    validate_settings(cfg.get('sfm_holdout'))
 
 
 @contextmanager

@@ -31,23 +31,28 @@ def extract(video,root,cfg):
 
 def sfm(root,cfg):
  import pycolmap as pc
+ from .sfm_holdout import prepare_holdout,audit_usage,export_rectified_holdout
  if pc.__version__!='3.10.0':raise RuntimeError(f'Validated API contract requires pycolmap 3.10.0, found {pc.__version__}.')
- raw=root/'raw';sfm=root/'sfm';sfm.mkdir();db=sfm/'database.db';maps=sfm/'models';maps.mkdir()
+ raw=root/'raw';sfm=root/'sfm';sfm.mkdir();db=sfm/'database.db';source_db=sfm/'raw-features.db';maps=sfm/'models';maps.mkdir()
  device=pc.Device.cuda if pc.has_cuda else pc.Device.cpu
  opt=pc.SiftExtractionOptions();opt.max_image_size=cfg['max_image_size'];opt.max_num_features=8192;opt.num_threads=8
- pc.extract_features(str(db),str(raw),camera_mode=pc.CameraMode.SINGLE,camera_model=cfg['camera_model'],sift_options=opt,device=device)
+ pc.extract_features(str(source_db),str(raw),camera_mode=pc.CameraMode.SINGLE,camera_model=cfg['camera_model'],sift_options=opt,device=device)
  import sqlite3
- with sqlite3.connect(db) as connection:detected=connection.execute('SELECT rows FROM keypoints').fetchall()
+ with sqlite3.connect(source_db) as connection:detected=connection.execute('SELECT rows FROM keypoints').fetchall()
  if len(detected)!=len(read(root/'decoded.json')['records']) or not detected or min(x[0] for x in detected)<cfg['min_track_observations']:
   raise RuntimeError('COLMAP could not read every RGB frame or extract sufficient features. Stop before native matching; inspect sfm.log.')
+ prepare_holdout(source_db,db,read(root/'decoded.json')['records'],raw,sfm/'holdout',
+                 cfg.get('sfm_holdout'),min_training_features=cfg['min_track_observations'])
  mo=pc.SiftMatchingOptions();mo.guided_matching=True;mo.num_threads=8
  pc.match_exhaustive(str(db),sift_options=mo,device=device)
+ audit_usage(source_db,db,sfm/'holdout',report_name='usage-after-matching.json')
  io=pc.IncrementalPipelineOptions();io.num_threads=8;io.ba_refine_focal_length=True;io.ba_refine_principal_point=False;io.ba_refine_extra_params=True
  models=pc.incremental_mapping(str(db),str(raw),str(maps),options=io)
  if not models:raise RuntimeError('SfM could not initialize a connected scene. Preserve logs and change the capture, not the pose interpolation.')
  index=max(models,key=lambda k:models[k].num_reg_images());rec=models[index]
+ exclusion=audit_usage(source_db,db,sfm/'holdout',reconstruction=rec)
  decoded=read(root/'decoded.json')['records'];expected={r['name'] for r in decoded};actual={i.name for i in rec.images.values()}
- report=dict(frames=len(decoded),registered=len(actual),missing=sorted(expected-actual),points=rec.num_points3D(),mean_reprojection_error_px=rec.compute_mean_reprojection_error(),camera_origin='Estimated by full-frame COLMAP; not device calibration',interpolation_used=False,physical_accuracy_proven=False)
+ report=dict(frames=len(decoded),registered=len(actual),missing=sorted(expected-actual),points=rec.num_points3D(),mean_reprojection_error_px=rec.compute_mean_reprojection_error(),camera_origin='Estimated by full-frame COLMAP; not device calibration',interpolation_used=False,physical_accuracy_proven=False,pre_sfm_reserved_tracks=exclusion['reserved_tracks'],reserved_measurements_used=exclusion['reserved_used'],physical_track_independence_established=False)
  save(root/'camera-audit.json',report)
  if actual!=expected:raise RuntimeError(f'Only {len(actual)}/{len(expected)} frames registered. No dropped-camera or interpolation fallback.')
  if report['mean_reprojection_error_px']>cfg['max_sfm_mean_error_px']:raise RuntimeError('SfM training residual exceeds configured diagnostic limit.')
@@ -63,4 +68,7 @@ def sfm(root,cfg):
   with Image.open(image) as p:wh=list(p.size)
   if wh!=[cam.width,cam.height]:raise RuntimeError('Image and camera dimensions differ after undistortion.')
   records.append(dict(**{k:v for k,v in row.items() if k not in ['wh','source_sha256']},image=str(image),source_sha256=sha(image),wh=wh,K=K.tolist(),w2c=E.tolist(),mask=None,mask_sha256=None,official_prediction_slot=len(records),camera_kind='fresh_full_scene_sfm',camera_registration={'interpolation_used':False},observation_weight=1.0))
- save(root/'data/inputs.json',dict(records=records,pixel_domain='undistorted_integer_centers',intrinsic_origin='COLMAP_pixel_corners',coordinate_contract='K and w2c refer to the full undistorted image. COLMAP pixel corners; integer-centre landmarks project with -0.5.',from_scratch=True))
+ manifest=dict(records=records,pixel_domain='undistorted_integer_centers',intrinsic_origin='COLMAP_pixel_corners',coordinate_contract='K and w2c refer to the full undistorted image. COLMAP pixel corners; integer-centre landmarks project with -0.5.',from_scratch=True)
+ save(root/'data/inputs.json',manifest)
+ save(root/'data/sfm-inputs.json',manifest)
+ export_rectified_holdout(root,rec,ud)

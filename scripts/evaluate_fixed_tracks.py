@@ -21,9 +21,13 @@ def evaluate(run, tracks, report):
         raise FileExistsError(f'Report already exists: {report}')
     if report.is_relative_to(run):
         raise ValueError('Put the diagnostic report outside the immutable source run.')
-    manifest = run / 'data/training-inputs.json'
-    manifest_hash, bank_hash = rt.sha(manifest), rt.sha(tracks)
+    bank_hash = rt.sha(tracks)
     bank = rt.read(tracks)
+    relative = Path(bank.get('camera_manifest_relative_path', 'data/training-inputs.json'))
+    manifest = (run / relative).resolve()
+    if relative.is_absolute() or not manifest.is_relative_to(run):
+        raise ValueError('Camera manifest must stay inside the supplied source run.')
+    manifest_hash = rt.sha(manifest)
     if bank['camera_manifest_sha256'] != manifest_hash:
         raise ValueError('Track bank and current camera manifest do not match.')
     rows = rt.read(manifest)['records']

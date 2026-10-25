@@ -1,0 +1,160 @@
+{
+  "updated": "2026-10-25T20:20:48.882748+00:00",
+  "state": "pre_sfm_native_measurement_exclusion_implemented",
+  "source_hashes": {
+    "src/shuolee_portrait/sfm_holdout.py": "ea39f0aa93ffedd5149cb30566e7e2efbdf6daafd73c84cbce4e054b510ccd95",
+    "src/shuolee_portrait/video_sfm.py": "ba351139172c653c32f73bff81a057de28e3583cfd6795588435ba2908eb9f39",
+    "src/shuolee_portrait/cli.py": "d03a947b23fad32c2fb9493a1cfb1aa1b65eb925a88fc5094de120b1bc23034d",
+    "src/shuolee_portrait/admission.py": "52252fb72e28dd4561a2b541fbfd9dab0b94d85e58fda1987c2622ef1dc2f781",
+    "scripts/check_sfm_holdout.py": "83d2b728654a49010da2f1cee4f13184e1ef6827ff1a51787d107aededfbc2da",
+    "scripts/evaluate_fixed_tracks.py": "b918e4803be0e14e22c14fe81918b443fbdfca46a50a3df6044bb2416110e5db"
+  },
+  "native_geometry_test": {
+    "passed": true,
+    "groups": 9,
+    "results": {
+      "pregeometry_split_and_alias_exclusion": {
+        "tracks": 71,
+        "reserved_observations": 355,
+        "excluded_rows": 387,
+        "deterministic": true,
+        "source_unchanged": true
+      },
+      "retrospective_split_rejected": "Source database has already been matched/verified; a retrospective split is forbidden.",
+      "native_feature_tampering_and_stale_indices_rejected": [
+        "Training keypoints/descriptors were changed or reserved rows reintroduced.",
+        "Match references an invalid compacted feature row."
+      ],
+      "invalid_budget_rejected": "fraction must lie in (0,1).",
+      "no_candidates_or_insufficient_solver_support_stop_before_geometry": [
+        "Insufficient pre-SfM validation tracks. No matching or camera solve was started.",
+        "Holdout would leave insufficient camera-fit support; no fallback to all features."
+      ],
+      "native_matching_mapping_and_usage": {
+        "registered": 5,
+        "reserved_tracks": 71,
+        "reserved_used": 0,
+        "usage_counts": {
+          "descriptor_matches": 1393,
+          "geometric_verification": 1393,
+          "reconstructed_points": 1393
+        },
+        "mean_training_reprojection_px": 0.0006210077037538264,
+        "extraction_injected_known_measurements": true,
+        "native_geometry_actually_executed": true
+      },
+      "raw_rectified_half_pixel_and_held_prediction": {
+        "raw_roundtrip_max_px": 4.007953128426997e-10,
+        "held_error_px": {
+          "count": 213,
+          "median": 0.0004451465637659827,
+          "p90": 0.0011378298001722396,
+          "maximum": 0.02112487240232162
+        },
+        "training_admitted": false
+      },
+      "manifest_escape_rejected": true,
+      "actual_native_sift_on_known_image_translation": {
+        "tracks": 256,
+        "median_correspondence_error_px": 0.0,
+        "p90_correspondence_error_px": 0.0
+      }
+    },
+    "pycolmap": "3.10.0",
+    "synthetic_only": true,
+    "native_geometry_actually_executed": true,
+    "real_person_tested": false,
+    "physical_camera_calibration_validated": false,
+    "ghosting_resolved": false,
+    "training_started": false,
+    "original_video_reexecuted": false
+  },
+  "material_stage_regression": {
+    "passed": true,
+    "cases": [
+      "Actual nearest-neighbor matching rejects repeated zero-distance descriptors and insufficient neighbors, while preserving unique bidirectional identities.",
+      "A broken third edge is rejected; locally closed cycles with conflicting identities in one frame cannot merge into a false global track.",
+      "Face keypoints supply only a bounded region; missing or off-image detections produce no face ROI.",
+      "Actual SIFT/mutual/cycle extraction on five views of a rendered plane agrees with known pixel warps, feeds the fixed-point module, and leaves source files unchanged.",
+      "Changing only synthetic K and extrinsics leaves the extracted appearance tracks identical; no camera residual selects matches.",
+      "Correct texture correspondence is preserved when the foreground moves; fixed-camera projection separates its known motion residual from the static control without claiming real-world causality.",
+      "The actual CLI stage runs without human weights; existing output, missing pixel-domain contracts and changed mask bytes are rejected.",
+      "Textureless input retains a no-tracks report and stops with exit3; semantic landmarks are not substituted.",
+      "Parent execution records the actual material failure report and stops before prior, fitting and training; preceding stages were simulated only."
+    ],
+    "evidence": {
+      "static_known_warp": {
+        "tracks": 739,
+        "regions": {
+          "face": 93,
+          "static_scene_candidate": 456,
+          "body": 190
+        },
+        "correspondence_error_px": {
+          "count": 3605,
+          "median": 0.0,
+          "p95": 3.814697265625e-06,
+          "maximum": 0.00046539697489113454
+        },
+        "held_projection_px": {
+          "count": 2127,
+          "median": 5.684341886080802e-14,
+          "p90": 9.536743732496693e-07,
+          "maximum": 0.00023269845831776965
+        }
+      },
+      "known_foreground_motion": {
+        "correspondence_error_px": {
+          "count": 3619,
+          "median": 0.0,
+          "p95": 3.814697265625e-06,
+          "maximum": 0.00046539697489113454
+        },
+        "subject_midframe_median_px": 4.0,
+        "static_background_median_px": 6.355287432313019e-14,
+        "subject_tracks": 286,
+        "background_tracks": 396
+      }
+    },
+    "synthetic_images_only": true,
+    "actual_sift_extraction": true,
+    "automatic_candidate_generation_implemented": true,
+    "real_person_tested": false,
+    "camera_independence_validated": false,
+    "ghosting_resolved": false,
+    "gpu_task": false,
+    "training_started": false,
+    "quality_accepted": false
+  },
+  "training_guard_regression": {
+    "passed": true,
+    "cases": [
+      "Coarse fit pass does not admit training; inspection is read-only.",
+      "A hand-written or stale pass report cannot bypass the boundary.",
+      "Stage and direct training entries reject before GPU imports, assets or Gaussian allocation.",
+      "Actual CLI returns exit3 for unavailable alignment; no body weights or CUDA needed.",
+      "Parent reconstruct stops at alignment-gate with an explicit non-training status; preprocessing was simulated only for this test.",
+      "A changed fitted artifact invalidates its recorded coarse-fit identity."
+    ],
+    "scope": "Negative-path training admission only",
+    "successful_alignment_verified": false,
+    "independent_alignment_validation_implemented": false,
+    "training_started": false,
+    "gpu_task": false,
+    "quality_accepted": false
+  },
+  "progress": "Pregeometry reservation, native row compaction and actual matching/reconstruction usage audit implemented.",
+  "raw_measurement_exclusion_implemented": true,
+  "physical_track_independence_established": false,
+  "original_video_reexecuted": false,
+  "experiment117_reopened": false,
+  "new_ply": false,
+  "ghosting_resolved": false,
+  "quality_accepted": false,
+  "stable_one_shot_reconstruction_delivered": false,
+  "remaining": [
+    "Annotate reserved raw tracks with later foreground/face/background regions without changing membership or selecting by residual.",
+    "Establish scene support, camera observability/uncertainty, physical correspondence and subject staticity on suitable captured evidence.",
+    "After independent admission, fresh Gaussian training and original/novel-view/PLY/UI acceptance; target server still unverified."
+  ]
+}
