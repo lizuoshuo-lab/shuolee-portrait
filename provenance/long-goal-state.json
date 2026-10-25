@@ -1,10 +1,11 @@
 {
-  "updated": "2026-10-25T19:29:08.469428+00:00",
+  "updated": "2026-10-25T19:40:50.243880+00:00",
   "state": "active",
   "next_actions": [
-    "Independent camera/material/staticity validators remain a required unfinished component, not satisfied by the blocking guard.",
-    "Await target-server Linux/GPU information and original capture/calibration evidence.117 remains closed; no extra calibration sweep.",
-    "Do not enable Gaussian training via an editable pass flag or coarse fitting residual alone."
+    "Implement automatic cross-view material tracks and camera-fit usage provenance for the new-video pipeline; do not relabel semantic detector indices as physical matches.",
+    "117 reference-data diagnosis remains closed. Await original capture/calibration evidence before additional real-data causal experiments.",
+    "Independent camera/material/staticity validators and real quality acceptance remain unfinished; numerical fixture checks cannot admit training.",
+    "Target-server Linux/GPU information remains pending."
   ],
   "no_active_training": true,
   "current_model_quality_accepted": false,
@@ -17,5 +18,6 @@
   "installation": "private_Git_clone_new_venv_one_shot_passed",
   "active_engineering_check": null,
   "latest_code_fix": "block_formal_training_until_independent_alignment_validators_exist",
-  "latest_interface_check": "009"
+  "latest_interface_check": "009",
+  "latest_engineering_component": "fixed_camera_point_holdout_diagnostics"
 }

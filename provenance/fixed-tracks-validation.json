@@ -1,0 +1,75 @@
+{
+  "updated": "2026-10-25T19:40:50.243880+00:00",
+  "state": "held_view_point_diagnostic_implemented_synthetic_verified",
+  "source_hashes": {
+    "src/shuolee_portrait/fixed_tracks.py": "c331ccb234fc2f118afa3c04358df72aaa7593f87c93bbfa674c6b8657638ef5",
+    "src/shuolee_portrait/admission.py": "317908610f6f018473948c3ab89f2d71eabda4218514b66d670204f48b7746eb",
+    "scripts/evaluate_fixed_tracks.py": "d9e2133aa82cda0ff7ec58ed4dbf1751a00d8c963adde4d9a23921759314da5f",
+    "scripts/check_fixed_tracks.py": "62a91f7fc4ee38f4d92548c55c0533813615b1640bff08c3d718d77830bdbe14"
+  },
+  "numerical_tests": {
+    "passed": true,
+    "cases": [
+      "Rotated OpenCV camera projections, COLMAP half-pixel conversion and held-view triangulation agree.",
+      "A wrong held-view correspondence produces its full error; it cannot move the point or be pruned away.",
+      "Held point observations reused by the camera solver are marked non-independent; semantic IDs and disjoint IDs never prove material identity.",
+      "An incorrect common focal length can have zero held error in a degenerate rig; it remains unaccepted.",
+      "Camera translation error and subject displacement can give the same residual; the diagnostic does not invent a unique cause.",
+      "Coincident centers, insufficient parallax and negative depth remain explicit unusable observations, not zero-error successes.",
+      "Wrong pixel domain, image identities, nonfinite pixels, missing holdout, duplicate observations and transposed camera matrices are rejected.",
+      "Actual CLI verifies image bytes and the camera manifest, preserves the source run, and refuses stale inputs or report overwrite."
+    ],
+    "evidence": {
+      "opencv_projection_max_px": 8.526512829121202e-13,
+      "shared_focal_counterexample": {
+        "focal_ratio": 1.2,
+        "recovered_depth_ratio": 1.2000000000000006,
+        "held_error_px": 5.684341886080802e-14,
+        "training_admitted": false
+      },
+      "camera_motion_counterexample": {
+        "camera_error_px": 13.333333333333314,
+        "subject_error_px": 13.333333333333371
+      }
+    },
+    "synthetic_fixtures_only": true,
+    "matching_algorithm_implemented": false,
+    "captured_person_tested": false,
+    "independent_camera_validation": false,
+    "training_started": false,
+    "gpu_task": false,
+    "ghosting_resolved": false,
+    "quality_accepted": false
+  },
+  "admission_regression": {
+    "passed": true,
+    "cases": [
+      "Coarse fit pass does not admit training; inspection is read-only.",
+      "A hand-written or stale pass report cannot bypass the boundary.",
+      "Stage and direct training entries reject before GPU imports, assets or Gaussian allocation.",
+      "Actual CLI returns exit3 for unavailable alignment; no body weights or CUDA needed.",
+      "Parent reconstruct stops at alignment-gate with an explicit non-training status; preprocessing was simulated only for this test.",
+      "A changed fitted artifact invalidates its recorded coarse-fit identity."
+    ],
+    "scope": "Negative-path training admission only",
+    "successful_alignment_verified": false,
+    "independent_alignment_validation_implemented": false,
+    "training_started": false,
+    "gpu_task": false,
+    "quality_accepted": false
+  },
+  "previous_goal_turn": "progress: training entry corrected and private Git commit 008f028 verified",
+  "this_goal_turn": "progress: implemented point triangulation, held-view projection and evidence-identity checks",
+  "actual_person_correspondences_extracted": false,
+  "camera_parameters_changed": false,
+  "experiment117_reopened": false,
+  "ghosting_resolved": false,
+  "quality_accepted": false,
+  "stable_one_shot_reconstruction_delivered": false,
+  "new_ply": false,
+  "remaining": [
+    "Automatic material tracks with verified source identities and camera-fit usage provenance.",
+    "Independent static-scene camera uncertainty and subject-staticity validation.",
+    "Accepted geometry, fresh Gaussian training and full image/PLY/viewer acceptance."
+  ]
+}

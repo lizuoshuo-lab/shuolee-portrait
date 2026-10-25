@@ -42,6 +42,10 @@ def inspect_alignment(root):
             passed=fit_gate.get('coarse_initialization_gate_passed') is True,
             matches_current_fit=bool(fit_hash and fit_gate.get('fit_sha256') == fit_hash),
             independent_geometry_evidence=False),
+        diagnostic_components=dict(fixed_camera_point_projection=dict(
+            implemented=True, automatic_material_matching=False,
+            physical_validation_complete=False,
+            entry='scripts/evaluate_fixed_tracks.py')),
         required_checks=[
             dict(id='static_scene_camera', state='not_implemented',
                  evidence='Independent static-scene tracks or capture calibration with held validation, coverage and uncertainty.'),

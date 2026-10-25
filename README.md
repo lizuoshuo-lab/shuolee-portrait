@@ -101,6 +101,19 @@ python run.py alignment-status --output /data/runs/person_001
 
 当前返回退出码3表示尚未准入，不能将其当作可忽略的安装告警。检查训练入口是否正确阻断，可运行 `python scripts/check_training_admission.py --output /data/install-check/training-admission.json`；该测试只验证缺少证据时停止，不验证人像已经对齐。
 
+固定相机的三维点诊断模块已实现，可以将预先指定视角用于三角化，其余视角只用于重投影检查。它保留每条轨迹的错配残差、视差不足和负深度，不按误差大小删掉失败点。参与过相机求解的观测会标为非独立；语义关键点和不同观测编号都不能证明是同一处真实纹理。当前尚未接入自动材料轨迹提取和独立的相机／微动验证，因此这个模块不能放行训练。
+
+已有合格的轨迹文件时，工程接口为：
+
+~~~bash
+python scripts/evaluate_fixed_tracks.py \
+  --run /data/runs/person_001 \
+  --tracks /data/observations/person_001_tracks.json \
+  --report /data/diagnostics/person_001_points.json
+~~~
+
+轨迹格式见 [固定点诊断接口](docs/固定点诊断接口.md)。结果文件必须位于原运行目录之外且尚不存在；原视频、相机和拟合均不修改。当前已有的 `observations.npz` 只是检测器语义关键点，不能直接改名为这份材料轨迹文件。`python scripts/check_fixed_tracks.py --output /data/install-check/fixed-tracks.json` 用OpenCV独立投影的已知几何测试数值与退化情况，未测试实拍人物质量。
+
 ## 看进度和结果
 
 ~~~bash
