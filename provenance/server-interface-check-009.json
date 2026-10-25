@@ -1,0 +1,396 @@
+{
+  "updated": "2026-10-25T19:10:00.454410+00:00",
+  "state": "post_crop_fix_fresh_pipeline_to_fit_gate_passed",
+  "source_commit": "e7c8be57bf4df50d87c05a1dbbc6f4cdd4c13744",
+  "source_hashes": {
+    "src/shuolee_portrait/cli.py": "e0a6095dd16529c37c2b3e4870b8e83bfc72b1bac6e5ca26c15bb0a562561167",
+    "src/shuolee_portrait/crops.py": "708e6cac8f98f30170cce4e59fc611bad814b4f7acf60aeaecfdac6338b36af0",
+    "src/shuolee_portrait/export.py": "f1ab832f0b132b5ae99a6c74a5bf67eb943be7b45afdddee88f01ece81f7acb5",
+    "src/shuolee_portrait/fitting.py": "3bd4117483a8d2bc48a3249a6d6e3aebf0ec060ee319a08d94ec34f3cc98c2c6",
+    "src/shuolee_portrait/fit_gate.py": "da64a031052714a0aca201f324f666531aeda965e8b17e859d17ecd73a7d8ddd",
+    "src/shuolee_portrait/observations.py": "04b520b253b03d5ff75adbc41d15e977c985683461260f8eefbc4f3a5bb448a2",
+    "src/shuolee_portrait/prior.py": "6700067c84b857dcbb1726e98858b444c753e6ff1ca9aa0257651d9ed70e5b60",
+    "src/shuolee_portrait/runtime.py": "5f83ece0209bf63a1705a8915f92ea6dc43d89f7e857a5e61c2f3ae951c73cc4",
+    "src/shuolee_portrait/training.py": "3cee3cd701913b38dcc45ebb9c7461ce00aaa2dde7fc55a5a7462b9d5ceee629",
+    "src/shuolee_portrait/video_sfm.py": "da8b89c6b222391a9b9a1733099b11b71c7b63bc0440dffda3b6a76320cdfa6c",
+    "src/shuolee_portrait/__init__.py": "126fab6b55d42d631bd94c9de6a3312957cdf14cb0e0cb5ec2e1c2b1ac38f932",
+    "run.py": "abaeaab8a2213a3d13253e0befc6f22a1b3a1b77973dbc1e0bbf6cdd1e83f061",
+    "configs/smoke.json": "81aa6757f0054f16f134441fe8a50a7e1baf17a0fe95c217072d80b8053cd8dd",
+    "configs/server-assets.json": "321b947530b9dcd2dbec06e060fcbe92c0d096212db4f9e1971b8c4987c0f945",
+    "upstream.lock.json": "0add881025089004da7841c6965a37b57203f2778156afb2984c9ffe425b64df",
+    "requirements.txt": "c749a36387413ff2b0a25c8f08cf72bdf55f98bde9362483c437d4142d5c71ed",
+    "constraints-linux-cu128.txt": "07d0f9f6b814e2a03cdd1bc9344ee2741c34cbf7ea076776886bda28416ea408",
+    "src/avatar_core/avatar_pair_114.py": "0c4894e5d1d6c5e64560f558a01dfca736209de3a0dd420cda9f1cdada2db576",
+    "src/avatar_core/compatible_gaussian_export.py": "3ca0c66d78472a695f217f54fc65fe66c2e93784aa75c7f59aa4b660d78ba139",
+    "src/avatar_core/export_viewer_upright.py": "23ed60007d51be28d2a19422f984acafae75739454a9a23c90e08413fd429262",
+    "src/avatar_core/fit_avatar_pair_static_114.py": "8b4564bf5ec3226039a6738559c5aa79e17b3d1c5ac76a45ab7553f28c95248f",
+    "src/avatar_core/floor_reference_cameras.py": "5321599f99745205641ac234686471047a542b0e14c772a1f87fdda6d0d08609",
+    "src/avatar_core/shuolee_common.py": "5e2c029c9c158c7d9d0f1f913d69b4721852d7023684ffe8a412b0dc4bf0cc1c",
+    "src/avatar_core/shuolee_vposer.py": "63c092dd1eca99a0dfd4b0774104223f12130a01cd3d64a5b439bbb520a3ab99"
+  },
+  "environment": "/opt/gs-slam-lab/shuolee-portrait-clean-001/env",
+  "new_person_test": false,
+  "existing_reference_video": true,
+  "from_scratch": true,
+  "fresh_sfm_registered_frames": 23,
+  "old_camera_or_subject_or_gaussians_loaded": false,
+  "crop_contract_audit": {
+    "updated": "2026-10-25T19:06:30.710246+00:00",
+    "state": "post_crop_fix_fresh_pipeline_numeric_check_passed",
+    "frames": 23,
+    "completed": [
+      "extract",
+      "sfm",
+      "observations",
+      "prior",
+      "fit",
+      "fit-gate"
+    ],
+    "source_unchanged": true,
+    "original_video_sha256_verified": true,
+    "input_images_sha256_verified": true,
+    "all_crop_maps_match_current_images_and_boxes": true,
+    "max_crop_endpoint_error_pixels": 2.089349041511923e-05,
+    "max_inverse_composition_error": 7.105427357601002e-15,
+    "records": [
+      {
+        "frame": "frame_000001",
+        "source_frame_index": 0,
+        "source_sha256": "f3b2053aad2d02c6c3c17f83cc1ce8cf8bae8ed7dcbdcb6f56fe6d2a71c881fd",
+        "identity_error_max": 6.684500733078188e-33,
+        "endpoint_error_crop_pixels_max": 2.089349041511923e-05
+      },
+      {
+        "frame": "frame_000002",
+        "source_frame_index": 8,
+        "source_sha256": "8c5ceec8ac20fed53cdec3e5c2b2e03211779ad86cac0eafd71713d195e9cf9c",
+        "identity_error_max": 5.004553286475326e-34,
+        "endpoint_error_crop_pixels_max": 1.0976335033774376e-05
+      },
+      {
+        "frame": "frame_000003",
+        "source_frame_index": 16,
+        "source_sha256": "442b342b1c39d3a14a40850e19e8a8ec2fbd011e41d8795311bccaea5aab1e0f",
+        "identity_error_max": 7.105427357601002e-15,
+        "endpoint_error_crop_pixels_max": 1.779876413365855e-05
+      },
+      {
+        "frame": "frame_000004",
+        "source_frame_index": 24,
+        "source_sha256": "0b704592426db172d8c77b7760f36b537d7abf133a2adfbbdfb3bdd1f89f57bb",
+        "identity_error_max": 3.552713678800501e-15,
+        "endpoint_error_crop_pixels_max": 1.0094190884046839e-05
+      },
+      {
+        "frame": "frame_000005",
+        "source_frame_index": 32,
+        "source_sha256": "c5b56ecfcad9eefc20a96a56a1ae441a7954a10ff7a392f03aa8e23fe91a9e17",
+        "identity_error_max": 7.105427357601002e-15,
+        "endpoint_error_crop_pixels_max": 7.278540437027914e-06
+      },
+      {
+        "frame": "frame_000006",
+        "source_frame_index": 40,
+        "source_sha256": "e34f90b38b8e682d2219c63487c1a644742607524955c2feaff51fee5bbd5528",
+        "identity_error_max": 7.105427357601002e-15,
+        "endpoint_error_crop_pixels_max": 8.836141034862521e-06
+      },
+      {
+        "frame": "frame_000007",
+        "source_frame_index": 48,
+        "source_sha256": "fd48cc6b619ec6abfee1b457ad48145a0530f139eb54f3bd3e6a827eca1f037d",
+        "identity_error_max": 1.1102230246251565e-16,
+        "endpoint_error_crop_pixels_max": 1.791509549775583e-05
+      },
+      {
+        "frame": "frame_000008",
+        "source_frame_index": 56,
+        "source_sha256": "49177df7ed99e5a148a02ad11aaa4cc6acd87c0e797c172dbda46f0bfb11288e",
+        "identity_error_max": 1.1102230246251565e-16,
+        "endpoint_error_crop_pixels_max": 2.006443438062888e-05
+      },
+      {
+        "frame": "frame_000009",
+        "source_frame_index": 64,
+        "source_sha256": "770532b09d47144f7d73572f66b3c8153067c9a33b674c254e9b51d5f889dca1",
+        "identity_error_max": 7.105427357601002e-15,
+        "endpoint_error_crop_pixels_max": 5.83883470994806e-06
+      },
+      {
+        "frame": "frame_000010",
+        "source_frame_index": 72,
+        "source_sha256": "34d7650ffbd48d6d2b7106a2f780ca3b404e80dc9c575f31c8aa65e4b0a8fedf",
+        "identity_error_max": 7.105427357601002e-15,
+        "endpoint_error_crop_pixels_max": 1.0798653875099262e-05
+      },
+      {
+        "frame": "frame_000011",
+        "source_frame_index": 80,
+        "source_sha256": "12eab4965922863d8367c83cc7b39fb895c32d488b7ecb569f5e8d0f5063eb7a",
+        "identity_error_max": 1.1102230246251565e-16,
+        "endpoint_error_crop_pixels_max": 5.694496053365583e-06
+      },
+      {
+        "frame": "frame_000012",
+        "source_frame_index": 88,
+        "source_sha256": "7e600ee6b3f3f1b04bb438d3e5d456f47176c99e1e2e492b10d33c48866ca4f5",
+        "identity_error_max": 7.105427357601002e-15,
+        "endpoint_error_crop_pixels_max": 1.7296361647822778e-05
+      },
+      {
+        "frame": "frame_000013",
+        "source_frame_index": 96,
+        "source_sha256": "5c5c7ed7b2f014adb1b354df75ba11d1f0623b99f7b38f1550a1ba84da73974f",
+        "identity_error_max": 1.505143115669728e-23,
+        "endpoint_error_crop_pixels_max": 9.271003364119679e-06
+      },
+      {
+        "frame": "frame_000014",
+        "source_frame_index": 104,
+        "source_sha256": "49eda73b9fd365cb49b3a6266558cc52bdf5de59d949c3930fa15afe58656858",
+        "identity_error_max": 1.5614730990558533e-25,
+        "endpoint_error_crop_pixels_max": 7.084735528906094e-06
+      },
+      {
+        "frame": "frame_000015",
+        "source_frame_index": 112,
+        "source_sha256": "ec47c9fecc205ef79f1a3b03e86ce46eddce02d8fb81a74a7598a485c4c2feb1",
+        "identity_error_max": 7.105427357601002e-15,
+        "endpoint_error_crop_pixels_max": 1.0214940886044133e-05
+      },
+      {
+        "frame": "frame_000016",
+        "source_frame_index": 120,
+        "source_sha256": "b20be798476dd49555deb46c3f8e7b075834836d23201cc805aa13744aaac8fe",
+        "identity_error_max": 1.1102230246251565e-16,
+        "endpoint_error_crop_pixels_max": 1.585172162776871e-05
+      },
+      {
+        "frame": "frame_000017",
+        "source_frame_index": 128,
+        "source_sha256": "8fd825fb3a1cfd6d1a32cd2cda8777063bf65f8fecf10af58281ae4d39b908cf",
+        "identity_error_max": 2.819065160934419e-24,
+        "endpoint_error_crop_pixels_max": 1.3768197419494754e-05
+      },
+      {
+        "frame": "frame_000018",
+        "source_frame_index": 136,
+        "source_sha256": "687e4c4495a308e224d36af89cc1ea48e879073e8afe58e8911071e4d78a420e",
+        "identity_error_max": 2.4796167431413697e-24,
+        "endpoint_error_crop_pixels_max": 1.464350114588342e-05
+      },
+      {
+        "frame": "frame_000019",
+        "source_frame_index": 144,
+        "source_sha256": "f92f159fd5b57563db67d95627608a9b2638fa8b33b9921459f6f2d3eb07deb1",
+        "identity_error_max": 3.508975417209927e-24,
+        "endpoint_error_crop_pixels_max": 1.501565796502291e-05
+      },
+      {
+        "frame": "frame_000020",
+        "source_frame_index": 152,
+        "source_sha256": "c3787fb77fe337af08fab441f839ef821d63371e373a8d80cadd0e42b3ae8465",
+        "identity_error_max": 3.457566505761142e-25,
+        "endpoint_error_crop_pixels_max": 1.4363181435328443e-06
+      },
+      {
+        "frame": "frame_000021",
+        "source_frame_index": 160,
+        "source_sha256": "6392ff1404078ef3a3b08961b676430f1d1cbb7693ff7e54d34e53da75e39bb0",
+        "identity_error_max": 9.980520555418694e-25,
+        "endpoint_error_crop_pixels_max": 1.9883321243696628e-05
+      },
+      {
+        "frame": "frame_000022",
+        "source_frame_index": 168,
+        "source_sha256": "5598939bcb23ea37551b97f9bc740dab7d560990fe902dc1d3f91e13bc0b6e15",
+        "identity_error_max": 4.45880968636295e-24,
+        "endpoint_error_crop_pixels_max": 9.05134825757159e-06
+      },
+      {
+        "frame": "frame_000023",
+        "source_frame_index": 176,
+        "source_sha256": "17485918fc41559bd0ba25aae7b6122a921c1e4207015c751450eae4891e828f",
+        "identity_error_max": 6.547553447017957e-25,
+        "endpoint_error_crop_pixels_max": 1.840074384062973e-05
+      }
+    ],
+    "coarse_fit": {
+      "median_body_fraction": 0.008397923337184143,
+      "p90_body_fraction": 0.021149705430875517,
+      "coarse_initialization_gate_passed": true,
+      "quality_accepted": false,
+      "from_scratch": true,
+      "physical_accuracy_proven": false,
+      "thresholds": "Diagnostic limits, not a calibrated quality guarantee",
+      "fit_sha256": "3a853ee248ccd9cdcbcf9e3863d01be1b65946b2c97f5d8a304065a14c9b546e"
+    },
+    "new_person_test": false,
+    "gaussian_training_started": false,
+    "new_ply_created": false,
+    "physical_calibration_accepted": false,
+    "quality_accepted": false,
+    "ghosting_resolved": false,
+    "visual_review_complete": true,
+    "scope": "Fresh pipeline integration only. New SfM may differ, so this is not a single-variable image-quality comparison with008.",
+    "visual_review_sha256": "2d0c110c861afeabff15714226e06215e8884d57d8356a41e4d6987cc8fa53e6"
+  },
+  "body_geometry_gate": {
+    "median_body_fraction": 0.008397923337184143,
+    "p90_body_fraction": 0.021149705430875517,
+    "coarse_initialization_gate_passed": true,
+    "quality_accepted": false,
+    "from_scratch": true,
+    "physical_accuracy_proven": false,
+    "thresholds": "Diagnostic limits, not a calibrated quality guarantee",
+    "fit_sha256": "3a853ee248ccd9cdcbcf9e3863d01be1b65946b2c97f5d8a304065a14c9b546e"
+  },
+  "temporal_prior": {
+    "frames": 23,
+    "from_this_video": true,
+    "previous_person_parameters_loaded": false,
+    "camera_origin": "Current run full-image SfM",
+    "camera_count": 23,
+    "geometry_is_prior_not_ground_truth": true,
+    "median_frame_interval_seconds": 0.3329279999999999,
+    "frame_stride": 8,
+    "temporal_prior_cadence_requires_review": true
+  },
+  "visual_review": {
+    "updated": "2026-10-25T19:10:00.454410+00:00",
+    "actual_images_reviewed": true,
+    "reviewer": "direct inspection of all12 images in current task",
+    "images": [
+      {
+        "file": "frame_000001_input.png",
+        "daily_file": "原帧000000_实拍输入.png",
+        "sha256": "7f78c57f2ff42f7555ecfe2e6bcd94900fbe8c5ae9fd7da1bfb548c1cc538af2",
+        "source_frame_index": 0,
+        "kind": "input",
+        "burned_in_text": false,
+        "aspect_ratio_preserved": true
+      },
+      {
+        "file": "frame_000001_mesh_overlay.png",
+        "daily_file": "原帧000000_人体模板覆盖.png",
+        "sha256": "7bd0cf03134977a8ba89273c1e055ac7bc9b60132014ac5f4338c7c7fbc6a646",
+        "source_frame_index": 0,
+        "kind": "mesh_overlay",
+        "burned_in_text": false,
+        "aspect_ratio_preserved": true
+      },
+      {
+        "file": "frame_000005_input.png",
+        "daily_file": "原帧000032_实拍输入.png",
+        "sha256": "393c1cbc2bb49285bd2f52b4f764bbd00e0b85cf146d0ac47e2696f704307f1b",
+        "source_frame_index": 32,
+        "kind": "input",
+        "burned_in_text": false,
+        "aspect_ratio_preserved": true
+      },
+      {
+        "file": "frame_000005_mesh_overlay.png",
+        "daily_file": "原帧000032_人体模板覆盖.png",
+        "sha256": "096e0a874e3bc175ee7b7e2472f91924061c3afd2480e23e0f41e1a8a6c070b5",
+        "source_frame_index": 32,
+        "kind": "mesh_overlay",
+        "burned_in_text": false,
+        "aspect_ratio_preserved": true
+      },
+      {
+        "file": "frame_000009_input.png",
+        "daily_file": "原帧000064_实拍输入.png",
+        "sha256": "f05380254c647acc2f54b4197f58deb01ad4e4d227f442ef128b862f4deb9620",
+        "source_frame_index": 64,
+        "kind": "input",
+        "burned_in_text": false,
+        "aspect_ratio_preserved": true
+      },
+      {
+        "file": "frame_000009_mesh_overlay.png",
+        "daily_file": "原帧000064_人体模板覆盖.png",
+        "sha256": "581806f255dc6cbc82ffaab4ded1816b6d86ceae965c1fbf3221eabcc702dec3",
+        "source_frame_index": 64,
+        "kind": "mesh_overlay",
+        "burned_in_text": false,
+        "aspect_ratio_preserved": true
+      },
+      {
+        "file": "frame_000014_input.png",
+        "daily_file": "原帧000104_实拍输入.png",
+        "sha256": "43e9ca1d75f1e1de2eb30c23302950cbb7e1badd8fba226b9a0569e453035870",
+        "source_frame_index": 104,
+        "kind": "input",
+        "burned_in_text": false,
+        "aspect_ratio_preserved": true
+      },
+      {
+        "file": "frame_000014_mesh_overlay.png",
+        "daily_file": "原帧000104_人体模板覆盖.png",
+        "sha256": "9a02b2bb9b9a9e43f884c8f3e67419a240ebb4a217a43b0a43bccf773c6bd60d",
+        "source_frame_index": 104,
+        "kind": "mesh_overlay",
+        "burned_in_text": false,
+        "aspect_ratio_preserved": true
+      },
+      {
+        "file": "frame_000018_input.png",
+        "daily_file": "原帧000136_实拍输入.png",
+        "sha256": "52970b7c5e2d8cd31622315f7443a833e8361a3913d71e407081f4965c185cc8",
+        "source_frame_index": 136,
+        "kind": "input",
+        "burned_in_text": false,
+        "aspect_ratio_preserved": true
+      },
+      {
+        "file": "frame_000018_mesh_overlay.png",
+        "daily_file": "原帧000136_人体模板覆盖.png",
+        "sha256": "691c2fdb3c8b3a8b15b40c17a01d807cca79967d85a31e8b749014508b14e84e",
+        "source_frame_index": 136,
+        "kind": "mesh_overlay",
+        "burned_in_text": false,
+        "aspect_ratio_preserved": true
+      },
+      {
+        "file": "frame_000023_input.png",
+        "daily_file": "原帧000176_实拍输入.png",
+        "sha256": "de29654f0cf945f1e3d43af62f37568c776a65ea8d16226ed63f4acfa50fb5b9",
+        "source_frame_index": 176,
+        "kind": "input",
+        "burned_in_text": false,
+        "aspect_ratio_preserved": true
+      },
+      {
+        "file": "frame_000023_mesh_overlay.png",
+        "daily_file": "原帧000176_人体模板覆盖.png",
+        "sha256": "0d3a5370c0c3d52969bb132ab997e0788426a3ad45615b99894562419e5b2d97",
+        "source_frame_index": 176,
+        "kind": "mesh_overlay",
+        "burned_in_text": false,
+        "aspect_ratio_preserved": true
+      }
+    ],
+    "observations": [
+      "Six input/overlay pairs were inspected individually. Gross subject location is broadly aligned in front and side views.",
+      "In side views000018/000023, the template rear head and chest contour extend beyond portions of the observed outline; in000001 the far foot is visibly offset.",
+      "Hands, lower legs and shoe outlines do not coincide exactly in several views. The front view is broadly placed but does not establish millimetric geometry.",
+      "This is an unclothed body template. Hair, glasses, jacket, trousers and shoes are not reconstructed by this overlay; silhouette discrepancies cannot alone identify camera or pose as the cause.",
+      "Moving bystanders remain in the source scene. This run does not prove that every SfM background track is static.",
+      "Fresh SfM and fitting were rerun; this was not a controlled same-camera causal improvement comparison against008."
+    ],
+    "two_dimensional_subject_warp_used": false,
+    "feature_observations_independent_truth": false,
+    "physical_geometry_accepted": false,
+    "quality_accepted": false,
+    "gaussian_training_admitted": false,
+    "new_gaussian_or_ply": false,
+    "novel_view_quality_tested": false
+  },
+  "gaussian_training_started": false,
+  "new_ply_created": false,
+  "quality_accepted": false,
+  "stable_release_accepted": false,
+  "historical_ghosting_root_cause_proven": false,
+  "remote_server_verified": false,
+  "comparison_scope": "Integration regression, not a same-camera single-factor quality improvement experiment."
+}

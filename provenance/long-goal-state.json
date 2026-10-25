@@ -1,14 +1,14 @@
 {
-  "updated": "2026-10-25T18:48:27.849042+00:00",
+  "updated": "2026-10-25T19:10:00.454410+00:00",
   "state": "active",
   "next_actions": [
-    "Await target server details and original capture/calibration evidence;117budget remains closed.",
-    "Independent material/camera/staticity admission and post-correction new-video quality remain required.",
-    "Do not rerun a formal Gaussian experiment on coarse-fit acceptance alone."
+    "Await target server Linux/GPU details and original capture/calibration evidence;117budget remains closed.",
+    "Independent material/camera/staticity admission and full-frame new-person quality remain required.",
+    "Do not rerun formal Gaussian training on coarse-fit acceptance alone."
   ],
   "no_active_training": true,
   "current_model_quality_accepted": false,
-  "current_report": "http://127.0.0.1:8870/body-smplx.html#prior-crop-contract",
+  "current_report": "http://127.0.0.1:8870/body-smplx.html#server-check009",
   "viewer": "D:/00/工作/查看器",
   "weights": "D:/GS-SLAM-Data/shuolee-portrait-runtime-assets",
   "diagnosis117": "bounded_complete_unresolved",
@@ -16,5 +16,6 @@
   "stable_release": false,
   "installation": "private_Git_clone_new_venv_one_shot_passed",
   "active_engineering_check": null,
-  "latest_code_fix": "prior_crop_255_endpoint_contract"
+  "latest_code_fix": "prior_crop_255_endpoint_contract",
+  "latest_interface_check": "009"
 }
