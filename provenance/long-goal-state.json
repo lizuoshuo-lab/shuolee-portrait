@@ -1,11 +1,11 @@
 {
-  "updated": "2026-10-25T20:20:48.882748+00:00",
+  "updated": "2026-10-25T20:37:53.197062+00:00",
   "state": "active",
   "next_actions": [
-    "Attach target-mask/face/background ROI labels to frozen pre-SfM tracks without changing the original split; retain unknown regions and all coverage failures.",
-    "Add bounded scene-support/observability and residual reporting before body fitting; this is unfinished development, not positive training admission.",
-    "117 reference diagnosis stays closed. No captured-video sweep or formal training without new capture evidence.",
-    "Await target-server Linux/GPU details and capture metadata; physical identity, calibration and staticity remain unverified."
+    "Implement bounded scene-support and parameter-sensitivity/degeneracy diagnostics on the frozen observation bank; do not fit a new camera candidate or select points by residual.",
+    "Physical material identity, scene staticity, camera uncertainty and subject motion remain unverified. Current ROI labels and synthetic tests cannot enable training.",
+    "117 stays closed. Do not run another captured-reference sweep or formal Gaussian training without new capture evidence.",
+    "Await target-server Linux/GPU information and original capture/calibration materials; finish actual training/PLY/UI/remote quality before declaring the full goal complete."
   ],
   "no_active_training": true,
   "current_model_quality_accepted": false,
@@ -19,5 +19,5 @@
   "active_engineering_check": null,
   "latest_code_fix": "block_formal_training_until_independent_alignment_validators_exist",
   "latest_interface_check": "009",
-  "latest_engineering_component": "pre_sfm_native_observation_holdout"
+  "latest_engineering_component": "frozen_track_regions_coverage_and_held_predictions"
 }

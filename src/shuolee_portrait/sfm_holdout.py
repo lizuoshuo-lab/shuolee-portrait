@@ -308,6 +308,10 @@ def export_rectified_holdout(root, raw_rec, rectified_rec):
     for row in rows.values():
         if rt.sha(row['image']) != row['source_sha256']:
             raise ValueError('Rectified image changed after camera export.')
+    rt.save(directory / 'coordinate-conversion.json', dict(tracks_exported=len(bank),
+        rejected_tracks=rejected, observations=conversion, residual_filtering=False,
+        coordinate_contract='native raw COLMAP corners -> cam_from_img -> rectified img_from_cam -> subtract 0.5',
+        camera_parameters_estimated_not_ground_truth=True))
     rt.save(root / 'data/sfm-holdout-tracks.json', dict(schema='shuolee-fixed-tracks-v1',
         pixel_domain='undistorted_integer_centers', camera_manifest_sha256=manifest_hash,
         camera_manifest_relative_path='data/sfm-inputs.json', camera_fit_observation_ids=None,
@@ -315,9 +319,6 @@ def export_rectified_holdout(root, raw_rec, rectified_rec):
         camera_solver_provenance=dict(state='native_measurements_excluded_before_geometry',
             audit_relative_path='sfm/holdout/usage-after-mapping.json',
             audit_sha256=rt.sha(directory / 'usage-after-mapping.json'),
+            conversion_sha256=rt.sha(directory / 'coordinate-conversion.json'),
             physical_track_independence_established=False)))
-    rt.save(directory / 'coordinate-conversion.json', dict(tracks_exported=len(bank),
-        rejected_tracks=rejected, observations=conversion, residual_filtering=False,
-        coordinate_contract='native raw COLMAP corners -> cam_from_img -> rectified img_from_cam -> subtract 0.5',
-        camera_parameters_estimated_not_ground_truth=True))
     return len(bank)

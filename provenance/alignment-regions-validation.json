@@ -1,0 +1,125 @@
+{
+  "updated": "2026-10-25T20:37:53.197062+00:00",
+  "state": "frozen_observation_region_diagnostics_implemented",
+  "source_hashes": {
+    "src/shuolee_portrait/alignment_diagnostics.py": "b63c41173ef410281578a6c55cef2571b05e479f25546da92343a35655063b98",
+    "src/shuolee_portrait/sfm_holdout.py": "79b6d55e6b036df5503befd86f1f53c2ff5cf62c2138a7d704539e2246da03c6",
+    "src/shuolee_portrait/cli.py": "05e28a33098d1e297aba784f7e601c21bc4c198ca510131b3d917aa5bb8287b1",
+    "src/shuolee_portrait/admission.py": "de4f370b61f63019ae19ac89105c74adaddfc09764112f8cf9539575b6554d97",
+    "scripts/check_alignment_diagnostics.py": "ada13e3c527ddacdbc5ffaf3eda36dbde53cb01e708381b9cb3860a38cd517bf",
+    "scripts/diagnose_alignment.py": "1a8d8d0fa51b8afe1dcf16d7c8ca6accd2663947ba50d50ba65cd5708226a511"
+  },
+  "engineering_check": {
+    "passed": true,
+    "groups": 10,
+    "cases": {
+      "region_labels_and_full_membership": {
+        "expected_tracks": {
+          "face": 2,
+          "body": 2,
+          "static_scene_candidate": 2,
+          "unknown": 3
+        },
+        "original_membership_pixels_fit_views_unchanged": true,
+        "unknown_tracks_retained": 3
+      },
+      "missing_face_region_is_unknown_not_zero_error": {
+        "disagreement_tracks": 4,
+        "face_error": {
+          "count": 0,
+          "median": null,
+          "p90": null,
+          "maximum": null
+        }
+      },
+      "known_foreground_motion_preserved_per_frame": {
+        "face_px": 3.999999999999986,
+        "body_px": 3.999999999999986,
+        "background_px": 5.440522165750665e-14,
+        "actual_motion_in_fixture_only": true,
+        "real_subject_staticity_verified": false
+      },
+      "unobservable_points_retained": {
+        "total": 9,
+        "measured": 0,
+        "null_not_zero": true
+      },
+      "camera_order_roi_and_mask_contracts": [
+        "Full-image camera changed during person observation: frame_000000",
+        "Observed-frame order differs from the frozen SfM camera set.",
+        "Invalid pixel-domain ROI box.",
+        "Expected the exact full-image binary SAM mask, not resized/soft data."
+      ],
+      "actual_png_reviews_keep_original_pixels_and_crop": {
+        "pairs": 10,
+        "text_burned_in": false,
+        "image_warped": false,
+        "unobservable_predictions_not_drawn_as_measurements": true
+      },
+      "actual_native_sfm_to_region_cli_readonly": {
+        "measured_tracks": 71,
+        "by_region": {
+          "face": 11,
+          "body": 38,
+          "static_scene_candidate": 0,
+          "unknown": 22
+        },
+        "source_run_unchanged": true,
+        "training_admitted": false
+      },
+      "missing_reserved_track_and_overwrite_rejected": true,
+      "actual_stage_stops_before_fitting_without_observable_support": {
+        "exit_code": 3,
+        "source_tracks_retained": 71,
+        "diagnostic_limit_deliberately_degenerate_for_test": true
+      },
+      "parent_status_records_actual_diagnostic_failure": {
+        "previous_stages_simulated": true,
+        "diagnostic_stage_actually_executed": true,
+        "stopped_before_prior": true
+      }
+    },
+    "synthetic_only": true,
+    "real_person_tested": false,
+    "physical_camera_validated": false,
+    "ghosting_resolved": false,
+    "training_started": false,
+    "old_diagnosis_reopened": false
+  },
+  "training_admission_regression": {
+    "passed": true,
+    "cases": [
+      "Coarse fit pass does not admit training; inspection is read-only.",
+      "A hand-written or stale pass report cannot bypass the boundary.",
+      "Stage and direct training entries reject before GPU imports, assets or Gaussian allocation.",
+      "Actual CLI returns exit3 for unavailable alignment; no body weights or CUDA needed.",
+      "Parent reconstruct stops at alignment-gate with an explicit non-training status; preprocessing was simulated only for this test.",
+      "A changed fitted artifact invalidates its recorded coarse-fit identity."
+    ],
+    "scope": "Negative-path training admission only",
+    "successful_alignment_verified": false,
+    "independent_alignment_validation_implemented": false,
+    "training_started": false,
+    "gpu_task": false,
+    "quality_accepted": false
+  },
+  "source_camera_pixels_track_membership_changed": false,
+  "real_video_reexecuted": false,
+  "diagnosis117_reopened": false,
+  "new_gaussian_training": false,
+  "new_ply": false,
+  "root_cause_resolved": false,
+  "quality_accepted": false,
+  "stable_release_delivered": false,
+  "completed_this_turn": [
+    "Frozen raw-source tracks receive per-observation ROI labels without changing membership.",
+    "Per-frame regional coverage and held predictions preserve unknown/unobservable/high-error cases.",
+    "Actual native SfM output reaches the standalone CLI; stage and parent stop before fitting when no point is observable.",
+    "Original and marked images use identical native crops, with no text in PNG pixels."
+  ],
+  "next_actions": [
+    "Measure scene support and geometric degeneracy/parameter sensitivity without camera optimization or residual-based point selection.",
+    "Physical identity, camera uncertainty and subject staticity still require suitable captured evidence.",
+    "Formal fresh Gaussian training, novel-view/PLY/UI quality and target-server execution remain unfinished."
+  ]
+}

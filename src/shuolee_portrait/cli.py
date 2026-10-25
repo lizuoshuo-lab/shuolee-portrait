@@ -11,7 +11,7 @@ import traceback
 from . import runtime as rt
 from .admission import AlignmentNotAdmitted, inspect_alignment, require_alignment
 
-STAGES=('extract','sfm','observations','material-tracks','prior','fit','fit-gate','alignment-gate','train','export')
+STAGES=('extract','sfm','observations','material-tracks','alignment-diagnostics','prior','fit','fit-gate','alignment-gate','train','export')
 
 
 def validate_config(cfg):
@@ -24,6 +24,8 @@ def validate_config(cfg):
     if cfg.get('quality_accepted') is not False:raise ValueError('Quality cannot be pre-approved in an input config.')
     from .sfm_holdout import validate_settings
     validate_settings(cfg.get('sfm_holdout'))
+    from .alignment_diagnostics import validate_settings as diagnostic_settings
+    diagnostic_settings(cfg.get('alignment_diagnostics'))
 
 
 @contextmanager
@@ -59,6 +61,13 @@ def doctor(assets):
 
 
 def stage(name,root,assets):
+    if name=='alignment-diagnostics':
+        from .alignment_diagnostics import diagnose
+        cfg=rt.read(root/'config.json')
+        report=diagnose(root,root/'data/alignment-diagnostics',cfg.get('alignment_diagnostics'))
+        if not report['measured_tracks']:
+            raise AlignmentNotAdmitted('No observable pre-SfM reserved tracks. See data/alignment-diagnostics/summary.json. No body fitting or Gaussian training was started by this stage.')
+        return
     if name=='material-tracks':
         from .material_tracks import extract_material_tracks
         cfg=rt.read(root/'config.json')
@@ -143,8 +152,9 @@ def main():
                 completed.append(name)
                 if name==args.stop_after:break
         except Exception as exc:
-            not_admitted=name in ('material-tracks','alignment-gate','train') and isinstance(exc,subprocess.CalledProcessError) and exc.returncode==3
-            rejection_report='data/material-tracks/summary.json' if name=='material-tracks' else 'alignment/training-readiness.json'
+            not_admitted=name in ('material-tracks','alignment-diagnostics','alignment-gate','train') and isinstance(exc,subprocess.CalledProcessError) and exc.returncode==3
+            rejection_report={'material-tracks':'data/material-tracks/summary.json',
+                'alignment-diagnostics':'data/alignment-diagnostics/summary.json'}.get(name,'alignment/training-readiness.json')
             rt.save(root/'status.json',dict(state='alignment_not_admitted' if not_admitted else 'failed',stage=name,completed=completed,updated=rt.now(),quality_accepted=False,error=traceback.format_exc(),
                 training_started=False if not_admitted else None,
                 alignment_report=rejection_report if not_admitted else None))
