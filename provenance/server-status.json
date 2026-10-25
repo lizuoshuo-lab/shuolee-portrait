@@ -22,7 +22,7 @@
   "ghosting_resolved": false,
   "quality_accepted": false,
   "wps_weights": "removed; runtime assets are outside D:/00",
-  "updated": "2026-10-25T20:52:43.834324+00:00",
+  "updated": "2026-10-25T21:10:49.711191+00:00",
   "local_isolated_environment_verified": true,
   "local_isolated_cuda_kernels_verified": true,
   "local_isolated_raw_video_run_verified": true,
@@ -45,5 +45,8 @@
   "frozen_observation_region_diagnostics_implemented": true,
   "region_diagnostics_validation_scope": "synthetic fixtures and actual native-SfM-to-CLI integration",
   "scene_local_observability_implemented": true,
-  "scene_local_observability_validation": "synthetic known geometry, independent OpenCV derivatives and native-flow integration"
+  "scene_local_observability_validation": "synthetic known geometry, independent OpenCV derivatives and native-flow integration",
+  "source_track_review_handoff_implemented": true,
+  "source_track_review_ui_verified": true,
+  "source_track_review_scope": "Synthetic pixels and browser controls; no real-person material identity acceptance."
 }

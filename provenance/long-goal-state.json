@@ -1,11 +1,12 @@
 {
-  "updated": "2026-10-25T20:52:43.834324+00:00",
+  "updated": "2026-10-25T21:10:49.711191+00:00",
   "state": "active",
   "next_actions": [
-    "Prepare a bounded source-track review handoff showing all frozen candidate observations and source patches, to expose same-material/static-scene ambiguity; do not fit new cameras or rerun matchers.",
-    "Physical scene/material identity, noise-based camera uncertainty and subject staticity remain unverified; numeric full rank cannot admit formal training.",
-    "117 remains closed. Do not repeat captured-reference sweeps, download weights or train until new capture evidence supports a registered correction.",
-    "Await target-server Linux/GPU information and original capture/calibration materials. The full fresh-training, PLY, UI and remote-quality objective is not complete."
+    "Check only new user-provided capture/calibration material or a newly identified static input video; a focused input question is pending. Do not repeatedly scan for absent files.",
+    "117 remains closed. Without new evidence, do not repeat its camera/correspondence sweeps or formal Gaussian training.",
+    "Source-track review handoff is now complete. Do not keep adding generic guard scaffolding in place of actual alignment and reconstruction.",
+    "Await target Linux/GPU details for genuine remote execution. Local WSL/GUI checks cannot certify the remote stable release.",
+    "If no new evidence allows meaningful authorized work, apply the consecutive blocked-turn audit; do not call this full goal complete."
   ],
   "no_active_training": true,
   "current_model_quality_accepted": false,
@@ -19,7 +20,8 @@
   "active_engineering_check": null,
   "latest_code_fix": "block_formal_training_until_independent_alignment_validators_exist",
   "latest_interface_check": "009",
-  "latest_engineering_component": "scene_support_conditional_and_joint_camera_point_observability",
-  "previous_goal_turn_classification": "progress: frozen-region diagnostics committed as 86f57ef",
-  "current_goal_turn_classification": "progress: analytical conditional and joint scene observability implemented and verified"
+  "latest_engineering_component": "all_frozen_observation_source_review_handoff",
+  "previous_goal_turn_classification": "progress: scene observability implemented and pushed as 7d0adc1",
+  "current_goal_turn_classification": "progress: complete source-track review handoff and actual browser controls verified",
+  "requires_external_evidence_for_next_physical_validation": true
 }

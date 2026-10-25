@@ -1,0 +1,216 @@
+{
+  "updated": "2026-10-25T21:10:49.711191+00:00",
+  "state": "all_observation_source_review_handoff_implemented",
+  "source_hashes": {
+    "src/shuolee_portrait/material_review.py": "50c3e9fe0089d8cb73ecf28a124e3e0932f350957c983a44d93008501a4a5de0",
+    "src/shuolee_portrait/alignment_diagnostics.py": "938dc6e2cdd0ce743c612042c7bbe0035b5aa9d6cef5596cbf332be110155640",
+    "scripts/check_material_review.py": "e8932b251ad1ff365ead269ccb4d5b197e8e5bca5348ac8438865092a6724fdb",
+    "scripts/check_alignment_diagnostics.py": "7c3ada0ee205b7d22136ae8a21e85da13270318703ab32aa329183bac8c6a133",
+    "src/shuolee_portrait/material_review_assets/index.html": "069f0649ca28a20457faf0d9b9110521b22e5a7fba605414789cbbac927788dd",
+    "src/shuolee_portrait/material_review_assets/review.css": "c17712cef6f782a336f23f91ee5a7463a97d01bfef4d4a2eadf05900378ec12c",
+    "src/shuolee_portrait/material_review_assets/review.js": "b6f1cfad002d59a760eead529c636199114264ad7a9d8ee3bfe0335dc7bcfbff"
+  },
+  "source_integrity_checks": {
+    "passed": true,
+    "groups": 6,
+    "cases": {
+      "all_source_members_preserved": {
+        "tracks": 4,
+        "observations": 20,
+        "images": 5,
+        "unknown_retained": true,
+        "no_false_review": true
+      },
+      "native_pixels_and_subpixel_location": {
+        "all_copy_hashes_match": true,
+        "all_crop_pixels_identical": true,
+        "edge_crop": [
+          0,
+          311,
+          48,
+          360
+        ],
+        "no_warp_or_burned_text": true
+      },
+      "deterministic_source_order_without_metric_sort": true,
+      "invalid_source_and_overwrite_rejected": [
+        "Every observation must be inside its unchanged source image.",
+        "Duplicate track frame or mismatched source-image identity.",
+        "Observation IDs must remain unique across all tracks.",
+        "A material track must retain its distinct fit and held views.",
+        "Material-review output must be fresh.",
+        "Source image changed: frame_000"
+      ],
+      "budget_does_not_silently_select_subset": "Portable image budget exceeded; no frame/track subset fallback.",
+      "empty_bank_and_text_identifiers": {
+        "empty_is_not_acceptance": true,
+        "source_strings_not_html": true
+      }
+    },
+    "synthetic_only": true,
+    "real_person_material_identity_verified": false,
+    "training_started": false,
+    "old_diagnosis_reopened": false
+  },
+  "native_flow_regression": {
+    "passed": true,
+    "groups": 10,
+    "cases": {
+      "region_labels_and_full_membership": {
+        "expected_tracks": {
+          "face": 2,
+          "body": 2,
+          "static_scene_candidate": 2,
+          "unknown": 3
+        },
+        "original_membership_pixels_fit_views_unchanged": true,
+        "unknown_tracks_retained": 3
+      },
+      "missing_face_region_is_unknown_not_zero_error": {
+        "disagreement_tracks": 4,
+        "face_error": {
+          "count": 0,
+          "median": null,
+          "p90": null,
+          "maximum": null
+        }
+      },
+      "known_foreground_motion_preserved_per_frame": {
+        "face_px": 3.999999999999986,
+        "body_px": 3.999999999999986,
+        "background_px": 5.440522165750665e-14,
+        "actual_motion_in_fixture_only": true,
+        "real_subject_staticity_verified": false
+      },
+      "unobservable_points_retained": {
+        "total": 9,
+        "measured": 0,
+        "null_not_zero": true
+      },
+      "camera_order_roi_and_mask_contracts": [
+        "Full-image camera changed during person observation: frame_000000",
+        "Observed-frame order differs from the frozen SfM camera set.",
+        "Invalid pixel-domain ROI box.",
+        "Expected the exact full-image binary SAM mask, not resized/soft data."
+      ],
+      "actual_png_reviews_keep_original_pixels_and_crop": {
+        "pairs": 10,
+        "text_burned_in": false,
+        "image_warped": false,
+        "unobservable_predictions_not_drawn_as_measurements": true
+      },
+      "actual_native_sfm_to_region_cli_readonly": {
+        "measured_tracks": 71,
+        "by_region": {
+          "face": 11,
+          "body": 38,
+          "static_scene_candidate": 0,
+          "unknown": 22
+        },
+        "source_run_unchanged": true,
+        "training_admitted": false,
+        "scene_support_state": "no_observable_scene_candidates",
+        "portable_material_tracks": 71,
+        "portable_material_observations": 355
+      },
+      "missing_reserved_track_and_overwrite_rejected": true,
+      "actual_stage_stops_before_fitting_without_observable_support": {
+        "exit_code": 3,
+        "source_tracks_retained": 71,
+        "diagnostic_limit_deliberately_degenerate_for_test": true
+      },
+      "parent_status_records_actual_diagnostic_failure": {
+        "previous_stages_simulated": true,
+        "diagnostic_stage_actually_executed": true,
+        "stopped_before_prior": true
+      }
+    },
+    "synthetic_only": true,
+    "real_person_tested": false,
+    "physical_camera_validated": false,
+    "ghosting_resolved": false,
+    "training_started": false,
+    "old_diagnosis_reopened": false
+  },
+  "browser_ui": {
+    "unknownAt1x": {
+      "cards": 5,
+      "cropWidth": 96,
+      "images": [
+        {
+          "complete": true,
+          "naturalHeight": 360,
+          "naturalWidth": 480
+        },
+        {
+          "complete": true,
+          "naturalHeight": 360,
+          "naturalWidth": 480
+        },
+        {
+          "complete": true,
+          "naturalHeight": 360,
+          "naturalWidth": 480
+        },
+        {
+          "complete": true,
+          "naturalHeight": 360,
+          "naturalWidth": 480
+        },
+        {
+          "complete": true,
+          "naturalHeight": 360,
+          "naturalWidth": 480
+        }
+      ],
+      "pointLeft": "48.6px",
+      "track": "material_003"
+    },
+    "fullContext": {
+      "cropX": "0",
+      "cropY": "311",
+      "cx": "0.6",
+      "cy": "359.5",
+      "original": "images/source_000002.png",
+      "selected": "p3-f2"
+    },
+    "unknownAt3x": {
+      "cards": 5,
+      "cropWidth": 288,
+      "pointLeft": "145.8px"
+    },
+    "hiddenMarkers": {
+      "context": "none",
+      "point": "none"
+    },
+    "next": "material_001",
+    "previous": "material_000",
+    "accessibleRegionControl": true,
+    "passed": true,
+    "syntheticOnly": true,
+    "realPersonVerified": false,
+    "sourceDataModified": false,
+    "checkedUrl": "http://127.0.0.1:8870/training-admission/material-review-demo/index.html"
+  },
+  "real_video_reexecuted": false,
+  "diagnosis117_reopened": false,
+  "new_training": false,
+  "new_ply": false,
+  "source_pixels_or_cameras_modified": false,
+  "root_cause_resolved": false,
+  "quality_accepted": false,
+  "stable_release_delivered": false,
+  "completed": [
+    "Every frozen material track and observation is exposed with original-frame context.",
+    "Original image byte copies and native-coordinate crop windows verified; no burned text or warping.",
+    "Actual browser region/track selection, 1x/3x scale, border-point context and marker visibility checked.",
+    "Read-only native SfM integration retained 71 tracks and 355 observations.",
+    "Remote SSH-loopback viewing instructions added; no remote-server verification claimed."
+  ],
+  "remaining": [
+    "Current captured-video physical calibration and material/staticity evidence remain insufficient.",
+    "New capture/calibration evidence or a suitable separate static video is needed for further physical validation.",
+    "Target Linux/GPU details and actual remote execution remain pending.",
+    "No full fresh Gaussian training, novel-view/PLY/UI quality or stable release has been accepted."
+  ]
+}

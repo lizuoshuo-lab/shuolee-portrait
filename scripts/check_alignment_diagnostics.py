@@ -163,10 +163,15 @@ def run(evidence_dir):
         assert support['state']=='no_observable_scene_candidates'
         assert len(support['frames_without_scene_observations'])==len(training['records'])
         assert not support['physical_calibration_verified'] and not support['training_admitted']
+        material=rt.read(external/'material-review/manifest.json')
+        assert material['total_tracks']==71 and material['total_observations']==355
+        assert not material['physical_material_identity_verified']
+        assert (external/'material-review/index.html').is_file()
         cases['actual_native_sfm_to_region_cli_readonly']=dict(
             measured_tracks=report['measured_tracks'],by_region={k:v['tracks'] for k,v in report['regions'].items()},
             source_run_unchanged=True,training_admitted=report['training_admitted'],
-            scene_support_state=support['state'])
+            scene_support_state=support['state'],portable_material_tracks=material['total_tracks'],
+            portable_material_observations=material['total_observations'])
 
         original=(native/'data/sfm-holdout-tracks.json').read_bytes()
         changed=json.loads(original);changed['tracks'].pop();rt.save(native/'data/sfm-holdout-tracks.json',changed)

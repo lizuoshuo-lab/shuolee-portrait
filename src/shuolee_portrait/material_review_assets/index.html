@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>跨视角材料点 · 原图审阅</title><link rel="stylesheet" href="review.css"></head>
+<body>
+<header><p class="eyebrow">SHUOLEE · SOURCE OBSERVATIONS</p><h1>跨视角材料点原图审阅</h1>
+<p>核对每个落点是否属于同一处纹理、衣物缝线或固定物体。观察遮挡、反光、重复纹理与区域变化；同一个检测编号或匹配闭环不能自动证明材料身份。</p>
+<p class="notice"><strong>局部窗口随观测位置移动，仅用于看清材料。</strong>居中的局部图不表示相机或三维几何已经对齐。所有原图保持原始像素与比例，图片内不写文字。</p>
+<p id="scope"></p><p id="review-id" class="muted"></p></header>
+<main>
+<nav aria-label="轨迹筛选">
+<label>区域 <select id="region" aria-label="区域"><option value="all">全部区域</option></select></label>
+<label class="track-field">轨迹 <select id="track" aria-label="轨迹"></select></label>
+<button id="previous" type="button">上一条</button><button id="next" type="button">下一条</button>
+<label>相同显示倍率 <select id="zoom" aria-label="相同显示倍率"><option value="1">1× 原像素</option><option value="2" selected>2× 等比例</option><option value="3">3× 等比例</option></select></label>
+<label><input type="checkbox" id="markers" checked>显示观测标记</label>
+</nav>
+<section aria-labelledby="track-title"><h2 id="track-title"></h2><p id="track-info"></p>
+<p id="filter-count" class="muted"></p><div id="observations" class="cards"></div></section>
+<section id="context-section" aria-labelledby="context-title"><h2 id="context-title">完整原图中的位置</h2>
+<p id="context-info"></p><div id="context" class="context">
+<img id="context-image" alt="选中观测所在的完整原图"><svg id="context-marker" aria-label="原图落点与局部窗口" preserveAspectRatio="xMidYMid meet"><rect id="context-crop"></rect><circle id="context-point"></circle></svg>
+</div><p><a id="original-link" target="_blank" rel="noopener">打开未标记原图</a> · <a href="manifest.json" download>下载全部观测与裁剪坐标</a></p></section>
+<footer>这里只展示冻结的原图观测，不执行匹配或优化。页面打开次数不计为人工核验；所有轨迹初始均为未审阅，不会因此放行训练。<span id="empty-frames"></span></footer>
+</main><script src="data.js"></script><script src="review.js"></script></body></html>
