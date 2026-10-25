@@ -1,12 +1,11 @@
 {
-  "updated": "2026-10-25T21:10:49.711191+00:00",
-  "state": "active",
+  "updated": "2026-10-25T21:17:49.3433877Z",
+  "state": "blocked",
   "next_actions": [
-    "Check only new user-provided capture/calibration material or a newly identified static input video; a focused input question is pending. Do not repeatedly scan for absent files.",
-    "117 remains closed. Without new evidence, do not repeat its camera/correspondence sweeps or formal Gaussian training.",
-    "Source-track review handoff is now complete. Do not keep adding generic guard scaffolding in place of actual alignment and reconstruction.",
-    "Await target Linux/GPU details for genuine remote execution. Local WSL/GUI checks cannot certify the remote stable release.",
-    "If no new evidence allows meaningful authorized work, apply the consecutive blocked-turn audit; do not call this full goal complete."
+    "Resume when original capture/calibration information or a suitable separate static video is provided; also obtain target Linux/NVIDIA server details.",
+    "Before training, implement and validate independent alignment admission using sufficient evidence. New input alone is not acceptance.",
+    "117 remains closed unresolved. Do not repeat exhausted diagnostics, add generic guard scaffolding or start formal Gaussian training without new evidence.",
+    "Full reconstruction, 200k/18000-step quality, PLY and remote execution acceptance remain incomplete."
   ],
   "no_active_training": true,
   "current_model_quality_accepted": false,
@@ -21,7 +20,7 @@
   "latest_code_fix": "block_formal_training_until_independent_alignment_validators_exist",
   "latest_interface_check": "009",
   "latest_engineering_component": "all_frozen_observation_source_review_handoff",
-  "previous_goal_turn_classification": "progress: scene observability implemented and pushed as 7d0adc1",
-  "current_goal_turn_classification": "progress: complete source-track review handoff and actual browser controls verified",
+  "previous_goal_turn_classification": "no_progress: same external evidence blocker",
+  "current_goal_turn_classification": "third consecutive no_progress audit; goal tool confirmed blocked",
   "requires_external_evidence_for_next_physical_validation": true
 }
