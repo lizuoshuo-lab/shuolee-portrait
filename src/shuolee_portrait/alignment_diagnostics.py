@@ -14,6 +14,7 @@ from PIL import Image, ImageDraw
 
 from . import runtime as rt
 from .fixed_tracks import evaluate_fixed_tracks, cameras_from_records, _summary
+from .scene_support import analyze_scene_support, specification as scene_specification
 
 REGIONS = ('face', 'body', 'static_scene_candidate', 'unknown')
 REGION_LABELS = dict(face='面部ROI', body='非脸部前景（含衣物与手部）',
@@ -277,13 +278,24 @@ def diagnose(root, output, settings=None):
     output.mkdir(parents=True)
     rt.save(output/'plan.json',dict(settings=settings,source_hashes=hashes,
         implementation_sha256=rt.sha(Path(__file__)),regions=REGION_LABELS,
+        scene_support_implementation_sha256=rt.sha(Path(__file__).with_name('scene_support.py')),
+        scene_support_specification=scene_specification(),
         masks=[dict(frame=r['frame'],mask_sha256=r['mask_sha256']) for r in rows],
         region_labels_do_not_change_membership=True,thresholds_are_not_quality_acceptance=True))
     annotated=annotate_tracks(rows,bank,settings);summary,measurement=measure_regions(rows,annotated,settings)
+    support=analyze_scene_support(rows,annotated,measurement)
+    rt.save(output/'scene-support.json',support)
+    summary['scene_support']=dict(state=support['state'], report='scene-support.json',
+        scene_candidate_tracks=support['scene_candidate_tracks'],
+        frames_without_scene_observations=support['frames_without_scene_observations'],
+        physical_calibration_verified=False, no_camera_optimization=True)
     summary.update(coordinate_rejected_tracks=coordinate_rejections,
                    source_split_tracks=summary['total_tracks']+coordinate_rejections,
                    source_hashes=hashes,source_inputs_modified=False)
     count=write_reviews(output/'reviews',rows,annotated,measurement,settings)
+    page=output/'reviews/index.html'
+    page.write_text(page.read_text(encoding='utf-8')+'<p><a href="../scene-support.json">场景覆盖与局部相机可辨识性</a>：'
+        '固定外参的内参敏感度，与允许外参和三维点同时变化的敏感度分别记录。背景候选没有被确认为静止，数值满秩不代表物理标定通过。</p>',encoding='utf-8')
     summary['review_pairs']=count
     for relative, expected in hashes.items():
         if rt.sha(root/relative)!=expected:raise ValueError('Frozen diagnostic source changed during evaluation.')

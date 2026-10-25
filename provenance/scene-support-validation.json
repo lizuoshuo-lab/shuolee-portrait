@@ -1,0 +1,198 @@
+{
+  "updated": "2026-10-25T20:52:43.834324+00:00",
+  "state": "scene_support_and_local_parameter_ambiguity_implemented",
+  "source_hashes": {
+    "src/shuolee_portrait/scene_support.py": "2c122efb926b6d8b2dc8c40f43118f05e1b8c3401295dc3dc7d5fd50a3f182ec",
+    "src/shuolee_portrait/alignment_diagnostics.py": "0ae2f8a2f49278ad0036f864722f0869e247341374785b5f2330e420373b20af",
+    "src/shuolee_portrait/admission.py": "c0fe9410a778c26f8286e1745059599ba13e451194da73884d098151013d5858",
+    "scripts/check_scene_support.py": "1c5da2a85e087eabfbf32d458a1970398c1617312872fa8264d8a2dd32d2ae83",
+    "scripts/check_alignment_diagnostics.py": "b023b0d94f4b73ddba11d5c57e25b83ae831ae2076a4219fbfe3b1173163cdf9"
+  },
+  "geometry_checks": {
+    "passed": true,
+    "groups": 9,
+    "cases": {
+      "opencv_central_difference": {
+        "parameters": 13,
+        "max_absolute_derivative_error": 8.394467021499707e-08
+      },
+      "noncritical_known_geometry": {
+        "conditional_K_rank": 4,
+        "joint_K_rank": 4,
+        "joint_parameter_count": 39,
+        "joint_nullity": 0,
+        "scene_points": 32,
+        "physical_camera_verified": false
+      },
+      "fixed_extrinsics_can_hide_joint_ambiguity": {
+        "scene_points": 3,
+        "covered_frames": 7,
+        "conditional_K_rank": 4,
+        "joint_K_rank": 0,
+        "joint_nullity": 6
+      },
+      "zero_residual_still_degenerate": {
+        "parallel_conditional_rank": 0,
+        "parallel_joint_rank": 0,
+        "line_pose_ranks": [
+          5,
+          5,
+          5,
+          5,
+          5,
+          5,
+          5
+        ],
+        "rank_deficiency_reported_without_false_zero_uncertainty": true
+      },
+      "similarity_gauge_and_scale_invariance": {
+        "scale": 3.7,
+        "rotation_and_translation": true,
+        "joint_spectrum_unchanged": true,
+        "anchor_radial_translation_removed": true
+      },
+      "missing_camera_support_preserved": {
+        "missing_frames": [
+          "empty_camera"
+        ],
+        "nullity": 6
+      },
+      "large_residual_not_pruned": {
+        "retained_tracks": 32,
+        "known_mismatch_px": 9.0,
+        "cause_not_assigned": true
+      },
+      "shared_K_contract_and_budget": {
+        "different_K_not_averaged": true,
+        "no_subset_fallback": true
+      },
+      "absent_scene_and_zero_baseline_are_unknown": {
+        "no_empty_pass": true,
+        "null_depths": true,
+        "finite_json": true
+      }
+    },
+    "synthetic_only": true,
+    "real_video_reexecuted": false,
+    "physical_calibration_verified": false,
+    "training_started": false,
+    "source_measurements_modified": false,
+    "reference_diagnosis_reopened": false
+  },
+  "native_flow_regression": {
+    "passed": true,
+    "groups": 10,
+    "cases": {
+      "region_labels_and_full_membership": {
+        "expected_tracks": {
+          "face": 2,
+          "body": 2,
+          "static_scene_candidate": 2,
+          "unknown": 3
+        },
+        "original_membership_pixels_fit_views_unchanged": true,
+        "unknown_tracks_retained": 3
+      },
+      "missing_face_region_is_unknown_not_zero_error": {
+        "disagreement_tracks": 4,
+        "face_error": {
+          "count": 0,
+          "median": null,
+          "p90": null,
+          "maximum": null
+        }
+      },
+      "known_foreground_motion_preserved_per_frame": {
+        "face_px": 3.999999999999986,
+        "body_px": 3.999999999999986,
+        "background_px": 5.440522165750665e-14,
+        "actual_motion_in_fixture_only": true,
+        "real_subject_staticity_verified": false
+      },
+      "unobservable_points_retained": {
+        "total": 9,
+        "measured": 0,
+        "null_not_zero": true
+      },
+      "camera_order_roi_and_mask_contracts": [
+        "Full-image camera changed during person observation: frame_000000",
+        "Observed-frame order differs from the frozen SfM camera set.",
+        "Invalid pixel-domain ROI box.",
+        "Expected the exact full-image binary SAM mask, not resized/soft data."
+      ],
+      "actual_png_reviews_keep_original_pixels_and_crop": {
+        "pairs": 10,
+        "text_burned_in": false,
+        "image_warped": false,
+        "unobservable_predictions_not_drawn_as_measurements": true
+      },
+      "actual_native_sfm_to_region_cli_readonly": {
+        "measured_tracks": 71,
+        "by_region": {
+          "face": 11,
+          "body": 38,
+          "static_scene_candidate": 0,
+          "unknown": 22
+        },
+        "source_run_unchanged": true,
+        "training_admitted": false,
+        "scene_support_state": "no_observable_scene_candidates"
+      },
+      "missing_reserved_track_and_overwrite_rejected": true,
+      "actual_stage_stops_before_fitting_without_observable_support": {
+        "exit_code": 3,
+        "source_tracks_retained": 71,
+        "diagnostic_limit_deliberately_degenerate_for_test": true
+      },
+      "parent_status_records_actual_diagnostic_failure": {
+        "previous_stages_simulated": true,
+        "diagnostic_stage_actually_executed": true,
+        "stopped_before_prior": true
+      }
+    },
+    "synthetic_only": true,
+    "real_person_tested": false,
+    "physical_camera_validated": false,
+    "ghosting_resolved": false,
+    "training_started": false,
+    "old_diagnosis_reopened": false
+  },
+  "training_admission_regression": {
+    "passed": true,
+    "cases": [
+      "Coarse fit pass does not admit training; inspection is read-only.",
+      "A hand-written or stale pass report cannot bypass the boundary.",
+      "Stage and direct training entries reject before GPU imports, assets or Gaussian allocation.",
+      "Actual CLI returns exit3 for unavailable alignment; no body weights or CUDA needed.",
+      "Parent reconstruct stops at alignment-gate with an explicit non-training status; preprocessing was simulated only for this test.",
+      "A changed fitted artifact invalidates its recorded coarse-fit identity."
+    ],
+    "scope": "Negative-path training admission only",
+    "successful_alignment_verified": false,
+    "independent_alignment_validation_implemented": false,
+    "training_started": false,
+    "gpu_task": false,
+    "quality_accepted": false
+  },
+  "real_video_reexecuted": false,
+  "diagnosis117_reopened": false,
+  "new_training": false,
+  "new_ply": false,
+  "cameras_optimized": false,
+  "source_measurements_modified": false,
+  "root_cause_resolved": false,
+  "quality_accepted": false,
+  "stable_release_delivered": false,
+  "completed": [
+    "Per-frame scene coverage, conditional relative depth, missing support and retained high errors.",
+    "Separate fixed-E intrinsic sensitivity and joint intrinsic/pose/point ambiguity with seven explicit gauge constraints.",
+    "Numerical derivative, degenerate geometry, similarity/gauge and actual native-SfM-to-CLI checks.",
+    "Shared rectified K mismatch and computational bounds remain explicit unknown/incomplete outcomes."
+  ],
+  "limitations": [
+    "Synthetic geometric results do not diagnose the captured person.",
+    "ROI background is not proven static material; numeric full rank is not physical camera correctness.",
+    "No measured noise model or statistical camera uncertainty is available.",
+    "Formal full-frame fresh training, PLY/novel-view quality and target-server verification remain incomplete."
+  ]
+}

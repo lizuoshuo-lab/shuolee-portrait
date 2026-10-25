@@ -22,7 +22,7 @@
   "ghosting_resolved": false,
   "quality_accepted": false,
   "wps_weights": "removed; runtime assets are outside D:/00",
-  "updated": "2026-10-25T20:37:53.197062+00:00",
+  "updated": "2026-10-25T20:52:43.834324+00:00",
   "local_isolated_environment_verified": true,
   "local_isolated_cuda_kernels_verified": true,
   "local_isolated_raw_video_run_verified": true,
@@ -43,5 +43,7 @@
   "pre_sfm_measurement_exclusion_implemented": true,
   "camera_fit_usage_scope": "native measurement rows audited; unknown physical aliases and other estimator dependencies not resolved",
   "frozen_observation_region_diagnostics_implemented": true,
-  "region_diagnostics_validation_scope": "synthetic fixtures and actual native-SfM-to-CLI integration"
+  "region_diagnostics_validation_scope": "synthetic fixtures and actual native-SfM-to-CLI integration",
+  "scene_local_observability_implemented": true,
+  "scene_local_observability_validation": "synthetic known geometry, independent OpenCV derivatives and native-flow integration"
 }

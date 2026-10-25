@@ -158,9 +158,15 @@ def run(evidence_dir):
         assert before=={p.relative_to(native).as_posix():rt.sha(p) for p in native.rglob('*') if p.is_file()}
         report=rt.read(external/'summary.json')
         assert report['measured_tracks']==report['total_tracks']==71
+        support=rt.read(external/'scene-support.json')
+        assert support['original_track_count']==71 and support['source_tracks_dropped']==0
+        assert support['state']=='no_observable_scene_candidates'
+        assert len(support['frames_without_scene_observations'])==len(training['records'])
+        assert not support['physical_calibration_verified'] and not support['training_admitted']
         cases['actual_native_sfm_to_region_cli_readonly']=dict(
             measured_tracks=report['measured_tracks'],by_region={k:v['tracks'] for k,v in report['regions'].items()},
-            source_run_unchanged=True,training_admitted=report['training_admitted'])
+            source_run_unchanged=True,training_admitted=report['training_admitted'],
+            scene_support_state=support['state'])
 
         original=(native/'data/sfm-holdout-tracks.json').read_bytes()
         changed=json.loads(original);changed['tracks'].pop();rt.save(native/'data/sfm-holdout-tracks.json',changed)

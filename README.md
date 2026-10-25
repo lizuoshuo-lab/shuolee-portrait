@@ -143,7 +143,7 @@ tail -f /data/runs/person_001/logs/train.log
 - data/material-tracks/：预先保存的匹配方案、特征、双向匹配决策、冲突轨迹、候选共享点和覆盖统计；不包含相机优化结果。
 - sfm/raw-features.db、sfm/holdout/：不经匹配的原生提取库、预留方案、训练行号到原始行号的映射及实际使用记录。sfm/database.db只含允许参加求解的特征。运行数据放服务器输出目录，不放进Git或WPS同步工程。
 - data/sfm-inputs.json、data/sfm-holdout-tracks.json：冻结的相机清单与求解前留出观测；可独立计算固定点重投影，尚不具备物理身份或人体静止性保证。
-- data/alignment-diagnostics/：预先保存的源证据哈希、全部冻结观测的区域标签、所有点的残差／不可测原因、逐帧覆盖及原图审阅页。缺失区域误差为null，不记为0；高残差不被筛掉。
+- data/alignment-diagnostics/：预先保存的源证据哈希、全部冻结观测的区域标签、所有点的残差／不可测原因、逐帧覆盖及原图审阅页。`scene-support.json` 分开记录固定外参的内参信息、允许外参和三维点变化后的内参信息，以及缺帧和规范自由度；只分析局部敏感度，不优化相机。缺失区域误差为null，不记为0；高残差不被筛掉。数值满秩不能证明物理标定正确。
 - fit/geometry-gate.json、reviews/fit/：粗几何诊断与无文字叠加的原图/覆盖图。
 - alignment/training-readiness.json：当前对齐验证缺项及所依据文件的哈希。当前版本在此停止，以下训练产物尚不能由默认命令生成。
 - gaussian-run/step-*/：阶段世界 PLY、同相机原图与渲染，保持比例。

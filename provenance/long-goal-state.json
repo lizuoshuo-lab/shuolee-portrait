@@ -1,11 +1,11 @@
 {
-  "updated": "2026-10-25T20:37:53.197062+00:00",
+  "updated": "2026-10-25T20:52:43.834324+00:00",
   "state": "active",
   "next_actions": [
-    "Implement bounded scene-support and parameter-sensitivity/degeneracy diagnostics on the frozen observation bank; do not fit a new camera candidate or select points by residual.",
-    "Physical material identity, scene staticity, camera uncertainty and subject motion remain unverified. Current ROI labels and synthetic tests cannot enable training.",
-    "117 stays closed. Do not run another captured-reference sweep or formal Gaussian training without new capture evidence.",
-    "Await target-server Linux/GPU information and original capture/calibration materials; finish actual training/PLY/UI/remote quality before declaring the full goal complete."
+    "Prepare a bounded source-track review handoff showing all frozen candidate observations and source patches, to expose same-material/static-scene ambiguity; do not fit new cameras or rerun matchers.",
+    "Physical scene/material identity, noise-based camera uncertainty and subject staticity remain unverified; numeric full rank cannot admit formal training.",
+    "117 remains closed. Do not repeat captured-reference sweeps, download weights or train until new capture evidence supports a registered correction.",
+    "Await target-server Linux/GPU information and original capture/calibration materials. The full fresh-training, PLY, UI and remote-quality objective is not complete."
   ],
   "no_active_training": true,
   "current_model_quality_accepted": false,
@@ -19,5 +19,7 @@
   "active_engineering_check": null,
   "latest_code_fix": "block_formal_training_until_independent_alignment_validators_exist",
   "latest_interface_check": "009",
-  "latest_engineering_component": "frozen_track_regions_coverage_and_held_predictions"
+  "latest_engineering_component": "scene_support_conditional_and_joint_camera_point_observability",
+  "previous_goal_turn_classification": "progress: frozen-region diagnostics committed as 86f57ef",
+  "current_goal_turn_classification": "progress: analytical conditional and joint scene observability implemented and verified"
 }
