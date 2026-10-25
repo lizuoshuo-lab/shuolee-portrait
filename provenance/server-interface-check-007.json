@@ -1,0 +1,17 @@
+{
+  "updated": "2026-10-25T18:06:31.795923+00:00",
+  "state": "failed_preserved",
+  "stage": "prior",
+  "completed": [
+    "extract",
+    "sfm",
+    "observations"
+  ],
+  "cause": "Missing wis3d dependency imported by upstream GVHMR configuration and inference modules.",
+  "secondary_preflight_issue": "SAM2 and GVHMR initialize different Hydra roots; isolated inference configuration now restores the caller context.",
+  "camera_or_quality_failure": false,
+  "gaussian_training_started": false,
+  "repair": "Pin wis3d; compose the actual prior graph in doctor; rerun from raw video in a new directory.",
+  "resume_failed_run": false,
+  "stable_release": false
+}

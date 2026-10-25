@@ -1,0 +1,31 @@
+{
+  "updated": "2026-10-25T17:53:15.693335+00:00",
+  "state": "local_isolated_environment_kernels_and_numeric_contract_passed",
+  "reused_existing_python_interpreter": true,
+  "reused_existing_cuda_toolkit": true,
+  "isolated_site_packages": true,
+  "borrowed_experiment_packages": false,
+  "fresh_operating_system_verified": false,
+  "remote_server_verified": false,
+  "final_recipe_one_shot_install_verified": false,
+  "dependency_install_repaired_and_resumed": true,
+  "torch": "2.7.1+cu128",
+  "cuda": "12.8",
+  "gpu": "NVIDIA GeForce RTX 5080",
+  "opencv": "4.10.0",
+  "native_cuda_forward_backward": true,
+  "projection_and_ply_numeric_contract": true,
+  "model_assets_sha256_verified": 21,
+  "raw_video_pipeline_in_this_environment_verified": false,
+  "gaussian_training_started": false,
+  "ghosting_resolved": false,
+  "stable_release": false,
+  "fixes": [
+    "Explicit Python/CUDA selection and preflight checks",
+    "Independent venv and native build staging outside WPS",
+    "Matching NVIDIA wheel headers included for split toolkit layouts",
+    "OpenCV distributions required by RTMLib pinned to the same release",
+    "Missing ffmpeg-python declared; asset-dependent upstream imports checked in doctor"
+  ],
+  "scope": "Local new virtual environment on existing WSL OS. No new training or model. Not a new remote server or quality acceptance."
+}

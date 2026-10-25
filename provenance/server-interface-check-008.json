@@ -1,0 +1,165 @@
+{
+  "updated": "2026-10-25T18:12:41.012477+00:00",
+  "release": "0.1.0-rc1",
+  "state": "isolated_environment_fresh_video_to_fit_gate_passed",
+  "existing_reference_video": true,
+  "new_person_test": false,
+  "isolated_python_environment": true,
+  "reused_existing_OS_Python_and_CUDA": true,
+  "fresh_remote_server_verified": false,
+  "completed": [
+    "extract",
+    "sfm",
+    "observations",
+    "prior",
+    "fit",
+    "fit-gate"
+  ],
+  "selected_frames": 23,
+  "fresh_sfm_registered_frames": 23,
+  "old_cameras_loaded": false,
+  "old_subject_loaded": false,
+  "old_gaussian_loaded": false,
+  "fit_steps": 1200,
+  "body_geometry_gate": {
+    "median_body_fraction": 0.00837589447058382,
+    "p90_body_fraction": 0.022067773333251037,
+    "coarse_initialization_gate_passed": true,
+    "quality_accepted": false,
+    "from_scratch": true,
+    "physical_accuracy_proven": false,
+    "thresholds": "Diagnostic limits, not a calibrated quality guarantee",
+    "fit_sha256": "5b979fe318cfc248c7fbfcc6493f28eed006e4003ded6857ffda7d68271c95cb"
+  },
+  "temporal_prior": {
+    "frames": 23,
+    "from_this_video": true,
+    "previous_person_parameters_loaded": false,
+    "camera_origin": "Current run full-image SfM",
+    "camera_count": 23,
+    "geometry_is_prior_not_ground_truth": true,
+    "median_frame_interval_seconds": 0.3329279999999999,
+    "frame_stride": 8,
+    "temporal_prior_cadence_requires_review": true
+  },
+  "visual_review": {
+    "updated": "2026-10-25T18:12:40.806495+00:00",
+    "actual_images_reviewed": true,
+    "reviewer": "direct image inspection in current task",
+    "images": [
+      {
+        "file": "frame_000001_input.png",
+        "sha256": "40e7dc7c2ad78860f934788aabf8a9e2a5971b9d132ee7ed05da3647ae19b9d2",
+        "source_frame_index": 0,
+        "kind": "input"
+      },
+      {
+        "file": "frame_000001_mesh_overlay.png",
+        "sha256": "18902ab4c4b70df50fc6e594e31d21108de8db91badfffca0b6573267623abc4",
+        "source_frame_index": 0,
+        "kind": "mesh_overlay"
+      },
+      {
+        "file": "frame_000005_input.png",
+        "sha256": "3dd1fad88c7bf4be3efa02a351ccc9351322e48f3ece641b5ba312003111ced1",
+        "source_frame_index": 32,
+        "kind": "input"
+      },
+      {
+        "file": "frame_000005_mesh_overlay.png",
+        "sha256": "5bb6daa3a028737a415f19d0fb012456097f1e8631a112533d28f63df3c763be",
+        "source_frame_index": 32,
+        "kind": "mesh_overlay"
+      },
+      {
+        "file": "frame_000009_input.png",
+        "sha256": "35f535c469d93476efb8dcc83fdaf998348f14014201195b0e52c1c2710f9cf0",
+        "source_frame_index": 64,
+        "kind": "input"
+      },
+      {
+        "file": "frame_000009_mesh_overlay.png",
+        "sha256": "fb12906281da23ed2c12c8caee922e2f2bd17657a01eb9e9f060be828378610a",
+        "source_frame_index": 64,
+        "kind": "mesh_overlay"
+      },
+      {
+        "file": "frame_000014_input.png",
+        "sha256": "f183cff4b839d8559ab452766a1801c425ee2e1e8b9e3df1b508a21eef0a3265",
+        "source_frame_index": 104,
+        "kind": "input"
+      },
+      {
+        "file": "frame_000014_mesh_overlay.png",
+        "sha256": "89e478bd39e3cb82a5edc3bb3e003a8a0eacf021ef43266579f6831ab5f0470a",
+        "source_frame_index": 104,
+        "kind": "mesh_overlay"
+      },
+      {
+        "file": "frame_000018_input.png",
+        "sha256": "d8bcde44486fedfc50536257fbc3d52d3e0bc92763f39a68c95f257bcfb366a4",
+        "source_frame_index": 136,
+        "kind": "input"
+      },
+      {
+        "file": "frame_000018_mesh_overlay.png",
+        "sha256": "ffe4664b261edbae9147df8deabc478ee37dac2fa889443441f75429ecc2e6fd",
+        "source_frame_index": 136,
+        "kind": "mesh_overlay"
+      },
+      {
+        "file": "frame_000023_input.png",
+        "sha256": "69bf5a39941544023307d0cc29ec5373f3b6d3b71e97f72891da3735e79d4300",
+        "source_frame_index": 176,
+        "kind": "input"
+      },
+      {
+        "file": "frame_000023_mesh_overlay.png",
+        "sha256": "e25621d8772f80a1a8219f23685a99c3db4d0da12d3b0a454315d3ceca75ece5",
+        "source_frame_index": 176,
+        "kind": "mesh_overlay"
+      }
+    ],
+    "observations": [
+      "All six paired inputs and mesh overlays were visually inspected. The subject is in the broadly correct image region across the sampled sides and front.",
+      "Side-view head, hands, calves and feet do not coincide exactly with the visible boundaries; front shoulder/sleeve and shoe boundaries also differ.",
+      "The overlay is an unclothed body template, not reconstructed hair, glasses, jacket, trousers or shoes. Some silhouette differences are expected; they cannot establish camera error or physical geometry accuracy by themselves.",
+      "Background bystanders are present and change between frames. This image review does not classify all scene features as static.",
+      "The coarse joint gate uses fitted observations, not independent truth. No improvement in Gaussian ghosting is established by this integration run."
+    ],
+    "images_are_undistorted_inputs_with_isotropic_display_resize": true,
+    "two_dimensional_subject_warp_used": false,
+    "feature_observations_independent_truth": false,
+    "physical_geometry_accepted": false,
+    "quality_accepted": false,
+    "gaussian_training_admitted": false,
+    "new_gaussian_or_ply": false,
+    "novel_view_quality_tested": false
+  },
+  "gaussian_training_started": false,
+  "new_ply_created": false,
+  "ghosting_resolved": false,
+  "stable_release_accepted": false,
+  "quality_accepted": false,
+  "failed_attempt": "007: missing upstream wis3d; failed run preserved, never resumed.",
+  "repair": "Pinned wis3d, checked complete inference config before expensive inference, scoped Hydra context.",
+  "source_hashes": {
+    "src/shuolee_portrait/fitting.py": "111b5a257052de0b7f79c5a24be89835de4e6effce6f6d519eb880ad59a33b7a",
+    "src/shuolee_portrait/cli.py": "e0a6095dd16529c37c2b3e4870b8e83bfc72b1bac6e5ca26c15bb0a562561167",
+    "src/shuolee_portrait/runtime.py": "5f83ece0209bf63a1705a8915f92ea6dc43d89f7e857a5e61c2f3ae951c73cc4",
+    "src/shuolee_portrait/export.py": "f1ab832f0b132b5ae99a6c74a5bf67eb943be7b45afdddee88f01ece81f7acb5",
+    "src/shuolee_portrait/fit_gate.py": "da64a031052714a0aca201f324f666531aeda965e8b17e859d17ecd73a7d8ddd",
+    "src/shuolee_portrait/training.py": "3cee3cd701913b38dcc45ebb9c7461ce00aaa2dde7fc55a5a7462b9d5ceee629",
+    "src/shuolee_portrait/observations.py": "04b520b253b03d5ff75adbc41d15e977c985683461260f8eefbc4f3a5bb448a2",
+    "src/shuolee_portrait/video_sfm.py": "da8b89c6b222391a9b9a1733099b11b71c7b63bc0440dffda3b6a76320cdfa6c",
+    "src/shuolee_portrait/prior.py": "db6b388c383d2b695c051eeeab23177f368af0fa770ce84e517643526ed98618",
+    "src/shuolee_portrait/__init__.py": "126fab6b55d42d631bd94c9de6a3312957cdf14cb0e0cb5ec2e1c2b1ac38f932",
+    "run.py": "abaeaab8a2213a3d13253e0befc6f22a1b3a1b77973dbc1e0bbf6cdd1e83f061",
+    "configs/smoke.json": "89145eaf279791ac47a23de9ba9bfa7b8ffb0e2aea5a43159a55770bff370435",
+    "configs/server-assets.json": "8857b767a1f3579cc9c99230d2023860c429ea00a5cc705c2920c28cff1d605c",
+    "upstream.lock.json": "641a143eeabbd426cee9b980175a179c890419b317fe41d8c1cced854382ebe1",
+    "requirements.txt": "c749a36387413ff2b0a25c8f08cf72bdf55f98bde9362483c437d4142d5c71ed",
+    "constraints-linux-cu128.txt": "07d0f9f6b814e2a03cdd1bc9344ee2741c34cbf7ea076776886bda28416ea408"
+  },
+  "runtime_assets_outside_wps": true
+}

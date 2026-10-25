@@ -4,6 +4,27 @@ import numpy as np
 from PIL import Image
 from . import runtime as rt
 
+def inference_settings():
+ """Compose the actual upstream inference graph so doctor checks its imports."""
+ import hmr4d
+ hmr4d.PROJ_ROOT=rt.ASSETS/'gvhmr'
+ import hmr4d.model.gvhmr.gvhmr_pl_demo,hmr4d.model.gvhmr.utils.endecoder,hmr4d.network.gvhmr.relative_transformer
+ import hmr4d.model.gvhmr.pipeline.gvhmr_pipeline
+ from hydra import initialize_config_module,compose
+ from hydra.core.global_hydra import GlobalHydra
+ from hmr4d.configs import register_store_gvhmr
+ register_store_gvhmr()
+ # SAM2 initializes Hydra when imported. Compose GVHMR in its own temporary
+ # context and restore the caller's context, including when composition fails.
+ previous=GlobalHydra.instance().hydra
+ GlobalHydra.instance().clear()
+ try:
+  with initialize_config_module(version_base='1.3',config_module='hmr4d.configs'):
+   return compose(config_name='demo',overrides=['video_name=shuolee_new_video'])
+ finally:
+  GlobalHydra.instance().clear()
+  if previous is not None:GlobalHydra.instance().initialize(previous)
+
 def infer(root,cfg):
  import torch,cv2
  import hmr4d
@@ -46,19 +67,12 @@ def infer(root,cfg):
    p,s=keypoints_from_heatmaps(heatmaps=heat,center=b[:,:2].numpy(),scale=(torch.cat([b[:,[2]]*.75,b[:,[2]]],1)/200).numpy(),use_udp=True);points.append(torch.from_numpy(np.concatenate([p,s],-1)))
    progress('ViTPose',min(i+4,len(rows)))
   kp=torch.cat(points);torch.save(kp,out/'vitpose-keypoints.pt');del model;gc.collect();torch.cuda.empty_cache()
-  # PROJ_ROOT redirects only generic model resources. Module imports remain vendored code.
-  import hmr4d
-  hmr4d.PROJ_ROOT=rt.ASSETS/'gvhmr'
-  import hmr4d.model.gvhmr.gvhmr_pl_demo,hmr4d.model.gvhmr.utils.endecoder,hmr4d.network.gvhmr.relative_transformer
-  from hydra import initialize_config_module,compose
   from hydra.utils import instantiate
-  from hmr4d.configs import register_store_gvhmr
   from hmr4d.utils.geo.hmr_cam import normalize_kp2d
   from hmr4d.utils.geo_transform import compute_cam_angvel
   from hmr4d.utils.smplx_utils import make_smplx
-  register_store_gvhmr()
   progress('load_GVHMR')
-  with initialize_config_module(version_base='1.3',config_module='hmr4d.configs'):settings=compose(config_name='demo',overrides=['video_name=shuolee_new_video'])
+  settings=inference_settings()
   model=instantiate(settings.model,_recursive_=False);model.load_state_dict(load(rt.ASSETS/'gvhmr/gvhmr/gvhmr_siga24_release.ckpt')['state_dict'],strict=True);model.cuda().eval()
   Ks=torch.tensor(np.array([r['K'] for r in rows]),dtype=torch.float32);Rs=torch.tensor(np.array([r['w2c'] for r in rows])[:,:3,:3],dtype=torch.float32)
   batch={'length':torch.tensor([len(rows)]),'obs':normalize_kp2d(kp,boxes)[None],'bbx_xys':boxes[None],'K_fullimg':Ks[None],'cam_angvel':compute_cam_angvel(Rs)[None],'f_imgseq':features[None]}

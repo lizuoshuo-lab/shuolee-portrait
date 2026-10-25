@@ -1,17 +1,19 @@
 {
-  "updated": "2026-10-25T17:08:56.725763+00:00",
+  "updated": "2026-10-25T18:12:41.012477+00:00",
   "state": "active",
   "next_actions": [
-    "Verify clean Linux environment installation and runtime/export contract without claiming real reconstruction quality.",
-    "Await original calibration/capture evidence before more117camera fits or actual long training.",
-    "Keep WPS documents and curated output small; runtime weights remain outsideD:/00."
+    "Verify final installer once on a genuinely fresh target-compatible Linux environment.",
+    "Await original calibration/capture evidence before new camera experiments or formal training.",
+    "Full-frame/new-subject, quality and export acceptance remain required for a stable release."
   ],
   "no_active_training": true,
   "current_model_quality_accepted": false,
-  "current_report": "http://127.0.0.1:8870/body-smplx.html#server-check006",
+  "current_report": "http://127.0.0.1:8870/body-smplx.html#server-check008",
   "viewer": "D:/00/工作/查看器",
   "weights": "D:/GS-SLAM-Data/shuolee-portrait-runtime-assets",
   "diagnosis117": "bounded_complete_unresolved",
   "quality_accepted": false,
-  "stable_release": false
+  "stable_release": false,
+  "installation": "local_isolated_environment_and_bounded_video_passed",
+  "active_engineering_check": null
 }

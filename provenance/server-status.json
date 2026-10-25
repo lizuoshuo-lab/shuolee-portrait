@@ -10,15 +10,21 @@
     "selected_frames": 23,
     "fresh_sfm_registered_frames": 23,
     "old_camera_or_subject_fit_loaded": false,
-    "state": "fresh raw video through fit-gate completed; training intentionally not started",
+    "state": "fresh raw-video path through fit-gate completed; no Gaussian training",
     "human_prior_inference_verified": true,
     "fresh_body_fit_verified": true,
     "coarse_initialization_gate_passed": true,
     "gaussian_training_started": false,
-    "formal_full_frame_validation": false
+    "formal_full_frame_validation": false,
+    "check": "008",
+    "environment": "independent venv on existing local WSL"
   },
   "ghosting_resolved": false,
   "quality_accepted": false,
   "wps_weights": "removed; runtime assets are outside D:/00",
-  "updated": "2026-10-25T16:48:23.279589+00:00"
+  "updated": "2026-10-25T18:12:41.012477+00:00",
+  "local_isolated_environment_verified": true,
+  "local_isolated_cuda_kernels_verified": true,
+  "local_isolated_raw_video_run_verified": true,
+  "latest_interface_check": "008"
 }

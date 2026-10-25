@@ -2,7 +2,9 @@
 
 目标：在 Linux NVIDIA 服务器上输入一段新视频，自动完成抽帧、整图相机估计、人物检测与分割、身体拟合、高斯训练和标准 PLY 导出。每次使用新视频自己的观测，不套用历史人物的相机、拟合或高斯。
 
-**当前是 0.1.0-rc1 开发候选，未完成端到端质量验收，不能作为已验收稳定版。** 2026-10-26 已在本机现有 Linux 环境，从原视频跑通 23 帧的抽帧、全图 SfM、人物分割、全身特征、GVHMR 先验和 1,200 步全新静态拟合，停在 fit-gate。记录见 provenance/server-interface-check-006.json。未开始高斯训练，尚未完成干净服务器安装及全帧质量验收。历史重影问题仍未解决。
+**当前是 0.1.0-rc1 开发候选，未完成端到端质量验收，不能作为已验收稳定版。** 2026-10-26 已在本机的独立 Linux Python 环境，从同一参考原视频重新跑通 23 帧抽帧、全图 SfM、人物分割、全身特征、GVHMR 先验和 1,200 步全新静态拟合，停在 fit-gate。记录见 provenance/server-interface-check-008.json。这是既有参考视频的接口验证，不是新人物泛化测试。未开始高斯训练，尚未完成干净服务器安装及全帧质量验收。历史重影问题仍未解决。
+
+独立 Python 环境已完成实际 CUDA 前后向、投影和 PLY 数值核验，21 个外置模型资产校验通过，未借用旧实验的 Python 包。此检查复用了现有 WSL 系统、Python 解释器和 CUDA 工具链，安装过程经过修复与继续安装；尚未验证全新服务器的一次性安装。准确范围见 provenance/installation-check-001.json。007 曾因遗漏上游 wis3d 依赖而停止；补齐依赖与配置预检查后，008 从原视频重新执行，没有恢复失败实验。
 
 ## 文件怎么传
 
@@ -26,18 +28,35 @@ cd shuolee-portrait
 
 ~~~bash
 sudo apt-get update
-sudo apt-get install ffmpeg build-essential python3.10-venv
+sudo apt-get install ffmpeg build-essential cmake python3.10-venv libgl1 libglib2.0-0
+export PYTHON_BIN=/usr/bin/python3.10
+export CUDA_HOME=/usr/local/cuda-12.8
+export SHUOLEE_ENV_DIR="$HOME/.local/share/shuolee-portrait/env-cu128"
+bash scripts/setup_server.sh --preflight-only
 bash scripts/setup_server.sh
-source .venv/bin/activate
+source "$SHUOLEE_ENV_DIR/bin/activate"
 ~~~
 
-CUDA 扩展在目标机重新编译，不复制本机的 .so。若系统没有 Python 3.10，先安装兼容解释器再执行脚本。代码环境与模型资产分开；模型取得方式见 docs/模型配置.md。
+请将 Python 和 CUDA 路径改成服务器的实际位置。CUDA 扩展在目标机重新编译，不复制本机的 .so。若系统没有 Python 3.10，先安装兼容解释器。环境、缓存和编译目录默认放在用户主目录的 .local/share 中；禁止安装到 Git 工程内或 D:/00 的同步范围。安装脚本不借用历史实验的 site-packages，不下载模型权重。代码环境与模型资产分开；模型取得方式见 docs/模型配置.md。
+
+安装日志在 `$SHUOLEE_ENV_DIR/install/setup.log`，实际安装版本在 `installed.txt`。直接和间接依赖由 constraints-linux-cu128.txt 固定，避免安装日期变化导致版本漂移。安装末尾会检查包的来源，并运行 kNN、网格和高斯 CUDA 前向/反向小样例；这只验证环境，不能证明人像质量。首次安装拒绝覆盖现有环境；只有依赖安装中断且查明日志原因后，使用 `bash scripts/setup_server.sh --resume-install`。该选项不会恢复任何人像训练。
+
+已有官方 CUDA 运行库 wheel 缓存时，可设置 `CUDA_WHEELHOUSE=/data/official-cuda128-wheels`，脚本按 scripts/cuda128-requirements.txt 离线安装固定版本，减少重复下载；缓存不完整会停止。`MAX_JOBS` 默认 2，控制编译占用。没有配置 `TORCH_CUDA_ARCH_LIST` 时，仅针对当前 GPU 编译；换 GPU 架构需在目标机重新安装。
 
 ~~~bash
 python run.py doctor --assets /data/shuolee-models
 ~~~
 
-doctor 检查模型完整性、FFmpeg、CUDA 和关键依赖。任何一步失败先处理日志，不继续训练。
+doctor 检查模型完整性、FFmpeg、CUDA、关键依赖和完整 GVHMR 推理配置。SAM2 与 GVHMR 的 Hydra 配置上下文会分别处理。任何一步失败先处理日志，不继续训练。
+
+需要单独排查服务器环境或导出坐标时，可运行不依赖人体模型的实现检查：
+
+~~~bash
+PYTHONNOUSERSITE=1 python scripts/check_environment.py --output /data/install-check/environment.json
+python scripts/check_projection_export.py --output /data/install-check/projection-export.json
+~~~
+
+前者实际执行 CUDA 算子并检查包是否来自本环境；后者使用合成相机和点，检查投影、PLY 位置、协方差及 SH 旋转。通过这些检查不代表输入视频的物理内外参正确，也不代表人像重影已经解决。
 
 ## 新视频一条命令
 
@@ -94,7 +113,7 @@ python run.py reconstruct --video /data/new_person.mp4 --assets /data/shuolee-mo
   --output /data/runs/smoke_001 --config configs/smoke.json --stop-after fit-gate
 ~~~
 
-短配置降低分辨率、按明确步长选择真实帧，只测试接口与停止条件，不替代全帧正式训练。006 的粗关节投影误差中位数为人物框高度的 0.857%，P90 为 2.008%；这是拟合集上的初始化检查，身体模板也不是穿衣表面。步长采样还改变了时序先验的输入间隔，不能将这次先验当作正式全帧结果。不能把短流程的拟合或高斯接续到正式实验。
+短配置降低分辨率、按明确步长选择真实帧，只测试接口与停止条件，不替代全帧正式训练。008 的粗关节投影误差中位数为人物框高度的 0.838%，P90 为 2.207%；这是拟合集上的初始化检查，身体模板也不是穿衣表面。六组实际原图/覆盖图已经检查，头部、手和鞋部轮廓仍有偏差，没有通过物理几何或重影质量验收。步长采样还改变了时序先验的输入间隔，不能将这次先验当作正式全帧结果。不能把短流程的拟合或高斯接续到正式实验。
 
 ## 历史与许可
 

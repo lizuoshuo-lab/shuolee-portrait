@@ -1,0 +1,31 @@
+{
+  "created": "2026-10-25T18:06:31.795923+00:00",
+  "purpose": "Fresh raw-video integration check in isolated environment after dependency repair.",
+  "source_hashes": {
+    "src/shuolee_portrait/fitting.py": "111b5a257052de0b7f79c5a24be89835de4e6effce6f6d519eb880ad59a33b7a",
+    "src/shuolee_portrait/cli.py": "e0a6095dd16529c37c2b3e4870b8e83bfc72b1bac6e5ca26c15bb0a562561167",
+    "src/shuolee_portrait/runtime.py": "5f83ece0209bf63a1705a8915f92ea6dc43d89f7e857a5e61c2f3ae951c73cc4",
+    "src/shuolee_portrait/export.py": "f1ab832f0b132b5ae99a6c74a5bf67eb943be7b45afdddee88f01ece81f7acb5",
+    "src/shuolee_portrait/fit_gate.py": "da64a031052714a0aca201f324f666531aeda965e8b17e859d17ecd73a7d8ddd",
+    "src/shuolee_portrait/training.py": "3cee3cd701913b38dcc45ebb9c7461ce00aaa2dde7fc55a5a7462b9d5ceee629",
+    "src/shuolee_portrait/observations.py": "04b520b253b03d5ff75adbc41d15e977c985683461260f8eefbc4f3a5bb448a2",
+    "src/shuolee_portrait/video_sfm.py": "da8b89c6b222391a9b9a1733099b11b71c7b63bc0440dffda3b6a76320cdfa6c",
+    "src/shuolee_portrait/prior.py": "db6b388c383d2b695c051eeeab23177f368af0fa770ce84e517643526ed98618",
+    "src/shuolee_portrait/__init__.py": "126fab6b55d42d631bd94c9de6a3312957cdf14cb0e0cb5ec2e1c2b1ac38f932",
+    "run.py": "abaeaab8a2213a3d13253e0befc6f22a1b3a1b77973dbc1e0bbf6cdd1e83f061",
+    "configs/smoke.json": "89145eaf279791ac47a23de9ba9bfa7b8ffb0e2aea5a43159a55770bff370435",
+    "configs/server-assets.json": "8857b767a1f3579cc9c99230d2023860c429ea00a5cc705c2920c28cff1d605c",
+    "upstream.lock.json": "641a143eeabbd426cee9b980175a179c890419b317fe41d8c1cced854382ebe1",
+    "requirements.txt": "c749a36387413ff2b0a25c8f08cf72bdf55f98bde9362483c437d4142d5c71ed",
+    "constraints-linux-cu128.txt": "07d0f9f6b814e2a03cdd1bc9344ee2741c34cbf7ea076776886bda28416ea408"
+  },
+  "environment": "/opt/gs-slam-lab/shuolee-portrait-clean-001/env",
+  "output": "/opt/gs-slam-lab/shuolee-portrait-server-check-008",
+  "config": "configs/smoke.json",
+  "stop_after": "fit-gate",
+  "raw_video": "Existing HOVER_VERSA_0102 reference video; not a new person or capture.",
+  "from_scratch": true,
+  "prior_subject_or_gaussians_loaded": false,
+  "gaussian_training_allowed": false,
+  "camera_causal_claim_allowed": false
+}

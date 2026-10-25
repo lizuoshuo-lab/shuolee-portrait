@@ -43,8 +43,15 @@ def doctor(assets):
     torch=rt.c.runtime()
     import pycolmap,smplx,roma,nvdiffrast.torch,pytorch3d,simple_knn._C,diff_gaussian_rasterization
     import ultralytics,rtmlib,onnxruntime,hydra,hydra_zen,pytorch_lightning,timm,yacs,sam2
+    # This upstream import reads a generic joint-map asset at import time. Keep
+    # it in the asset-aware doctor, not in weight-free installation checks.
+    import hmr4d
+    hmr4d.PROJ_ROOT=rt.ASSETS/'gvhmr'
+    import hmr4d.utils.preproc.vitpose_pytorch,hmr4d.model.gvhmr.utils.endecoder
+    from .prior import inference_settings
+    inference_settings()
     if pycolmap.__version__!='3.10.0':raise RuntimeError('Requires pycolmap==3.10.0.')
-    checks.update(torch=torch.__version__,cuda=torch.version.cuda,gpu=torch.cuda.get_device_name(),pycolmap=pycolmap.__version__,sfm_gpu_available=pycolmap.has_cuda,training_started=False)
+    checks.update(torch=torch.__version__,cuda=torch.version.cuda,gpu=torch.cuda.get_device_name(),pycolmap=pycolmap.__version__,sfm_gpu_available=pycolmap.has_cuda,asset_dependent_modules_imported=True,prior_configuration_composed=True,training_started=False)
     print(json.dumps(checks,indent=2),flush=True);return checks
 
 

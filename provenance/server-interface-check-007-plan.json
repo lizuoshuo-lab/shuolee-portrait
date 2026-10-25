@@ -1,0 +1,17 @@
+{
+  "created": "2026-10-25T17:57:43.1815493Z",
+  "test": "server-check-007",
+  "purpose": "Bounded fresh-video integration check in isolated Python environment",
+  "environment": "/opt/gs-slam-lab/shuolee-portrait-clean-001/env",
+  "source": "/opt/gs-slam-lab/shuolee-portrait-clean-001/source",
+  "input_video": "D:/00/工作/minisplatting2/HOVER_VERSA_0102.mp4",
+  "output": "/opt/gs-slam-lab/shuolee-portrait-server-check-007",
+  "config": "configs/smoke.json",
+  "stop_after": "fit-gate",
+  "prior_run_reused": false,
+  "old_subject_loaded": false,
+  "gaussian_training_allowed": false,
+  "camera_causal_claim_allowed": false,
+  "new_video_identity": false,
+  "notes": "Existing reference video rerun from scratch to verify portability. This is not a new subject, formal reconstruction or physical calibration experiment."
+}
