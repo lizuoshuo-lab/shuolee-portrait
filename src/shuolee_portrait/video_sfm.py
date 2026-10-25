@@ -63,4 +63,4 @@ def sfm(root,cfg):
   with Image.open(image) as p:wh=list(p.size)
   if wh!=[cam.width,cam.height]:raise RuntimeError('Image and camera dimensions differ after undistortion.')
   records.append(dict(**{k:v for k,v in row.items() if k not in ['wh','source_sha256']},image=str(image),source_sha256=sha(image),wh=wh,K=K.tolist(),w2c=E.tolist(),mask=None,mask_sha256=None,official_prediction_slot=len(records),camera_kind='fresh_full_scene_sfm',camera_registration={'interpolation_used':False},observation_weight=1.0))
- save(root/'data/inputs.json',dict(records=records,coordinate_contract='K and w2c refer to the full undistorted image. COLMAP pixel corners; integer-centre landmarks project with -0.5.',from_scratch=True))
+ save(root/'data/inputs.json',dict(records=records,pixel_domain='undistorted_integer_centers',intrinsic_origin='COLMAP_pixel_corners',coordinate_contract='K and w2c refer to the full undistorted image. COLMAP pixel corners; integer-centre landmarks project with -0.5.',from_scratch=True))

@@ -1,0 +1,103 @@
+{
+  "updated": "2026-10-25T19:59:50.869332+00:00",
+  "state": "appearance_candidate_stage_implemented_fixture_verified",
+  "source_hashes": {
+    "src/shuolee_portrait/material_tracks.py": "e2c48a780f2f0745446d1fc5a3f87b1212c6521fe6813c8bdceed1e420e489da",
+    "src/shuolee_portrait/cli.py": "20501655e591d3502ed5008e6ab8f47610056bbbbaa087a6dbdcbca3232bd942",
+    "src/shuolee_portrait/observations.py": "ea7e6998d92583bd44e0e447ee26f91c806350e58df3d56ff4c9449f5caa35b7",
+    "src/shuolee_portrait/video_sfm.py": "75cd37070ad2cc8bad00960032fc6d15a2a50f9bfa5bb10fc45009b00b92df84",
+    "src/shuolee_portrait/admission.py": "61fcf7683c7491ade318dc7420a506830c86ef402c793cae2e7d8246399b8cdc",
+    "scripts/extract_material_tracks.py": "a37d984eaddc2432380a8f5fde93732a9ef01b35d61ae60246fe95ab16a75ab7",
+    "scripts/check_material_tracks.py": "679677ca662586c160127f3fd6b5dfe58687d360d6d60fccfa2555691fb01541"
+  },
+  "numerical_and_image_tests": {
+    "passed": true,
+    "cases": [
+      "Actual nearest-neighbor matching rejects repeated zero-distance descriptors and insufficient neighbors, while preserving unique bidirectional identities.",
+      "A broken third edge is rejected; locally closed cycles with conflicting identities in one frame cannot merge into a false global track.",
+      "Face keypoints supply only a bounded region; missing or off-image detections produce no face ROI.",
+      "Actual SIFT/mutual/cycle extraction on five views of a rendered plane agrees with known pixel warps, feeds the fixed-point module, and leaves source files unchanged.",
+      "Changing only synthetic K and extrinsics leaves the extracted appearance tracks identical; no camera residual selects matches.",
+      "Correct texture correspondence is preserved when the foreground moves; fixed-camera projection separates its known motion residual from the static control without claiming real-world causality.",
+      "The actual CLI stage runs without human weights; existing output, missing pixel-domain contracts and changed mask bytes are rejected.",
+      "Textureless input retains a no-tracks report and stops with exit3; semantic landmarks are not substituted.",
+      "Parent execution records the actual material failure report and stops before prior, fitting and training; preceding stages were simulated only."
+    ],
+    "evidence": {
+      "static_known_warp": {
+        "tracks": 739,
+        "regions": {
+          "face": 93,
+          "static_scene_candidate": 456,
+          "body": 190
+        },
+        "correspondence_error_px": {
+          "count": 3605,
+          "median": 0.0,
+          "p95": 3.814697265625e-06,
+          "maximum": 0.00046539697489113454
+        },
+        "held_projection_px": {
+          "count": 2127,
+          "median": 5.684341886080802e-14,
+          "p90": 9.536743732496693e-07,
+          "maximum": 0.00023269845831776965
+        }
+      },
+      "known_foreground_motion": {
+        "correspondence_error_px": {
+          "count": 3619,
+          "median": 0.0,
+          "p95": 3.814697265625e-06,
+          "maximum": 0.00046539697489113454
+        },
+        "subject_midframe_median_px": 4.0,
+        "static_background_median_px": 6.355287432313019e-14,
+        "subject_tracks": 286,
+        "background_tracks": 396
+      }
+    },
+    "synthetic_images_only": true,
+    "actual_sift_extraction": true,
+    "automatic_candidate_generation_implemented": true,
+    "real_person_tested": false,
+    "camera_independence_validated": false,
+    "ghosting_resolved": false,
+    "gpu_task": false,
+    "training_started": false,
+    "quality_accepted": false
+  },
+  "training_guard_regression": {
+    "passed": true,
+    "cases": [
+      "Coarse fit pass does not admit training; inspection is read-only.",
+      "A hand-written or stale pass report cannot bypass the boundary.",
+      "Stage and direct training entries reject before GPU imports, assets or Gaussian allocation.",
+      "Actual CLI returns exit3 for unavailable alignment; no body weights or CUDA needed.",
+      "Parent reconstruct stops at alignment-gate with an explicit non-training status; preprocessing was simulated only for this test.",
+      "A changed fitted artifact invalidates its recorded coarse-fit identity."
+    ],
+    "scope": "Negative-path training admission only",
+    "successful_alignment_verified": false,
+    "independent_alignment_validation_implemented": false,
+    "training_started": false,
+    "gpu_task": false,
+    "quality_accepted": false
+  },
+  "previous_goal_turn": "progress: fixed-camera point diagnostics implemented and private Git f2c447f verified",
+  "this_goal_turn": "progress: automatic source-image appearance candidates and CLI stage integrated",
+  "real_video_pipeline_reexecuted": false,
+  "real_person_material_identity_verified": false,
+  "camera_fit_usage_provenance_complete": false,
+  "experiment117_reopened": false,
+  "source_camera_parameters_changed": false,
+  "new_ply": false,
+  "ghosting_resolved": false,
+  "quality_accepted": false,
+  "stable_one_shot_reconstruction_delivered": false,
+  "remaining": [
+    "Freeze and audit validation observations before camera solving; retain actual solver usage.",
+    "Establish physical identity, static-scene support and camera uncertainty on suitable captured evidence.",
+    "Validate subject staticity, then fresh Gaussian training and full visual/PLY/UI acceptance."
+  ]
+}

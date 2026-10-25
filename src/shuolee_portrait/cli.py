@@ -11,7 +11,7 @@ import traceback
 from . import runtime as rt
 from .admission import AlignmentNotAdmitted, inspect_alignment, require_alignment
 
-STAGES=('extract','sfm','observations','prior','fit','fit-gate','alignment-gate','train','export')
+STAGES=('extract','sfm','observations','material-tracks','prior','fit','fit-gate','alignment-gate','train','export')
 
 
 def validate_config(cfg):
@@ -57,6 +57,13 @@ def doctor(assets):
 
 
 def stage(name,root,assets):
+    if name=='material-tracks':
+        from .material_tracks import extract_material_tracks
+        cfg=rt.read(root/'config.json')
+        report=extract_material_tracks(root,root/'data/material-tracks',cfg.get('material_tracks'))
+        if not report['track_count']:
+            raise AlignmentNotAdmitted('No cycle-consistent material candidates were found. See data/material-tracks/summary.json. No body fitting or Gaussian training was started by this stage.')
+        return
     # Reject before asset configuration or CUDA imports. The training function
     # also checks this boundary when invoked directly by another caller.
     if name in ('alignment-gate','train'):
@@ -134,12 +141,13 @@ def main():
                 completed.append(name)
                 if name==args.stop_after:break
         except Exception as exc:
-            not_admitted=name in ('alignment-gate','train') and isinstance(exc,subprocess.CalledProcessError) and exc.returncode==3
+            not_admitted=name in ('material-tracks','alignment-gate','train') and isinstance(exc,subprocess.CalledProcessError) and exc.returncode==3
+            rejection_report='data/material-tracks/summary.json' if name=='material-tracks' else 'alignment/training-readiness.json'
             rt.save(root/'status.json',dict(state='alignment_not_admitted' if not_admitted else 'failed',stage=name,completed=completed,updated=rt.now(),quality_accepted=False,error=traceback.format_exc(),
                 training_started=False if not_admitted else None,
-                alignment_report='alignment/training-readiness.json' if not_admitted else None))
+                alignment_report=rejection_report if not_admitted else None))
             if not_admitted:
-                print(f'Stopped before Gaussian training. Alignment evidence is not admitted; see {root/"alignment/training-readiness.json"}.',file=sys.stderr,flush=True)
+                print(f'Stopped before Gaussian training. Alignment evidence is not admitted; see {root/rejection_report}.',file=sys.stderr,flush=True)
                 raise SystemExit(3)
             raise
         rt.save(root/'status.json',dict(state='completed_pending_quality_review' if completed[-1]=='export' else 'diagnostic_stage_complete',completed=completed,updated=rt.now(),quality_accepted=False))

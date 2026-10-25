@@ -43,9 +43,11 @@ def inspect_alignment(root):
             matches_current_fit=bool(fit_hash and fit_gate.get('fit_sha256') == fit_hash),
             independent_geometry_evidence=False),
         diagnostic_components=dict(fixed_camera_point_projection=dict(
-            implemented=True, automatic_material_matching=False,
+            implemented=True, automatic_material_matching=True,
             physical_validation_complete=False,
-            entry='scripts/evaluate_fixed_tracks.py')),
+            entry='scripts/evaluate_fixed_tracks.py'), appearance_material_candidates=dict(
+            implemented=True, stage='material-tracks',
+            camera_fit_independence_established=False, physical_identity_verified=False)),
         required_checks=[
             dict(id='static_scene_camera', state='not_implemented',
                  evidence='Independent static-scene tracks or capture calibration with held validation, coverage and uncertainty.'),

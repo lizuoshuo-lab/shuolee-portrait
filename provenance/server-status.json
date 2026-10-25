@@ -22,7 +22,7 @@
   "ghosting_resolved": false,
   "quality_accepted": false,
   "wps_weights": "removed; runtime assets are outside D:/00",
-  "updated": "2026-10-25T19:40:50.243880+00:00",
+  "updated": "2026-10-25T19:59:50.869332+00:00",
   "local_isolated_environment_verified": true,
   "local_isolated_cuda_kernels_verified": true,
   "local_isolated_raw_video_run_verified": true,
@@ -37,5 +37,7 @@
   "release_training_available": false,
   "fixed_camera_point_diagnostic_implemented": true,
   "fixed_camera_point_diagnostic_verification": "synthetic_geometry_and_readonly_CLI_only",
-  "automatic_material_track_generation_implemented": false
+  "automatic_material_track_generation_implemented": true,
+  "automatic_material_track_verification": "synthetic_known_warps_and_actual_CPU_stage_only",
+  "camera_fit_usage_provenance_complete": false
 }

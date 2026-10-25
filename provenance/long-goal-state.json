@@ -1,11 +1,11 @@
 {
-  "updated": "2026-10-25T19:40:50.243880+00:00",
+  "updated": "2026-10-25T19:59:50.869332+00:00",
   "state": "active",
   "next_actions": [
-    "Implement automatic cross-view material tracks and camera-fit usage provenance for the new-video pipeline; do not relabel semantic detector indices as physical matches.",
-    "117 reference-data diagnosis remains closed. Await original capture/calibration evidence before additional real-data causal experiments.",
-    "Independent camera/material/staticity validators and real quality acceptance remain unfinished; numerical fixture checks cannot admit training.",
-    "Target-server Linux/GPU information remains pending."
+    "Implement validation observation freezing before camera solving and retain actual solver usage; do not infer independence from new feature IDs.",
+    "117 reference diagnosis remains closed; do not rerun calibration/correspondence sweeps or train on it without new capture evidence.",
+    "Independent physical material identity, scene/camera uncertainty and subject-staticity validation remain unfinished. Candidate tracks cannot admit training.",
+    "Await target-server Linux/GPU information and original capture/calibration evidence."
   ],
   "no_active_training": true,
   "current_model_quality_accepted": false,
@@ -19,5 +19,5 @@
   "active_engineering_check": null,
   "latest_code_fix": "block_formal_training_until_independent_alignment_validators_exist",
   "latest_interface_check": "009",
-  "latest_engineering_component": "fixed_camera_point_holdout_diagnostics"
+  "latest_engineering_component": "source_image_mutual_and_cycle_material_candidates"
 }
