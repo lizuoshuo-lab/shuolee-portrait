@@ -5,3 +5,7 @@
 *.py text eol=lf
 *.sh text eol=lf
 *.ps1 text eol=crlf
+.gitattributes text eol=lf
+src/route113/** text eol=lf
+third_party/pgsr113-rasterizer/** text eol=lf
+src/route113/historical/** -text

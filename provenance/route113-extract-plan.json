@@ -1,0 +1,16 @@
+{
+  "source": "C:\\Users\\Administrator\\Desktop\\GS-SLAM-Lab\\outputs\\mini-splatting2-mip-depth-001\\shuolee\\current\\shared-point-bundle-convergence-101\\input.npz",
+  "output": "D:\\00\\\u5de5\u4f5c\\\u4eba\u4f53\u91cd\u5efa\\data\\hover175\\route113\\shared-observations.npz",
+  "keys": [
+    "observations",
+    "offsets",
+    "held",
+    "original_track_ids",
+    "K",
+    "w2c",
+    "face_ids",
+    "face_observations",
+    "face_point_indices",
+    "face_held"
+  ]
+}

@@ -1,0 +1,117 @@
+{
+  "route": "113",
+  "created": 1792981341.8780553,
+  "remote_server_verified": false,
+  "full_training_verified": false,
+  "stable_release_accepted": false,
+  "quality_accepted": false,
+  "gaussian_optimizer_updates": 0,
+  "body_fit_updates": 0,
+  "python_syntax": "passed",
+  "CUDA_controls": {
+    "state": "CUDA_controls_passed",
+    "torch": "2.7.1+cu128",
+    "gpu": "NVIDIA GeForce RTX 5080",
+    "controls": {
+      "passed": true,
+      "duplicate_layers": {
+        "reason": "valid",
+        "alpha": 0.8000000417232513,
+        "retained_mass": 1.0,
+        "expected_squared_error": 0.0009000901199308959,
+        "variance": 0.0009000901199308947,
+        "mean_squared_error": 1.2594795835169249e-18,
+        "contributors": 2,
+        "loss": 0.828497960377212,
+        "z_gradient": [
+          -23.571868896484375,
+          23.571870803833008
+        ],
+        "opacity_no_gradient": true,
+        "scale_no_gradient": true,
+        "both_toward": true,
+        "weight_alpha_error": 5.960464477539063e-08
+      },
+      "gradients": [
+        {
+          "name": "x",
+          "ad": -10.17455005645752,
+          "fd": -10.174532624229737,
+          "limit": 0.022349100112915042,
+          "passed": true
+        },
+        {
+          "name": "z",
+          "ad": -53.54051971435547,
+          "fd": -53.517482196436816,
+          "limit": 0.10908103942871095,
+          "passed": true
+        },
+        {
+          "name": "qw",
+          "ad": -0.04437412694096565,
+          "fd": -0.04438149057373053,
+          "limit": 0.002088762981147461,
+          "passed": true
+        },
+        {
+          "name": "qy",
+          "ad": 0.4422611594200134,
+          "fd": 0.4422686500693551,
+          "limit": 0.0028845373001387103,
+          "passed": true
+        }
+      ],
+      "extra": [
+        {
+          "test": "isotropic_frame_invariance",
+          "range": 3.9745984281580604e-14,
+          "passed": true
+        },
+        {
+          "test": "grazing_finite_covariance",
+          "value": 1.853110512371774,
+          "passed": true
+        }
+      ]
+    },
+    "full_training_verified": false,
+    "quality_accepted": false
+  },
+  "fresh_output_reuse_rejected_without_overwrite": true,
+  "prepared_paths_175_valid": true,
+  "FLAME_forward": {
+    "vertices": [
+      5023,
+      3
+    ],
+    "landmarks": [
+      70,
+      3
+    ],
+    "finite": true
+  },
+  "VPoser_strict_load_and_forward": true,
+  "SMPLX_template_forward": true,
+  "preparation_and_export_imports": "passed",
+  "native_rasterizer_built_from_vendored_source": true,
+  "environment": {
+    "python": "3.10.19 (main, Oct 10 2025, 12:46:15) [Clang 20.1.4 ]",
+    "torch": "2.7.1+cu128",
+    "gpu": "NVIDIA GeForce RTX 5080",
+    "scope": "Existing isolated local Linux environment; existing OS/toolchain. Not remote server."
+  },
+  "weights_or_subject_uploaded_to_git": false,
+  "scope": "Syntax, 175-input hashes, fresh preparation, templates, CUDA finite-difference controls and imports only. No full 113 fitting/training/export rerun.",
+  "input_audit": {
+    "route": "113",
+    "frames": 175,
+    "camera_and_pixel_identity_verified": true,
+    "assets_sha256_verified": true,
+    "old_person_geometry_loaded": false,
+    "physical_calibration_accuracy_accepted": false,
+    "quality_accepted": false
+  },
+  "line_endings": "Portable executable sources normalized to LF; exact historical snapshots excluded from Git text conversion.",
+  "git_payload_policy": "Code/config/docs only; input data and licensed model files excluded."
+}
