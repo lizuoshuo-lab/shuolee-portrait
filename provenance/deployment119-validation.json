@@ -13,7 +13,7 @@
     "fresh_dependency_install_this_turn": false,
     "actual_cuda_forward_backward_passed": true,
     "asset_sha256_checks_passed": 21,
-    "cpu_regression_tests": 42
+    "cpu_regression_tests": 43
   },
   "fresh_video": {
     "sha256": "cb11ad325834b399c655371dc5d161e1801a3719b0892da959dc1e57e764572f",

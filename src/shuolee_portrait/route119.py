@@ -185,8 +185,8 @@ def initialize_run(root, video, cfg, assets):
             surface_vote_policy='legacy_all_views_denominator'))
         rt.save(root / 'status.json', dict(state='running', stage='prepare', updated=rt.now(),
                 quality_accepted=False, formal_training_admitted=False))
-    except Exception:
-        rt.save(root / 'status.json', dict(state='failed', stage='initialize', updated=rt.now(),
+    except BaseException as exc:
+        rt.save(root / 'status.json', dict(state='interrupted' if isinstance(exc, KeyboardInterrupt) else 'failed', stage='initialize', updated=rt.now(),
                 error=traceback.format_exc(), quality_accepted=False, formal_training_admitted=False))
         raise
     return root
@@ -262,8 +262,8 @@ def run_stage(name, root, assets):
             quality_accepted=False, formal_training_admitted=False))
     try:
         execute_stage(name, root, assets)
-    except Exception:
-        rt.save(root / 'status.json', dict(state='failed', stage=name, updated=rt.now(),
+    except BaseException as exc:
+        rt.save(root / 'status.json', dict(state='interrupted' if isinstance(exc, KeyboardInterrupt) else 'failed', stage=name, updated=rt.now(),
                 error=traceback.format_exc(), quality_accepted=False, formal_training_admitted=False))
         raise
     result = dict(state='stage_complete', stage=name,
@@ -306,8 +306,8 @@ def reconstruct(video, root, assets, cfg=None, *, stop_after='export'):
                     break
                 if name == 'train' and rt.read(root / 'gaussian-run/result.json')['steps'] != cfg['iterations']:
                     raise RuntimeError('119 training was incomplete; no completed 18000-step result is claimed.')
-        except Exception:
-            rt.save(root / 'status.json', dict(state='failed', stage=active_stage, updated=rt.now(),
+        except BaseException as exc:
+            rt.save(root / 'status.json', dict(state='interrupted' if isinstance(exc, KeyboardInterrupt) else 'failed', stage=active_stage, updated=rt.now(),
                     error=traceback.format_exc(), quality_accepted=False, formal_training_admitted=False))
             raise
     return root

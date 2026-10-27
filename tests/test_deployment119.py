@@ -13,6 +13,17 @@ from shuolee_portrait import runtime as rt
 
 
 class DeploymentTests(PreparedFixture):
+    def test_interrupt_is_recorded_and_is_not_left_running(self):
+        target = self.base / 'interrupted'
+        with patch('shuolee_portrait.cli.gpu_lock', return_value=nullcontext()), \
+             patch('shuolee_portrait.video119.prepare_video', side_effect=KeyboardInterrupt):
+            with self.assertRaises(KeyboardInterrupt):
+                route119.reconstruct(self.video, target, self.base / 'assets')
+        status = rt.read(target / 'status.json')
+        self.assertEqual(status['state'], 'interrupted')
+        self.assertEqual(status['stage'], 'prepare')
+        self.assertFalse((target / 'gaussian-run').exists())
+
     def test_removed_manual_commands_and_flags_are_rejected(self):
         from contextlib import redirect_stderr
         for args in (['review'], ['stage'], ['init-prepared'], ['train', 'video.mp4', '--review']):
