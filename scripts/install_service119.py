@@ -27,7 +27,6 @@ def service_text(profile):
         '[Unit]', 'Description=Shuolee 119 video reconstruction',
         'After=network-online.target', 'Wants=network-online.target', '',
         '[Service]', 'Type=simple', 'User=' + user.pw_name,
-        'WorkingDirectory=' + quoted(PROJECT),
         'Environment=' + quoted('HOME=' + user.pw_dir),
         'Environment=PYTHONNOUSERSITE=1 PYTHONUNBUFFERED=1 OMP_NUM_THREADS=4 OPENBLAS_NUM_THREADS=4',
         'UnsetEnvironment=PYTHONPATH SHUOLEE_EXTRA_PYTHONPATH',
@@ -50,10 +49,15 @@ def main():
     unit = service_text(profile)
     admin = [] if os.getuid() == 0 else ['sudo']
     if target.exists() and target.read_text() != unit:
-        raise RuntimeError(f'Existing service uses different paths: {target}. Existing training was preserved.')
+        old = target.read_text()
+        expected = next(line for line in unit.splitlines() if line.startswith('ExecStart='))
+        active = subprocess.run(['systemctl', 'is-active', '--quiet', target.name]).returncode == 0
+        if expected not in old.splitlines() or active:
+            raise RuntimeError(f'Existing service uses different settings or is active: {target}. Existing training was preserved.')
     with tempfile.TemporaryDirectory(prefix='shuolee-service-') as temp:
         source = Path(temp) / target.name
         source.write_text(unit, encoding='utf-8')
+        subprocess.run(['systemd-analyze', 'verify', str(source)], check=True)
         subprocess.run([*admin, 'install', '-m', '644', str(source), str(target)], check=True)
     subprocess.run([*admin, 'systemctl', 'daemon-reload'], check=True)
     subprocess.run([*admin, 'systemctl', 'enable', '--now', target.name], check=True)
