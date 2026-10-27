@@ -1,7 +1,7 @@
-"""119 video reconstruction: fresh inputs, 18000 training steps, standard PLY.
+"""SMPL-X video reconstruction: fresh inputs, 18000 training steps, standard PLY.
 
 This entry is separate from the formal reconstruction command. It reproduces
-the 119 representation and finite schedule; it never admits physical camera or
+the validated representation and finite schedule; it never admits physical camera or
 reconstruction quality. No old fit, Gaussian parameters or optimizer are copied.
 """
 import argparse
@@ -164,7 +164,7 @@ def inspect_prepared(root, cfg=None):
 def initialize_run(root, video, cfg, assets):
     root, video = Path(root).resolve(), Path(video).resolve()
     if root.exists():
-        raise FileExistsError(f'Fresh 119 run required; preserve the existing directory: {root}')
+        raise FileExistsError(f'Fresh SMPL-X run required; preserve the existing directory: {root}')
     if not video.is_file():
         raise FileNotFoundError(video)
     cfg = configuration(cfg)
@@ -211,14 +211,14 @@ def execute_stage(name, root, assets):
     root = Path(root).resolve()
     run = rt.read(root / 'run.json')
     if run.get('schema') != SCHEMA or run.get('from_scratch') is not True:
-        raise ValueError('Not a fresh engineering 119 run.')
+        raise ValueError('Not a fresh engineering SMPL-X run.')
     if any(run.get(key) is not False for key in ('old_subject_loaded', 'old_fitted_person_loaded',
             'old_gaussian_loaded', 'old_optimizer_loaded', 'formal_training_admitted', 'quality_accepted')):
         raise ValueError('119 research cannot load old learned state or pre-approve quality.')
     cfg = configuration(rt.read(root / 'config.json'))
     prepared = inspect_prepared(root, cfg)
     if cfg['training_height'] != prepared['wh'][1]:
-        raise ValueError('119 training_height must equal this run\'s decoded image height.')
+        raise ValueError('SMPL-X training_height must equal this run\'s decoded image height.')
     rt.configure(assets, root)
     if name == 'prior':
         if (root / 'inference').exists():
@@ -305,7 +305,7 @@ def reconstruct(video, root, assets, cfg=None, *, stop_after='export'):
                 if name == stop_after:
                     break
                 if name == 'train' and rt.read(root / 'gaussian-run/result.json')['steps'] != cfg['iterations']:
-                    raise RuntimeError('119 training was incomplete; no completed 18000-step result is claimed.')
+                    raise RuntimeError('SMPL-X training was incomplete; no completed 18000-step result is claimed.')
         except BaseException as exc:
             rt.save(root / 'status.json', dict(state='interrupted' if isinstance(exc, KeyboardInterrupt) else 'failed', stage=active_stage, updated=rt.now(),
                     error=traceback.format_exc(), quality_accepted=False, formal_training_admitted=False))
@@ -332,7 +332,7 @@ def train_video(video, deployment, *, output=None):
     """Daily interface: the configured server only needs a new video path."""
     profile = rt.read(deployment)
     if profile.get('schema') != 'shuolee-deployment119-v1':
-        raise ValueError('Run setup_server.sh --assets first to configure the 119 deployment.')
+        raise ValueError('Run setup_server.sh --assets first to configure the SMPL-X deployment.')
     if Path(profile['environment']).resolve() != Path(sys.prefix).resolve():
         raise RuntimeError('Use the Python environment validated by setup_server.sh.')
     video = Path(video).expanduser().resolve()
@@ -349,16 +349,16 @@ def train_video(video, deployment, *, output=None):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(prog='smpl-x', description='SMPL-X video reconstruction: fresh video, 18000 training steps, standard PLY.')
     commands = parser.add_subparsers(dest='command', required=True)
-    p = commands.add_parser('train', help='One video through 119 reconstruction and standard export.')
+    p = commands.add_parser('train', help='One video through SMPL-X reconstruction and standard export.')
     p.add_argument('video', type=Path)
-    p.add_argument('--deployment', type=Path, default=Path(sys.prefix) / 'install/deployment119.json')
+    p.add_argument('--deployment', type=Path, default=Path.home() / 'smpl-x/queue/deployment.json')
     p.add_argument('--output', type=Path)
     p = commands.add_parser('configure', help='Save server assets and run storage after the GPU/model check.')
     p.add_argument('--assets', type=Path, required=True)
-    p.add_argument('--runs', type=Path, default=Path.home() / 'shuolee/runs')
-    p.add_argument('--output', type=Path, default=Path(sys.prefix) / 'install/deployment119.json')
+    p.add_argument('--runs', type=Path, default=Path.home() / 'smpl-x/runs')
+    p.add_argument('--output', type=Path, default=Path.home() / 'smpl-x/queue/deployment.json')
     p = commands.add_parser('doctor', help='Check model assets and GPU dependencies.')
     p.add_argument('--assets', type=Path, required=True)
     p = commands.add_parser('reconstruct', help='Full reconstruction with explicit server paths.')

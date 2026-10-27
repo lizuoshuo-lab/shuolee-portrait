@@ -80,7 +80,7 @@ class VideoQueue:
         self.deployment = Path(deployment).resolve()
         profile = read(self.deployment)
         if profile.get('schema') != 'shuolee-deployment119-v1':
-            raise ValueError('Invalid deployment profile. Run deploy119.sh.')
+            raise ValueError('Invalid deployment profile. Run deploy.sh.')
         if Path(profile['environment']).resolve() != Path(sys.prefix).resolve():
             raise RuntimeError('The worker must use the configured Python environment.')
         self.runs = Path(profile['runs']).resolve()
@@ -93,7 +93,7 @@ class VideoQueue:
         for name in ('jobs', 'inputs', 'logs'):
             (self.root / name).mkdir(exist_ok=True)
         self.settle_seconds = settle_seconds
-        self.command = command or [sys.executable, '-s', str(PROJECT / 'run119.py'), 'train']
+        self.command = command or [sys.executable, '-s', str(PROJECT / 'run_smplx.py'), 'train']
         self.observed = {}
         self.active = None
         self.child = None
@@ -276,6 +276,6 @@ class VideoQueue:
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--deployment', type=Path, default=Path(sys.prefix) / 'install/deployment119.json')
+    parser.add_argument('--deployment', type=Path, default=Path.home() / 'smpl-x/queue/deployment.json')
     args = parser.parse_args(argv)
     VideoQueue(args.deployment).serve()

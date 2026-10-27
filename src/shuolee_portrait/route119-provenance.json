@@ -74,14 +74,15 @@
       "destination": "src/shuolee_portrait/route119.py",
       "source": "C:\\Users\\Administrator\\Desktop\\GS-SLAM-Lab\\outputs\\mini-splatting2-mip-depth-001\\shuolee\\current\\clothed-surface-119\\source\\capture119_clothed.py",
       "source_sha256": "8d206c6dec355c4de5968c4f9ff3f1d1a250a0a0e10c7b6e02dbd2cf6f566bbf",
-      "destination_sha256": "b735ddd65e7519cf4fb5f10f94eff738f38959c1ec90161bca2e6753f7b00c0d",
+      "destination_sha256": "7bd5e1fe4aafc4a76729a917c01b44734d9b8b8d67e31ba8836f79b9b7731b5c",
       "baseline_destination_sha256": null,
       "behavior_differences": [
         "Portable fresh-video/assets/output interface; no learned subject state is reused.",
         "One uninterrupted 119 run through 18000 steps and generic export; no manual review commands, decisions or checkpoint waiting.",
         "Numerical fit, surface, training and PLY parity checks remain enforced; completion does not claim physical accuracy.",
         "One-time GPU/model configuration; daily train command accepts only a video and optional output path.",
-        "Acquire GPU lock before creating output; persist the original stage-specific exception; status is CPU-only."
+        "Acquire GPU lock before creating output; persist the original stage-specific exception; status is CPU-only.",
+        "Public application and CLI naming is smpl-x; default runtime folders are ~/smpl-x; historical run schema and numerical recipe unchanged."
       ]
     }
   ],
@@ -124,7 +125,7 @@
     "quality_accepted": false,
     "physical_calibration_accepted": false
   },
-  "validation_scope": "Local deployment evidence is in provenance/deployment119-validation.json; historical viewer compatibility remains separate.",
+  "validation_scope": "Local deployment evidence is in provenance/deployment-validation.json; historical viewer compatibility remains separate.",
   "vendor_changes": [
     {
       "destination": "src/avatar_core/utils/sh_utils.py",
@@ -152,9 +153,9 @@
     }
   ],
   "deployment_entrypoints": [
-    "deploy119.sh",
-    "watch119.py",
+    "deploy.sh",
+    "watch.py",
     "src/shuolee_portrait/queue119.py",
-    "scripts/install_service119.py"
+    "scripts/install_service.py"
   ]
 }

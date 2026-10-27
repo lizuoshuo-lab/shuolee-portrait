@@ -1,7 +1,7 @@
 {
   "schema": "shuolee-deployment119-validation-v1",
   "date": "2026-10-28",
-  "branch": "codex/reconstruction-119",
+  "branch": "codex/smpl-x",
   "scope": "One-command Git deployment, automatic video-folder intake, uninterrupted 119 reconstruction and generic export; no viewer or human approval",
   "local": {
     "os": "Windows + Ubuntu 20.04 WSL2",
@@ -75,5 +75,16 @@
     "folder_integration": "folder119-integration.json",
     "independent_export": "folder119-independent-export.json",
     "run": "/opt/gs-slam-lab/shuolee-folder119-validation-20261027/runs/sofa119-cb11ad325834b399"
+  },
+  "application": "smpl-x",
+  "validated_branch_before_rename": "codex/reconstruction-119",
+  "current_entrypoint": "deploy.sh",
+  "naming_change": {
+    "application": "smpl-x",
+    "service": "smpl-x.service",
+    "default_root": "~/smpl-x",
+    "training_recipe_changed": false,
+    "previous_full_training_evidence_preserved": true,
+    "verification": "in_progress"
   }
 }

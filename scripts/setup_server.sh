@@ -3,7 +3,7 @@
 set -euo pipefail
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PYTHON_BIN="${PYTHON_BIN:-python3.10}"
-SHUOLEE_ENV_DIR="${SHUOLEE_ENV_DIR:-${HOME}/.local/share/shuolee-portrait/env-cu128}"
+SHUOLEE_ENV_DIR="${SMPLX_ENV_DIR:-${SHUOLEE_ENV_DIR:-${HOME}/.local/share/smpl-x/env-cu128}}"
 export MAX_JOBS="${MAX_JOBS:-2}"
 export PYTHONNOUSERSITE=1
 unset PYTHONPATH SHUOLEE_EXTRA_PYTHONPATH
@@ -11,8 +11,8 @@ unset PYTHONPATH SHUOLEE_EXTRA_PYTHONPATH
 fail() { echo "ERROR: $*" >&2; exit 1; }
 mode=install
 ASSETS_DIR=""
-RUNS_DIR="${HOME}/shuolee/runs"
-DEPLOYMENT_FILE="$SHUOLEE_ENV_DIR/install/deployment119.json"
+RUNS_DIR="${SMPLX_ROOT:-${HOME}/smpl-x}/runs"
+DEPLOYMENT_FILE="${SMPLX_ROOT:-${HOME}/smpl-x}/queue/deployment.json"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     install|--preflight-only|--resume-install|--verify-existing) mode="$1"; shift ;;
@@ -26,17 +26,17 @@ while [[ $# -gt 0 ]]; do
       shift 2 ;;
     --help|-h)
       echo 'Usage: bash scripts/setup_server.sh [--preflight-only|--resume-install|--verify-existing] [--assets PATH] [--runs PATH] [--deployment PATH]'
-      echo 'Dependency installation helper. For automatic video intake, run bash deploy119.sh.'
+      echo 'Dependency installation helper. For automatic video intake, run bash deploy.sh.'
       exit 0 ;;
     *) fail "Unknown argument: $1" ;;
   esac
 done
 [[ -f "$PROJECT_ROOT/constraints-linux-cu128.txt" ]] || fail 'Missing pinned dependency constraints.'
 export PIP_CONSTRAINT="$PROJECT_ROOT/constraints-linux-cu128.txt"
-configure_119() {
+configure_smplx() {
   if [[ -n "$ASSETS_DIR" ]]; then
-    "$ENV_PYTHON" -s "$PROJECT_ROOT/run119.py" configure --assets "$ASSETS_DIR" --runs "$RUNS_DIR" --output "$DEPLOYMENT_FILE"
-    echo '119 environment and models verified.'
+    "$ENV_PYTHON" -s "$PROJECT_ROOT/run_smplx.py" configure --assets "$ASSETS_DIR" --runs "$RUNS_DIR" --output "$DEPLOYMENT_FILE"
+    echo 'smpl-x environment and models verified.'
   else
     echo 'Dependencies checked. To bind models: bash scripts/setup_server.sh --verify-existing --assets /path/to/models'
   fi
@@ -46,7 +46,7 @@ if [[ "$mode" == --verify-existing ]]; then
   [[ -x "$ENV_PYTHON" && -f "$SHUOLEE_ENV_DIR/pyvenv.cfg" ]] || fail 'Configured isolated Python environment is missing.'
   "$ENV_PYTHON" -s -m pip check
   "$ENV_PYTHON" -s "$PROJECT_ROOT/scripts/check_environment.py" --output "$SHUOLEE_ENV_DIR/install/environment-check.json"
-  configure_119
+  configure_smplx
   exit 0
 fi
 for exe in ffmpeg ffprobe g++ cmake; do
@@ -137,5 +137,5 @@ done
 "$ENV_PYTHON" -s -m pip freeze > "$SHUOLEE_ENV_DIR/install/installed.txt"
 "$ENV_PYTHON" -s "$PROJECT_ROOT/scripts/check_environment.py" --output "$SHUOLEE_ENV_DIR/install/environment-check.json"
 echo "Dependency installation passed. Activate: source '$SHUOLEE_ENV_DIR/bin/activate'"
-configure_119
+configure_smplx
 echo 'No model weights were downloaded; no reconstruction quality is implied.'

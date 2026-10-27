@@ -1,6 +1,6 @@
-# 119 自动重建
+# smpl-x 自动重建
 
-按根目录README的一行命令部署，然后上传视频到 `~/shuolee/videos/`。服务名为 `shuolee119`，通过systemd常驻并开机启动。
+按根目录README的一行命令部署，然后上传视频到 `~/smpl-x/videos/`。服务名为 `smpl-x`，通过systemd常驻并开机启动。
 
 ## 输入和结果
 
@@ -21,14 +21,14 @@
 
 输入完整性、拟合误差、轮廓体积、有限数值、点数预算和原生/PLY渲染一致性自动检查。异常保留具体错误，队列继续下一个视频。失败或被中断的任务保留现场，不无限重试；重启不会覆盖已有训练或把未完成任务报告为成功。完成状态表示流程完成，物理几何精度另由测量确定，没有人工审批步骤。
 
-默认相机前端用新图像SIFT轨迹估计单一焦距，假设居中主点和fx=fy，执行Essential/PnP和固定K束调整。适用于围绕静止人物拍摄的针孔图像域视频；遮挡、微动、低纹理及未知鱼眼处理会影响结果。保留119原有轮廓计票方式及出画面区域计负证据的限制。
+默认相机前端用新图像SIFT轨迹估计单一焦距，假设居中主点和fx=fy，执行Essential/PnP和固定K束调整。适用于围绕静止人物拍摄的针孔图像域视频；遮挡、微动、低纹理及未知鱼眼处理会影响结果。保留原有轮廓计票方式及出画面区域计负证据的限制。
 
 ## 维护
 
-日常只需上传视频。排查服务可用 `systemctl status shuolee119` 和 `journalctl -u shuolee119 -n 80`；具体阶段和原始错误在运行目录的 `status.json` 与队列任务日志内。
+日常只需上传视频。排查服务可用 `systemctl status smpl-x` 和 `journalctl -u smpl-x -n 80`；具体阶段和原始错误在运行目录的 `status.json` 与队列任务日志内。
 
-Git更新应在队列空闲时进行：停止服务，`git pull --ff-only`，再运行 `bash deploy119.sh`。不会覆盖已有结果。部署目录已存在时直接运行其 `deploy119.sh`，不重复克隆。
+Git更新应在队列空闲时进行：停止服务，`git pull --ff-only`，再运行 `bash deploy.sh`。不会覆盖已有结果。部署目录已存在时直接运行其 `deploy.sh`，不重复克隆。
 
-自定义路径只需首次部署前设置环境变量：`SHUOLEE_ROOT`改变videos/runs/queue的共同父目录；`SHUOLEE_ENV_DIR`指定隔离Python环境；`SHUOLEE_ASSETS`指定已有通用模型目录。安装过程实际检查CUDA前向/反向和21个模型哈希。服务以部署用户身份运行，配置记录于 `queue/deployment.json`。
+自定义路径只需首次部署前设置环境变量：`SMPLX_ROOT`改变videos/runs/queue的共同父目录；`SMPLX_ENV_DIR`指定隔离Python环境；`SMPLX_ASSETS`指定已有通用模型目录。安装过程实际检查CUDA前向/反向和21个模型哈希。服务以部署用户身份运行，配置记录于 `queue/deployment.json`。
 
-本地验证记录于 `provenance/deployment119-validation.json`，分开记录真实视频完整训练、文件夹触发、CPU队列测试、GPU环境复用和目标服务器部署状态。
+本地验证记录于 `provenance/deployment-validation.json`，分开记录真实视频完整训练、文件夹触发、CPU队列测试、GPU环境复用和目标服务器部署状态。

@@ -27,14 +27,14 @@ def service_text(profile):
                            for key in ('PATH', 'CUDA_HOME', 'LD_LIBRARY_PATH', 'TORCH_EXTENSIONS_DIR')
                            if os.environ.get(key)]
     return '\n'.join([
-        '[Unit]', 'Description=Shuolee 119 video reconstruction',
+        '[Unit]', 'Description=smpl-x video reconstruction',
         'After=network-online.target', 'Wants=network-online.target', '',
         '[Service]', 'Type=simple', 'User=' + user.pw_name,
         'Environment=' + quoted('HOME=' + user.pw_dir),
         'Environment=PYTHONNOUSERSITE=1 PYTHONUNBUFFERED=1 OMP_NUM_THREADS=4 OPENBLAS_NUM_THREADS=4',
         *runtime_environment,
         'UnsetEnvironment=PYTHONPATH SHUOLEE_EXTRA_PYTHONPATH',
-        'ExecStart=' + ' '.join(map(quoted, [sys.executable, '-s', PROJECT/'watch119.py', '--deployment', profile])),
+        'ExecStart=' + ' '.join(map(quoted, [sys.executable, '-s', PROJECT/'watch.py', '--deployment', profile])),
         'Restart=on-failure', 'RestartSec=5', 'KillMode=mixed', 'TimeoutStopSec=90',
         'UMask=0027', '', '[Install]', 'WantedBy=multi-user.target', '',
     ])
@@ -42,7 +42,7 @@ def service_text(profile):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--name', default='shuolee119')
+    parser.add_argument('--name', default='smpl-x')
     parser.add_argument('--deployment', type=Path, required=True)
     args = parser.parse_args()
     if not re.fullmatch(r'[a-zA-Z0-9_-]+', args.name):
@@ -71,7 +71,7 @@ def main():
         if active and status_path.is_file():
             status = read(status_path)
             if status.get('state') == 'watching' and time.time() - status_path.stat().st_mtime < 15:
-                print(f'119 READY\nUpload videos: {queue.inbox}\nResults: {queue.runs}\nStatus: {status_path}\nService: {target.name}', flush=True)
+                print(f'smpl-x READY\nUpload videos: {queue.inbox}\nResults: {queue.runs}\nStatus: {status_path}\nService: {target.name}', flush=True)
                 return
         time.sleep(1)
     raise RuntimeError(f'Service did not become ready. Read: journalctl -u {target.name} -n 80')
