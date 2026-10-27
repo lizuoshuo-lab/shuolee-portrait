@@ -4,6 +4,8 @@
 *.assembling
 /data/
 /runs/
+/videos/
+/queue/
 /outputs/
 /models/
 /weights/

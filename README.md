@@ -1,30 +1,17 @@
 # Shuolee 119 视频重建
 
-标准流程：视频 → 新相机、人物遮罩和二维观测 → 1200步人体拟合 → 20万衣物表面自由高斯 → 18000步训练 → 通用PLY和相机。
+一次部署，以后只上传视频。自动完成新相机和人物观测、1200步人体拟合、20万衣物表面自由高斯初始化、18000步训练和通用PLY导出。
 
-代码通过Git部署，业务输入只有原视频。部署内容仅包含重建，不安装查看器、Node.js或网页服务。全流程自动执行，没有人工审核、确认文件或逐阶段操作。
-
-## 首次部署
-
-目标环境：Linux x86_64 / WSL2、Python 3.10、NVIDIA GPU及驱动、CUDA 12.8开发工具、FFmpeg和C++构建工具。通用预训练模型按[模型配置](docs/模型配置.md)在目标环境一次性配置。
+在目标Linux服务器执行这一行：
 
 ```bash
-git clone --filter=blob:none --sparse --branch codex/reconstruction-119 https://github.com/lizuoshuo-lab/shuolee-portrait.git
-cd shuolee-portrait
-git sparse-checkout set configs scripts src third_party docs tests provenance .github
-bash scripts/setup_server.sh --assets /data/shuolee-models
+git clone --filter=blob:none --sparse -b codex/reconstruction-119 https://github.com/lizuoshuo-lab/shuolee-portrait.git ~/shuolee/app && bash ~/shuolee/app/deploy119.sh
 ```
 
-安装脚本创建独立Python环境，编译并实际检查CUDA算子，校验模型，保存部署配置。已有依赖环境使用 `--verify-existing --assets ...` 核验和绑定。自定义环境位置时设置 `SHUOLEE_ENV_DIR`。
+随后把视频上传到 **`~/shuolee/videos/`**。文件稳定30秒后自动排队，一次训练一个，关闭SSH或WinSCP后继续运行，服务器重启后服务自动启动。相同内容的视频只处理一次。
 
-## 导入视频并重建
+结果在 **`~/shuolee/runs/<视频名>-<内容标识>/export/point_cloud.ply`**，同时提供通用3DGS相机JSON和COLMAP相机。状态在 `~/shuolee/queue/status.json`，每个视频的日志在 `~/shuolee/queue/logs/`。
 
-```bash
-bash scripts/train119.sh /data/videos/person.mp4
-```
+目标环境需要Linux x86_64/systemd、NVIDIA驱动、Python 3.10、CUDA 12.8开发工具、FFmpeg及C++构建工具。脚本安装隔离依赖环境；已有环境自动核验复用。已有113服务器的 `~/shuolee/models/113/` 和 `cuda128.env` 自动识别，通用预训练模型须满足[模型清单](docs/模型配置.md)。私有Git仓库使用服务器已有Git凭据；安装系统服务需要sudo权限。
 
-默认在 `~/shuolee/runs/` 生成独立运行目录并连续完成重建；可用 `--output /data/runs/person_001` 指定全新目录。代码更新使用 `git pull --ff-only`。
-
-输出 `export/point_cloud.ply`、通用 `cameras.json`、COLMAP相机和格式核验记录。必要的输入、拟合、有限数值及导出一致性检查自动执行；异常直接停止并保留日志，不覆盖已有结果。详细运行和验证说明见[119流程](docs/119-workflow.md)。
-
-模型、视频、环境、运行结果均保存在Git外。适用输入是围绕静止人物拍摄的针孔图像域视频；相机不足、遮挡或人物微动可能导致失败或质量下降。训练完成不自动等同于物理几何精度通过。
+代码仅经Git部署，业务输入只有视频；没有查看器、Node.js、Spark专用格式或人工审核步骤。[流程与维护说明](docs/119-workflow.md) · [本地验证记录](provenance/deployment119-validation.json)

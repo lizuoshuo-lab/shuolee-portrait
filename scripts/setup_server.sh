@@ -12,16 +12,21 @@ fail() { echo "ERROR: $*" >&2; exit 1; }
 mode=install
 ASSETS_DIR=""
 RUNS_DIR="${HOME}/shuolee/runs"
+DEPLOYMENT_FILE="$SHUOLEE_ENV_DIR/install/deployment119.json"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     install|--preflight-only|--resume-install|--verify-existing) mode="$1"; shift ;;
-    --assets|--runs)
+    --assets|--runs|--deployment)
       [[ $# -ge 2 && -n "$2" && "$2" != --* ]] || fail "Missing path after $1"
-      if [[ "$1" == --assets ]]; then ASSETS_DIR="$2"; else RUNS_DIR="$2"; fi
+      case "$1" in
+        --assets) ASSETS_DIR="$2" ;;
+        --runs) RUNS_DIR="$2" ;;
+        --deployment) DEPLOYMENT_FILE="$2" ;;
+      esac
       shift 2 ;;
     --help|-h)
-      echo 'Usage: bash scripts/setup_server.sh [--preflight-only|--resume-install|--verify-existing] [--assets /path/to/models] [--runs /path/to/runs]'
-      echo 'Install/verify Python+CUDA reconstruction only; --assets validates models and configures train119.sh.'
+      echo 'Usage: bash scripts/setup_server.sh [--preflight-only|--resume-install|--verify-existing] [--assets PATH] [--runs PATH] [--deployment PATH]'
+      echo 'Dependency installation helper. For automatic video intake, run bash deploy119.sh.'
       exit 0 ;;
     *) fail "Unknown argument: $1" ;;
   esac
@@ -30,8 +35,8 @@ done
 export PIP_CONSTRAINT="$PROJECT_ROOT/constraints-linux-cu128.txt"
 configure_119() {
   if [[ -n "$ASSETS_DIR" ]]; then
-    "$ENV_PYTHON" -s "$PROJECT_ROOT/run119.py" configure --assets "$ASSETS_DIR" --runs "$RUNS_DIR"
-    echo '119 deployment ready. Train: bash scripts/train119.sh /path/to/video.mp4'
+    "$ENV_PYTHON" -s "$PROJECT_ROOT/run119.py" configure --assets "$ASSETS_DIR" --runs "$RUNS_DIR" --output "$DEPLOYMENT_FILE"
+    echo '119 environment and models verified.'
   else
     echo 'Dependencies checked. To bind models: bash scripts/setup_server.sh --verify-existing --assets /path/to/models'
   fi

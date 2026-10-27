@@ -30,13 +30,13 @@ def validate_config(cfg):
 
 @contextmanager
 def gpu_lock():
+    from .queue119 import worker_lock
     path=rt.PROJECT/'.gpu-task.lock'
-    try:fd=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL)
-    except FileExistsError:raise RuntimeError(f'Existing task lock: {path}. Inspect the recorded PID; do not start a duplicate.')
-    try:
-        os.write(fd,json.dumps(dict(pid=os.getpid(),host=__import__('socket').gethostname(),command=sys.argv)).encode());os.close(fd)
+    with worker_lock(path) as stream:
+        stream.seek(0);stream.truncate()
+        stream.write(json.dumps(dict(pid=os.getpid(),host=__import__('socket').gethostname(),command=sys.argv)).encode())
+        stream.flush()
         yield
-    finally:path.unlink()
 
 
 def doctor(assets):

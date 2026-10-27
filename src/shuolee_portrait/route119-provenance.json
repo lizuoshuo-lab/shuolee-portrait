@@ -150,5 +150,11 @@
         "CPU tests independently reproject serialized JSON/text cameras with off-center principal points and Hamilton quaternion decoding."
       ]
     }
+  ],
+  "deployment_entrypoints": [
+    "deploy119.sh",
+    "watch119.py",
+    "src/shuolee_portrait/queue119.py",
+    "scripts/install_service119.py"
   ]
 }
