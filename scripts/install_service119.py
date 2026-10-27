@@ -23,12 +23,16 @@ def quoted(value):
 
 def service_text(profile):
     user = pwd.getpwuid(os.getuid())
+    runtime_environment = ['Environment=' + quoted(key + '=' + os.environ[key])
+                           for key in ('PATH', 'CUDA_HOME', 'LD_LIBRARY_PATH', 'TORCH_EXTENSIONS_DIR')
+                           if os.environ.get(key)]
     return '\n'.join([
         '[Unit]', 'Description=Shuolee 119 video reconstruction',
         'After=network-online.target', 'Wants=network-online.target', '',
         '[Service]', 'Type=simple', 'User=' + user.pw_name,
         'Environment=' + quoted('HOME=' + user.pw_dir),
         'Environment=PYTHONNOUSERSITE=1 PYTHONUNBUFFERED=1 OMP_NUM_THREADS=4 OPENBLAS_NUM_THREADS=4',
+        *runtime_environment,
         'UnsetEnvironment=PYTHONPATH SHUOLEE_EXTRA_PYTHONPATH',
         'ExecStart=' + ' '.join(map(quoted, [sys.executable, '-s', PROJECT/'watch119.py', '--deployment', profile])),
         'Restart=on-failure', 'RestartSec=5', 'KillMode=mixed', 'TimeoutStopSec=90',
