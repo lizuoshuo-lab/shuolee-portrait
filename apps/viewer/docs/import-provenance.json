@@ -1,0 +1,29 @@
+{
+  "files": [
+    {
+      "file": "src/io/point-cloud-loader.js",
+      "source": "C:\\Users\\Administrator\\Desktop\\GS-SLAM-Lab\\outputs\\mini-splatting2-mip-depth-001\\viewer\\point-cloud-loader.js",
+      "sourceSha256": "9a0bd5f06e1650bd5ef1d4f5b44110b8ce266dc8735a073f219762a9f36132b4",
+      "changes": "normalize module imports for product build; original implementations retained"
+    },
+    {
+      "file": "src/io/camera-io.js",
+      "source": "C:\\Users\\Administrator\\Desktop\\GS-SLAM-Lab\\outputs\\mini-splatting2-mip-depth-001\\viewer\\camera-io.js",
+      "sourceSha256": "3f6898336250aa4f5233fb19469fb16f0e0a24d25b4c08724b4c8bfa77311a10",
+      "changes": "normalize module imports for product build; original implementations retained"
+    },
+    {
+      "file": "src/io/camera-formats.js",
+      "source": "C:\\Users\\Administrator\\Desktop\\GS-SLAM-Lab\\outputs\\mini-splatting2-mip-depth-001\\viewer\\camera-formats.js",
+      "sourceSha256": "708c158f0b06b4fc6242448b17d16d85d287fe9898c826ff75f85f41bb03ba06",
+      "changes": "normalize module imports for product build; original implementations retained"
+    },
+    {
+      "file": "src/io/render-contract.js",
+      "source": "C:\\Users\\Administrator\\Desktop\\GS-SLAM-Lab\\outputs\\mini-splatting2-mip-depth-001\\viewer\\render-contract.js",
+      "sourceSha256": "af508ca161438c9a029cd3aa44984acc13f365df6ada2d2247a90f379a359877",
+      "changes": "normalize module imports; generic pinhole-preview error wording and comment; renderer-contract validation unchanged"
+    }
+  ],
+  "source_scope": "Snapshot only; old research output not modified."
+}

@@ -1,0 +1,30 @@
+{
+  "name": "@shuolee/viewer",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "Local Gaussian and point cloud viewer with standard PLY and COLMAP interchange",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 4870 --strictPort",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 4871 --strictPort",
+    "test": "node --test tests/*.test.js",
+    "check": "npm run test && npm run test:interop && npm run build",
+    "prebuild": "node scripts/notices.mjs",
+    "predev": "node scripts/notices.mjs",
+    "start": "node scripts/serve.mjs",
+    "test:interop": "node --test tests/interop/third-party-read.test.mjs tests/interop/harness-state.test.mjs"
+  },
+  "dependencies": {
+    "@sparkjsdev/spark": "2.3.1",
+    "three": "0.180.0"
+  },
+  "devDependencies": {
+    "vite": "6.4.1",
+    "@mkkellogg/gaussian-splats-3d": "0.4.7",
+    "playcanvas": "2.23.3"
+  }
+}

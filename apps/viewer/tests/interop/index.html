@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>标准 3DGS PLY 第三方互操作验证</title>
+<link rel="stylesheet" href="./common.css">
+<header><h1>标准 3DGS PLY 第三方互操作验证</h1>
+<p>两个独立开源高斯渲染器直接读取同一份 PLY。模型留在本机，代码依赖由本地 npm 安装提供。</p>
+<p>点数来自第三方解码器。显示成功只说明该文件能被该工具读取和预览，不代表重建精度或与训练渲染一致。</p></header>
+<ul>
+  <li><a href="./mkkellogg.html?fixture=1">GaussianSplats3D 0.4.7 / MIT</a>：三阶 SH 文件中仅使用至二阶渲染，不能用于三阶精确回归。</li>
+  <li><a href="./playcanvas.html?fixture=1">PlayCanvas 2.23.3 / MIT</a>：使用引擎自带 GSplat PLY 加载器和渲染器。</li>
+  <li><a href="./anisotropic-sh3.json">合成输入说明与 SHA256</a> / <a href="./anisotropic-sh3.ply" download>标准 PLY</a></li>
+</ul>
+</html>

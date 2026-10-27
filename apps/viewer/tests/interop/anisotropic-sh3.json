@@ -1,0 +1,42 @@
+{
+  "schema": "shuolee.interop-fixture.v1",
+  "format": "binary_little_endian",
+  "count": 9,
+  "propertyCount": 62,
+  "shDegree": 3,
+  "sha256": "4b51f81ad9170b37fd4d8f8b816bae1a868a4e38d340df93667cbc7fd21cd82b",
+  "semantics": {
+    "scale": "natural logarithm",
+    "opacity": "logit",
+    "quaternion": "wxyz",
+    "sh": "channel-major f_rest_0..44; Graphdeco real SH"
+  },
+  "expected": {
+    "rows": 3,
+    "columns": 3,
+    "columnColors": [
+      "red",
+      "green",
+      "blue"
+    ],
+    "anisotropic": true,
+    "nonidentityRotations": true,
+    "nonzeroSh3": true,
+    "opacityRange": [
+      0.5,
+      0.9
+    ],
+    "bounds": {
+      "min": [
+        -0.6,
+        -0.6,
+        0
+      ],
+      "max": [
+        0.6,
+        0.6,
+        0.08
+      ]
+    }
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "schema": "shuolee.interop-verification.v1",
+  "date": "2026-10-27",
+  "fixture": "anisotropic-sh3.ply",
+  "fixtureSha256": "4b51f81ad9170b37fd4d8f8b816bae1a868a4e38d340df93667cbc7fd21cd82b",
+  "gaussianCount": 9,
+  "cpu": {
+    "command": "node --test tests/interop/third-party-read.test.mjs",
+    "passed": 3,
+    "failed": 0,
+    "gaussianSplats3D": {
+      "version": "0.4.7",
+      "decoded": true,
+      "shDegreeUsed": 2
+    },
+    "playcanvas": {
+      "version": "2.23.3",
+      "decoded": true,
+      "shDegreeUsed": 3
+    }
+  },
+  "build": {
+    "command": "npx vite build --config tests/interop/vite.config.js",
+    "succeeded": true,
+    "viteVersion": "6.4.1",
+    "note": "PlayCanvas bundle size warning; no build error"
+  },
+  "stateRegression": {
+    "command": "node --test tests/interop/harness-state.test.mjs",
+    "passed": 3,
+    "failed": 0,
+    "covers": [
+      "clear stale fields after failed switch",
+      "ignore disposed viewer callbacks",
+      "local URL restriction"
+    ]
+  },
+  "guiVerified": true,
+  "actualPersonModelVerified": true,
+  "qualityAccepted": false,
+  "company00Verified": false,
+  "guiEvidence": {
+    "actualProductUiExport": true,
+    "sha256": "ff456d793e9644d9d53733e99febea6a616f33769decfb307f8e5c12728cabb3",
+    "count": 204649,
+    "tools": [
+      "GaussianSplats3D 0.4.7 SH2",
+      "PlayCanvas 2.23.3 SH3"
+    ],
+    "renderedFramesReported": 3,
+    "orbitZoomObserved": true,
+    "continuousReloadPassed": true,
+    "qualityAccepted": false
+  }
+}

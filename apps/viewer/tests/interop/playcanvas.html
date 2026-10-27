@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PlayCanvas 互操作验证</title>
+<link rel="stylesheet" href="./common.css">
+<header><h1>PlayCanvas 2.23.3</h1>
+<p><a href="./index.html">第三方互操作验证</a> · 引擎自带 GSplat 加载器与高斯渲染 · 拖动旋转，滚轮缩放。</p>
+<p class="notice">载入、点数和绘制帧分别记录。预览不代表独立留出点精度通过。</p></header>
+<form><input id="file" type="file" accept=".ply" aria-label="本机标准 PLY">
+<input id="url" type="url" placeholder="http://127.0.0.1:端口/model.ply" aria-label="本机 HTTP PLY 地址">
+<button type="submit">载入文件或本机地址</button><button id="fixture" type="button">载入合成测试</button></form>
+<div id="viewport"></div><div id="status" role="status" data-state="booting">正在加载本机查看器模块</div><pre id="details"></pre>
+<script type="module" src="./playcanvas.js"></script>
+</html>

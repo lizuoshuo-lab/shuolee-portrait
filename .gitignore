@@ -31,3 +31,8 @@ __pycache__/
 build/
 *.egg-info/
 /.gpu-task.lock
+node_modules/
+dist/
+.cache/
+test-results/
+!/apps/viewer/tests/interop/anisotropic-sh3.ply

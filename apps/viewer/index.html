@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Shuolee · 高斯与点云查看器</title></head>
+<body>
+<header><div><span class="brand">SHUOLEE</span><span class="subtitle">高斯与点云查看器</span></div><span id="version"></span></header>
+<main>
+  <section id="viewport" aria-label="三维模型预览"><canvas id="canvas"></canvas>
+    <div id="empty"><span class="empty-symbol">◇</span><h1>打开你的三维模型</h1><p>拖入标准3DGS PLY或普通点云<br>文件在本机读取</p><button id="open-empty" class="primary">打开模型</button></div>
+    <div id="busy" hidden role="status"></div><div id="view-label">自由视角</div><div class="controls-hint">左键旋转 · 右键平移 · 滚轮缩放</div>
+  </section>
+  <aside>
+    <section><h2>模型</h2><button id="open" class="primary">打开文件</button><input id="files" type="file" multiple accept=".ply,.pcd,.xyz,.pts,.json" hidden>
+      <p class="hint">高斯：标准3DGS PLY<br>点云：PLY / PCD / XYZ / PTS</p><strong id="name">尚未载入</strong><p id="model-info" class="hint"></p></section>
+    <section><h2>显示</h2><label>查看方式<select id="mode" disabled><option value="gaussian">高斯</option><option value="points">点云</option></select></label><button id="fit" disabled>适应整体</button>
+      <label>背景<select id="background"><option value="#101817">深色</option><option value="#808080">灰色</option><option value="#f3f4f2">浅色</option></select></label>
+      <label>点大小<input id="point-size" type="range" min="1" max="8" value="2" step="0.5"></label>
+      <p class="hint">原始坐标和模型参数保持不变。</p></section>
+    <section><h2>相机</h2><button id="open-cameras" disabled>加载相机JSON</button><input id="camera-file" type="file" accept=".json" hidden><select id="views" disabled><option>尚未载入相机</option></select><p id="camera-info" class="hint"></p></section>
+    <section><h2>导出</h2><button id="export-ply" class="primary" disabled>导出通用PLY</button><button id="export-bundle" disabled>导出模型与相机包</button><button id="screenshot" disabled>保存截图</button><p class="hint">3DGS高斯属性完整保留；相机同时提供COLMAP文本格式。无需本工具或专用页面即可读取模型。</p></section>
+    <details><summary>兼容与来源</summary><p class="hint">通用导出采用Graphdeco 3DGS PLY约定；普通点云采用PLY xyz/RGB。文件兼容不代表重建质量通过。</p><p class="hint">本页为针孔预览，不替代原生鱼眼或三维响应渲染验收。</p><a href="./docs/THIRD_PARTY_NOTICES.txt" target="_blank" rel="noopener">第三方组件许可</a></details>
+    <p id="status" role="status">就绪</p>
+  </aside>
+</main>
+<script type="module" src="/src/app.js"></script>
+</body></html>
