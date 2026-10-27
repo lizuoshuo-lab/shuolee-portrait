@@ -4,6 +4,14 @@ import numpy as np
 from PIL import Image
 from . import runtime as rt
 
+
+def camera_intrinsics_for_prior(rows, cfg):
+ """Convert renderer corner coordinates once, without mutating camera records."""
+ K=np.asarray([r['K'] for r in rows],dtype=np.float32).copy()
+ if cfg.get('pixel_center_convention')=='renderer_corner_to_detector_integer':
+  K[:,0,2]-=np.float32(.5);K[:,1,2]-=np.float32(.5)
+ return K
+
 def inference_settings():
  """Compose the actual upstream inference graph so doctor checks its imports."""
  import hmr4d
@@ -76,7 +84,12 @@ def infer(root,cfg):
   progress('load_GVHMR')
   settings=inference_settings()
   model=instantiate(settings.model,_recursive_=False);model.load_state_dict(load(rt.ASSETS/'gvhmr/gvhmr/gvhmr_siga24_release.ckpt')['state_dict'],strict=True);model.cuda().eval()
-  Ks=torch.tensor(np.array([r['K'] for r in rows]),dtype=torch.float32);Rs=torch.tensor(np.array([r['w2c'] for r in rows])[:,:3,:3],dtype=torch.float32)
+  Ks=torch.tensor(camera_intrinsics_for_prior(rows,cfg),dtype=torch.float32);Rs=torch.tensor(np.array([r['w2c'] for r in rows])[:,:3,:3],dtype=torch.float32)
+  # This native-pixel input explicitly stores renderer corner-centre K.
+  # HMR's keypoints/boxes use integer pixel centres, so its camera uses K-0.5.
+  # Older runs retain their original prior behavior for reproducibility.
+  if cfg.get('pixel_center_convention')=='renderer_corner_to_detector_integer':
+   rt.save(out/'intrinsic-contract.json',dict(renderer_K=rows[0]['K'],prior_K_integer=Ks[0].tolist(),keypoints='integer_centres',calibration_accuracy_proven=False))
   batch={'length':torch.tensor([len(rows)]),'obs':normalize_kp2d(kp,boxes)[None],'bbx_xys':boxes[None],'K_fullimg':Ks[None],'cam_angvel':compute_cam_angvel(Rs)[None],'f_imgseq':features[None]}
   result=model.pipeline.forward({k:v.cuda() for k,v in batch.items()},train=False,postproc=True,static_cam=False)
   progress('GVHMR_inference',len(rows))

@@ -19,8 +19,9 @@ def sha(p):
 def now():return datetime.now(timezone.utc).isoformat()
 def configure(assets,root=None):
  global ASSETS
+ if os.environ.get('SHUOLEE_EXTRA_PYTHONPATH','').strip():
+  raise RuntimeError('SHUOLEE_EXTRA_PYTHONPATH is not supported in Git deployment. Unset it; install the pinned dependencies in the dedicated environment.')
  ASSETS=Path(assets).resolve()
- sys.path[:0]=[p for p in os.environ.get('SHUOLEE_EXTRA_PYTHONPATH','').split(os.pathsep) if p]
  sys.path[:0]=[str(PROJECT/'third_party/gvhmr'),str(PROJECT/'third_party/sam2'),str(PROJECT/'third_party/human_body_prior')]
  c.PRIVATE=ASSETS;c.MODEL=ASSETS/'smplx/SMPLX_NEUTRAL.npz';c.LAB=PROJECT/'third_party'
  if root:c.ROOT=Path(root);c.BASE=Path(root)

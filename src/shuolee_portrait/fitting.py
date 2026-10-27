@@ -30,6 +30,10 @@ def main(root,steps):
     out=root/'fit';out.mkdir(exist_ok=True)
     assert not (out/'fitted.npz').exists(), 'No cross-experiment resume'
     rows=c.read(root/'data/inputs.json')['records'];n=len(rows)
+    cfg=c.read(root/'config.json')
+    support_mode=cfg.get('landmark_image_support','legacy')
+    if support_mode not in ('legacy','mask_margin_4px'):
+        raise ValueError('Unknown landmark image support policy.')
     obs=load(root/'data/observations.npz');pred=load(root/'inference/prediction-postprocessed.npz')
     slots=np.array([r['official_prediction_slot'] for r in rows]);assert np.array_equal(obs['frame_ids'],[r['frame'] for r in rows])
     E=np.array([r['w2c'] for r in rows]);K=np.array([r['K'] for r in rows]);times=np.array([r['time_seconds'] for r in rows])
@@ -72,6 +76,17 @@ def main(root,steps):
     body_base[:,11:13]*=.2 # COCO hips under clothing have ambiguous semantics.
     camw=np.array([r.get('observation_weight',1. if r['camera_kind']=='calibrated' else .5) for r in rows])
     body_base*=camw[:,None]
+    support=np.ones((n,133),np.float32)
+    body_support=np.ones((n,17),np.float32)
+    if support_mode=='mask_margin_4px':
+        from .observation_support import image_support
+        for i,r in enumerate(rows):
+            assert c.sha(r['mask'])==r['mask_sha256']
+            mask=np.asarray(Image.open(r['mask']).convert('L'))>127
+            assert list(mask.shape[::-1])==r['wh']
+            support[i]=image_support(obs['keypoints'][i],mask)
+            body_support[i]=image_support(body_target[i].detach().cpu().numpy(),mask)
+        body_base*=body_support
     feet_ids=[JOINT_NAMES.index(x) for x in ['left_big_toe','left_small_toe','left_heel','right_big_toe','right_small_toe','right_heel']]
     hand_names=['wrist','thumb1','thumb2','thumb3','thumb','index1','index2','index3','index','middle1','middle2','middle3','middle','ring1','ring2','ring3','ring','pinky1','pinky2','pinky3','pinky']
     hand_ids=[JOINT_NAMES.index(side+'_'+name) for side in ['left','right'] for name in hand_names]
@@ -81,6 +96,7 @@ def main(root,steps):
     face_weight[:,19:31]=0
     face_weight*=camw[:,None]
     feet_weight=rel[:,17:23]*camw[:,None];hands_weight=rel[:,91:133]*camw[:,None]
+    feet_weight*=support[:,17:23];hands_weight*=support[:,91:133];face_weight*=support[:,40:91]
     bw=g(body_base);fw=g(feet_weight);hw=g(hands_weight);facw=g(face_weight)
     target=g(obs['keypoints']);eg,kg=g(E),g(K);dt=g(np.diff(times));R0g,t0g=g(R0),g(t0)
     param=lambda shape:torch.nn.Parameter(torch.zeros(shape,device='cuda'))
@@ -177,6 +193,8 @@ def main(root,steps):
         hand_initialization='SMPL-X mean; this-video 2D hand landmarks',source_sha256=c.sha(__file__),template_sha256=c.sha(c.MODEL),
         personalized_fit_loaded=False,old_gaussian_loaded=False,old_optimizer_loaded=False,
         shared_identity=True,per_frame_visibility_hardcoding=False,bare_body_is_not_clothing_surface=True,
+        landmark_image_support=support_mode,mask_margin_px=4. if support_mode=='mask_margin_4px' else None,
+        landmark_coordinates_changed=False,mask_support_is_not_anatomical_visibility=True,
         deformation='One shared static pose/shape/root/translation for every camera; no per-frame parameters. Old floor term disabled because no fresh floor-world mapping is assumed',vposer=vmeta,
         limitations=['2D learned features and estimated camera poses are uncertain','Single moving camera does not observe simultaneous multiview geometry','This sequence is not an independent robustness benchmark'],geometry_accepted=False)
     c.save(out/'protocol.json',protocol)
@@ -203,6 +221,8 @@ def main(root,steps):
             root_rotation=cpu(st['R']),world_translation=cpu(st['t']),world_scale=cpu(st['s']),body_pose=cpu(st['body']),betas=cpu(st['betas']),
             left_hand_pose=cpu(st['lh']),right_hand_pose=cpu(st['rh']),pelvis=cpu(st['pelvis']),flat_hand_mean=False,faces=model.faces)
         np.savez_compressed(out/'observation-weights.npz',body=cpu(bw),visibility=cpu(vis),feet=cpu(fw),hands=cpu(hw),face=cpu(facw),whiten=cpu(whiten),body_target=cpu(body_target))
+        if support_mode=='mask_margin_4px':
+            np.savez_compressed(out/'image-support.npz',wholebody=support,body_target=body_support)
     c.save(out/'history.json',history)
     c.save(out/'result.json',dict(created=c.stamp(),state='fresh_shared_static_fit_visual_review_pending',body_steps=steps,gaussian_steps=0,
         frames=n,seconds=time.monotonic()-start,fitted_sha256=c.sha(out/'fitted.npz'),geometry_accepted=False,quality_accepted=False))

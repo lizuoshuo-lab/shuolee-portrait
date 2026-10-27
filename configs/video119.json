@@ -1,0 +1,13 @@
+{
+  "frame_stride": 5,
+  "max_image_size": 1600,
+  "min_frames": 12,
+  "max_frames": 300,
+  "quality_accepted": false,
+  "video119": {
+    "intrinsics": {"mode": "estimate_focal"},
+    "camera_seconds": 1800,
+    "max_ba_points": 5000,
+    "max_ba_nfev": 60
+  }
+}

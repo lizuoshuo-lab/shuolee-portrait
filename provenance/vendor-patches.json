@@ -1,0 +1,33 @@
+{
+  "schema": "shuolee-vendor-patches-v1",
+  "patches": [
+    {
+      "path": "third_party/gvhmr/hmr4d/utils/body_model/body_model.py",
+      "removed_unused_import": "from turtle import forward",
+      "reason": "Unused standard-library GUI import prevents headless GVHMR prior imports when Tkinter is not installed.",
+      "source_git": "06609e5ece8d8f2a2d75a08dfd6172ea52d5a349",
+      "source_sha256": "7b5ed049c9cd29b73d472b5b5c0c95b6633ff4cb863bde4ce7edbe9433835d84",
+      "patched_sha256": "730e825c10ac23e163b85340d32e0aaa777131ef4e1e850b80f2e689d184a19c",
+      "definition_ast_sha256": "e2d8aaae7f8dc8cbb09497c2d98360219851ab00be4e24c62dca53501aa7981c",
+      "definitions_unchanged": true,
+      "license_notice_modified": false,
+      "license_path": "third_party/gvhmr/LICENSE"
+    },
+    {
+      "path": "src/avatar_core/utils/sh_utils.py",
+      "removed_unused_import": "import torch",
+      "reason": "SH utility arithmetic also supports NumPy; an unused eager Torch import blocks CPU-only parameter round-trip checks.",
+      "source_git": "06609e5ece8d8f2a2d75a08dfd6172ea52d5a349",
+      "source_sha256": "7d1ff267546390635e6d1f68c4f88c4a8b052482d5c9be1d32f06bc69e9a96e7",
+      "patched_sha256": "5136839c49d03ca9bd7e23b4708b43ed3e50d6e37195c088679c08b2a86f3b06",
+      "definition_ast_sha256": "623419f845f705e89d9ab7d2a0814eff174ef8cb62a46952d02f234c024a4ebc",
+      "definitions_unchanged": true,
+      "license_notice_modified": false,
+      "license_path": "src/avatar_core/utils/sh_utils.py"
+    }
+  ],
+  "validation": {
+    "command": "python -m unittest discover -s tests -p test_vendor_patches.py -v",
+    "scope": "Headless import isolation and exact function/class AST equality to pre-patch tracked sources. No GPU or full model inference is claimed."
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "schema": "shuolee-engineering-validation-v1",
+  "date": "2026-10-27",
+  "base_git": "06609e5ece8d8f2a2d75a08dfd6172ea52d5a349",
+  "scope": "Git engineering candidate: independent generic viewer and fresh-video 119 workflow",
+  "viewer": {
+    "production_build": true,
+    "actual_browser_ui": true,
+    "ui_import_export": [
+      "synthetic anisotropic SH3 Gaussian PLY",
+      "119 sofa Gaussian PLY and 89 cameras",
+      "ordinary RGB PTS to standard PLY"
+    ],
+    "ui_controls": [
+      "Gaussian and point mode",
+      "captured camera",
+      "ordinary orbit/zoom",
+      "non-pinhole camera rejection"
+    ],
+    "generic_export": [
+      "Graphdeco 3DGS PLY",
+      "ordinary xyz/RGB PLY",
+      "common 3DGS cameras.json",
+      "COLMAP PINHOLE camera-only text model"
+    ],
+    "custom_html_required": false,
+    "actual_ui_export_sha256": "ff456d793e9644d9d53733e99febea6a616f33769decfb307f8e5c12728cabb3",
+    "actual_ui_export_count": 204649,
+    "byte_identical_to_original_119": true,
+    "zip_crc_and_re_read_passed": true,
+    "independent_viewers": [
+      {
+        "name": "GaussianSplats3D",
+        "version": "0.4.7",
+        "decoded_count": 204649,
+        "actual_gui_rendered": true,
+        "orbit_zoom_observed": true,
+        "sh_limit": 2
+      },
+      {
+        "name": "PlayCanvas",
+        "version": "2.23.3",
+        "decoded_count": 204649,
+        "actual_gui_rendered": true,
+        "orbit_zoom_observed": true,
+        "sh_limit": 3
+      }
+    ],
+    "continuous_reload_regression": "fixture -> 119 sofa -> fixture passed after cleanup fix",
+    "point_cloud_independent_reader": "Three PLYLoader 0.180.0 read UI-exported four-point control, original xyz retained",
+    "screenshots": "Local ignored apps/viewer/test-results; personal models and screenshots are not committed",
+    "rendering_equivalence_to_native_training": false
+  },
+  "route119": {
+    "new_video_decode_control": true,
+    "synthetic_six_camera_essential_pnp_ba": true,
+    "whole_track_holdout_exclusion": true,
+    "synthetic_focal_hypothesis_control": true,
+    "real_gaussian_covariance_and_sh_rotation_round_trip": true,
+    "old_subject_state_copied": false,
+    "fresh_real_person_video_sfm_success": false,
+    "gpu_observations_prior_fit_training_export_verified_for_this_candidate": false,
+    "known_historical_fov_vote_limit_retained": true
+  },
+  "company00_deployed": false,
+  "server113_deployed": false,
+  "quality_accepted": false,
+  "physical_calibration_accepted": false,
+  "notes": [
+    "Format interoperability does not certify person geometry quality or exact renderer equivalence.",
+    "This phase does not start new training or deploy to00. Clean Git checkout evidence is recorded separately with the final commit."
+  ],
+  "runtime_isolation": "Nonempty SHUOLEE_EXTRA_PYTHONPATH is rejected before configuring assets/native modules; dedicated environment and pinned Git sources required"
+}

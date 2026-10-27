@@ -1,0 +1,154 @@
+{
+  "schema": "shuolee-route119-source-provenance-v1",
+  "baseline_git": "06609e5ece8d8f2a2d75a08dfd6172ea52d5a349",
+  "authority": "Frozen reviewed local 119 source snapshots; not an upstream complete official reproduction",
+  "migrations": [
+    {
+      "destination": "src/shuolee_portrait/clothed_surface.py",
+      "source": "C:\\Users\\Administrator\\Desktop\\GS-SLAM-Lab\\outputs\\mini-splatting2-mip-depth-001\\shuolee\\current\\clothed-surface-119\\source\\clothed_surface.py",
+      "source_sha256": "b945c28846d9c9f149eaa2bcd32687f14fe65e30b03de83dceece41613ee0e73",
+      "destination_sha256": "cf7219ad7e378c1d3ffd4f49fa83019d08fe2863a75e07975c26bc740e5419bf",
+      "baseline_destination_sha256": null,
+      "behavior_differences": [
+        "Numerical initialization and legacy all-view vote denominator retained.",
+        "Add explicit vote-policy rejection, known out-of-FOV limitation and audit fields; no visibility correction."
+      ]
+    },
+    {
+      "destination": "src/shuolee_portrait/clothed_training.py",
+      "source": "C:\\Users\\Administrator\\Desktop\\GS-SLAM-Lab\\outputs\\mini-splatting2-mip-depth-001\\shuolee\\current\\clothed-surface-119\\source\\clothed_training.py",
+      "source_sha256": "12b830120f1733ba6bc44a764d9b5e810bbb94a272f7b1a3067887151b40cdaf",
+      "destination_sha256": "12b830120f1733ba6bc44a764d9b5e810bbb94a272f7b1a3067887151b40cdaf",
+      "baseline_destination_sha256": null,
+      "behavior_differences": [
+        "Byte-for-byte 119 snapshot; wrapper enforces new run/input/review contracts."
+      ]
+    },
+    {
+      "destination": "src/shuolee_portrait/prior.py",
+      "source": "C:\\Users\\Administrator\\Desktop\\GS-SLAM-Lab\\outputs\\mini-splatting2-mip-depth-001\\shuolee\\current\\clothed-surface-119\\source\\prior.py",
+      "source_sha256": "65640b7ea62506025d6852d95eab570ec8832793683119cc1f5273b2876f907d",
+      "destination_sha256": "04a8cc1aa08cb1306dc82f7d26e40480456c31bda157c10506bbf04ab7422192",
+      "baseline_destination_sha256": "6700067c84b857dcbb1726e98858b444c753e6ff1ca9aa0257651d9ed70e5b60",
+      "behavior_differences": [
+        "Preserve legacy behavior when pixel convention is undeclared.",
+        "Extract the 119 renderer-corner to detector-integer conversion into CPU-testable camera_intrinsics_for_prior using float32 arithmetic."
+      ]
+    },
+    {
+      "destination": "src/shuolee_portrait/fitting.py",
+      "source": "C:\\Users\\Administrator\\Desktop\\GS-SLAM-Lab\\outputs\\mini-splatting2-mip-depth-001\\shuolee\\current\\clothed-surface-119\\source\\fitting.py",
+      "source_sha256": "fd6f3bb11730a97ea98f48be9dda99481f93b6952f9b9fda5ede71618fe6db68",
+      "destination_sha256": "4fded997c3138a602d16b21aa4f09b9458d37daf58cd5c99737d7452b5850e4e",
+      "baseline_destination_sha256": "111b5a257052de0b7f79c5a24be89835de4e6effce6f6d519eb880ad59a33b7a",
+      "behavior_differences": [
+        "Minimal mask_margin_4px support transplanted into the existing main fitter; legacy remains default.",
+        "Later optional anatomical z-buffer branch deliberately not transplanted; 119 configuration uses none."
+      ]
+    },
+    {
+      "destination": "src/shuolee_portrait/export.py",
+      "source": "C:\\Users\\Administrator\\Desktop\\GS-SLAM-Lab\\outputs\\mini-splatting2-mip-depth-001\\shuolee\\current\\clothed-surface-119\\source\\export.py",
+      "source_sha256": "f476dd84b12be6b26fc935808a139dd2fc3ae59cd314941ac99b05e77eaca638",
+      "destination_sha256": "eb43e2a5d9e1b04079a312ef17205fa8021524c7e362f0efcf7c0dcd19c515ce",
+      "baseline_destination_sha256": "f1ab832f0b132b5ae99a6c74a5bf67eb943be7b45afdddee88f01ece81f7acb5",
+      "behavior_differences": [
+        "Port proper-rotation roundoff normalization, nearest-scene-axis export and actual result step count.",
+        "Disable PLY memory mapping to release file handles for Windows candidate validation/renaming.",
+        "119 static_clothed_world exports common 3DGS cameras.json and COLMAP PINHOLE text; original private records/world_to_viewer move to optional camera_provenance.json. Legacy formal-route camera manifest is unchanged."
+      ]
+    },
+    {
+      "destination": "src/shuolee_portrait/observation_support.py",
+      "source": "D:\\GS-SLAM-Data\\shuolee-portrait-new-capture-118\\src\\shuolee_portrait\\observation_support.py",
+      "source_sha256": "963a062210ab6d0cbc7656c0036d4a4816606087e84a668aa2b0e8e1099e6a6f",
+      "destination_sha256": "963a062210ab6d0cbc7656c0036d4a4816606087e84a668aa2b0e8e1099e6a6f",
+      "baseline_destination_sha256": null,
+      "behavior_differences": [
+        "Byte-for-byte lightweight mask-support helper; missing from the historical snapshot but required by its configured fitter."
+      ]
+    },
+    {
+      "destination": "src/shuolee_portrait/route119.py",
+      "source": "C:\\Users\\Administrator\\Desktop\\GS-SLAM-Lab\\outputs\\mini-splatting2-mip-depth-001\\shuolee\\current\\clothed-surface-119\\source\\capture119_clothed.py",
+      "source_sha256": "8d206c6dec355c4de5968c4f9ff3f1d1a250a0a0e10c7b6e02dbd2cf6f566bbf",
+      "destination_sha256": "15ab3143c9bc572b8b1fd5fa20df30909fde7de6241563d7c0d3b7bd5d019ae1",
+      "baseline_destination_sha256": null,
+      "behavior_differences": [
+        "Replaced fixed machine/subject/cache paths with explicit video/run/assets arguments and fresh prepared-input validation.",
+        "New video frontend delegated to video119.prepare_video; cameras are regenerated rather than copied from 118.",
+        "Finite research remains separate from the formal alignment admission command; fit/surface/1000-step actual-review gates retained.",
+        "Never copy prior/fit/Gaussian/optimizer state; no silent source modification, threshold sweep or FOV fix.",
+        "Read-only status includes failed preparation without assuming old PIDs are alive.",
+        "Actual-review CLI computes artifact hashes; it never starts training or declares calibration/quality accepted.",
+        "Acquire GPU task lock before creating a fresh run; record stage-specific failures after initialization."
+      ]
+    }
+  ],
+  "existing_core_dependencies": [
+    {
+      "path": "src/avatar_core/scene/gaussian_model.py",
+      "source": "C:\\Users\\Administrator\\Desktop\\GS-SLAM-Lab\\outputs\\mini-splatting2-mip-depth-001\\shuolee\\current\\clothed-surface-119\\source\\gaussian_model.py",
+      "source_sha256": "00417a841d0ff35a9bc89d1009b85f346153b6604521f0c0419d36923729af58",
+      "destination_sha256": "00417a841d0ff35a9bc89d1009b85f346153b6604521f0c0419d36923729af58",
+      "copied": false,
+      "byte_identical": true
+    },
+    {
+      "path": "src/avatar_core/scene/static_world_gaussian_model.py",
+      "source": "C:\\Users\\Administrator\\Desktop\\GS-SLAM-Lab\\outputs\\mini-splatting2-mip-depth-001\\shuolee\\current\\clothed-surface-119\\source\\static_world_gaussian_model.py",
+      "source_sha256": "6082421d9611e70596ce90e0c0fa406a7134bb55aef14f6b8ea3e248bfe34e92",
+      "destination_sha256": "6082421d9611e70596ce90e0c0fa406a7134bb55aef14f6b8ea3e248bfe34e92",
+      "copied": false,
+      "byte_identical": true
+    },
+    {
+      "path": "src/avatar_core/scene/smplx_gaussian_model.py",
+      "source": "C:\\Users\\Administrator\\Desktop\\GS-SLAM-Lab\\outputs\\mini-splatting2-mip-depth-001\\shuolee\\current\\clothed-surface-119\\source\\smplx_gaussian_model.py",
+      "source_sha256": "aac1c4a03ee5eb54ab05e6e75272dbc18b385fef8eb5f03d5e16d93d096902de",
+      "destination_sha256": "aac1c4a03ee5eb54ab05e6e75272dbc18b385fef8eb5f03d5e16d93d096902de",
+      "copied": false,
+      "byte_identical": true
+    }
+  ],
+  "behavior_contract": {
+    "gaussian_representation": "shared_static_world_clothed_surface",
+    "fitted_body_usage": "fresh proposal extent and scale only",
+    "initial_points": 200000,
+    "fit_steps": 1200,
+    "iterations": 18000,
+    "seed": 6060,
+    "surface_vote_policy": "legacy_all_views_denominator",
+    "known_out_of_fov_limitation_retained": true,
+    "formal_training_admitted": false,
+    "quality_accepted": false,
+    "physical_calibration_accepted": false
+  },
+  "validation_scope": "CPU real-file/NPZ contract, half-pixel convention, mask support and synthetic anisotropic degree-3 PLY rigid-transform roundtrip. No CUDA fitting/training or new-video quality validation by this migration. Historical119 real viewer interoperability is recorded separately in provenance/engineering-119-viewer.json; new-pipeline output and company00 remain unverified.",
+  "vendor_changes": [
+    {
+      "destination": "src/avatar_core/utils/sh_utils.py",
+      "source": "git:06609e5ece8d8f2a2d75a08dfd6172ea52d5a349:src/avatar_core/utils/sh_utils.py",
+      "source_sha256": "7d1ff267546390635e6d1f68c4f88c4a8b052482d5c9be1d32f06bc69e9a96e7",
+      "destination_sha256": "5136839c49d03ca9bd7e23b4708b43ed3e50d6e37195c088679c08b2a86f3b06",
+      "behavior_differences": [
+        "Remove unused top-level torch import only; all SH evaluation formulas and original BSD license retained.",
+        "CPU PLY transform checks no longer require installing PyTorch; tensor callers keep their original arithmetic."
+      ]
+    }
+  ],
+  "new_modules": [
+    {
+      "destination": "src/shuolee_portrait/camera_exchange.py",
+      "destination_sha256": "5309c2355d781a1d6492705839c6ea96bd2b9da7d5bba8e7c02528be50fbad06",
+      "copied": false,
+      "source": "Original CPU engineering serializer for common 3DGS and COLMAP text formats",
+      "behavior": [
+        "Preserves full fx/fy/cx/cy, OpenCV w2c, common-3DGS c2w orientation and camera centers.",
+        "Deterministic portable image basenames with collision handling and lossless original-name mapping.",
+        "COLMAP point file and per-image feature lines are empty; no fabricated points, tracks or source images.",
+        "CPU tests independently reproject serialized JSON/text cameras with off-center principal points and Hamilton quaternion decoding."
+      ]
+    }
+  ]
+}

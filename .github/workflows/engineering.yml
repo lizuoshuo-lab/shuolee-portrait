@@ -1,0 +1,39 @@
+name: Engineering checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  viewer:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/viewer
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/viewer/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      - run: npx vite build --config tests/interop/vite.config.js
+      - uses: actions/upload-artifact@v4
+        with:
+          name: viewer
+          path: apps/viewer/dist/
+          retention-days: 7
+  python-cpu:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg libgl1
+      - run: python -m pip install -r requirements-test.txt
+      - run: python -m unittest discover -s tests -p 'test_*.py' -v
+      - run: python -m compileall -q src/shuolee_portrait
+      - run: bash -n scripts/setup_server.sh

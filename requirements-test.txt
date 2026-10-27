@@ -1,0 +1,7 @@
+# CPU geometry, input contracts, PLY round-trip and fresh video controls.
+# Production CUDA dependencies remain in requirements.txt and its constraints.
+numpy==1.26.4
+scipy==1.14.1
+pillow==11.1.0
+plyfile==1.1
+opencv-python==4.10.0.84
