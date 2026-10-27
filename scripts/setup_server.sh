@@ -8,12 +8,42 @@ export MAX_JOBS="${MAX_JOBS:-2}"
 export PYTHONNOUSERSITE=1
 unset PYTHONPATH SHUOLEE_EXTRA_PYTHONPATH
 
-mode="${1:-install}"
-case "$mode" in install|--preflight-only|--resume-install) ;; *)
-  echo 'Usage: bash scripts/setup_server.sh [--preflight-only|--resume-install]' >&2; exit 2;; esac
 fail() { echo "ERROR: $*" >&2; exit 1; }
+mode=install
+ASSETS_DIR=""
+RUNS_DIR="${HOME}/shuolee/runs"
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    install|--preflight-only|--resume-install|--verify-existing) mode="$1"; shift ;;
+    --assets|--runs)
+      [[ $# -ge 2 && -n "$2" && "$2" != --* ]] || fail "Missing path after $1"
+      if [[ "$1" == --assets ]]; then ASSETS_DIR="$2"; else RUNS_DIR="$2"; fi
+      shift 2 ;;
+    --help|-h)
+      echo 'Usage: bash scripts/setup_server.sh [--preflight-only|--resume-install|--verify-existing] [--assets /path/to/models] [--runs /path/to/runs]'
+      echo 'Install/verify Python+CUDA reconstruction only; --assets validates models and configures train119.sh.'
+      exit 0 ;;
+    *) fail "Unknown argument: $1" ;;
+  esac
+done
 [[ -f "$PROJECT_ROOT/constraints-linux-cu128.txt" ]] || fail 'Missing pinned dependency constraints.'
 export PIP_CONSTRAINT="$PROJECT_ROOT/constraints-linux-cu128.txt"
+configure_119() {
+  if [[ -n "$ASSETS_DIR" ]]; then
+    "$ENV_PYTHON" -s "$PROJECT_ROOT/run119.py" configure --assets "$ASSETS_DIR" --runs "$RUNS_DIR"
+    echo '119 deployment ready. Train: bash scripts/train119.sh /path/to/video.mp4'
+  else
+    echo 'Dependencies checked. To bind models: bash scripts/setup_server.sh --verify-existing --assets /path/to/models'
+  fi
+}
+if [[ "$mode" == --verify-existing ]]; then
+  ENV_PYTHON="$SHUOLEE_ENV_DIR/bin/python"
+  [[ -x "$ENV_PYTHON" && -f "$SHUOLEE_ENV_DIR/pyvenv.cfg" ]] || fail 'Configured isolated Python environment is missing.'
+  "$ENV_PYTHON" -s -m pip check
+  "$ENV_PYTHON" -s "$PROJECT_ROOT/scripts/check_environment.py" --output "$SHUOLEE_ENV_DIR/install/environment-check.json"
+  configure_119
+  exit 0
+fi
 for exe in ffmpeg ffprobe g++ cmake; do
   command -v "$exe" >/dev/null || fail "Missing $exe. Install FFmpeg and C++ build tools first."
 done
@@ -102,5 +132,5 @@ done
 "$ENV_PYTHON" -s -m pip freeze > "$SHUOLEE_ENV_DIR/install/installed.txt"
 "$ENV_PYTHON" -s "$PROJECT_ROOT/scripts/check_environment.py" --output "$SHUOLEE_ENV_DIR/install/environment-check.json"
 echo "Dependency installation passed. Activate: source '$SHUOLEE_ENV_DIR/bin/activate'"
-echo 'Then: python run.py doctor --assets /data/shuolee-models'
+configure_119
 echo 'No model weights were downloaded; no reconstruction quality is implied.'

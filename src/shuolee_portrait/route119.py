@@ -1,4 +1,4 @@
-"""Frozen 119 clothing-surface research, with fresh inputs and explicit reviews.
+"""119 video reconstruction: fresh inputs, 18000 training steps, standard PLY.
 
 This entry is separate from the formal reconstruction command. It reproduces
 the 119 representation and finite schedule; it never admits physical camera or
@@ -8,9 +8,10 @@ import argparse
 import json
 from pathlib import Path
 import re
-import shutil
+import sys
 import time
 import traceback
+import uuid
 
 import numpy as np
 from PIL import Image
@@ -18,7 +19,7 @@ from PIL import Image
 from . import runtime as rt
 
 
-SCHEMA = 'shuolee-119-clothed-world-v1'
+SCHEMA = 'shuolee-119-video-v2'
 STAGES = ('prepare', 'prior', 'fit', 'fit-gate', 'surface', 'train', 'export')
 DEFAULTS = dict(
     profile='static_single_person', gaussian_representation='static_clothed_world',
@@ -182,54 +183,13 @@ def initialize_run(root, video, cfg, assets):
             physical_calibration_accepted=False, quality_accepted=False,
             representation='shared_static_world_clothed_surface',
             surface_vote_policy='legacy_all_views_denominator'))
+        rt.save(root / 'status.json', dict(state='running', stage='prepare', updated=rt.now(),
+                quality_accepted=False, formal_training_admitted=False))
     except Exception:
         rt.save(root / 'status.json', dict(state='failed', stage='initialize', updated=rt.now(),
                 error=traceback.format_exc(), quality_accepted=False, formal_training_admitted=False))
         raise
     return root
-
-
-def initialize_prepared(source, root, assets, overrides=None):
-    """Import only freshly generated measured inputs, never inference/fit/GS.
-
-    A preparation receipt must identify the same raw video. Receipts and hashes
-    are an audit trail, not proof that physical correspondence is correct.
-    """
-    source = Path(source).resolve()
-    receipt = rt.read(source / 'preparation.json')
-    if (receipt.get('from_this_video') is not True or
-            receipt.get('old_subject_state_loaded') is not False or
-            not re.fullmatch('[0-9a-f]{64}', receipt.get('video_sha256', ''))):
-        raise ValueError('Prepared input needs a fresh-video preparation receipt; historical 118 caches are not an input interface.')
-    video = Path(receipt['video'])
-    if not video.is_absolute() or not video.is_file() or rt.sha(video) != receipt['video_sha256']:
-        raise ValueError('Prepared input is not bound to the available original video.')
-    source_cfg = rt.read(source / 'config.json')
-    cfg = configuration(dict(source_cfg, **(overrides or {})))
-    report = inspect_prepared(source, cfg)
-    cfg = configuration(cfg, image_height=report['wh'][1])
-    root = initialize_run(root, video, cfg, assets)
-    try:
-        for name in ('inputs.json', 'training-inputs.json', 'observations.npz'):
-            shutil.copy2(source / 'data' / name, root / 'data' / name)
-        for name in ('intrinsic-contract.json', 'preparation.json'):
-            if (source / name).is_file():
-                shutil.copy2(source / name, root / name)
-        rt.save(root / 'prepared-inputs-audit.json', dict(
-            **inspect_prepared(root, cfg), source=str(source),
-            copied_only_measured_inputs=True, old_fit_or_gaussian_or_optimizer_copied=False))
-    except Exception:
-        rt.save(root / 'status.json', dict(state='failed', stage='import-prepared', updated=rt.now(),
-                error=traceback.format_exc(), quality_accepted=False, formal_training_admitted=False))
-        raise
-    return root
-
-
-def require_review(root, name, required, artifact, digest_key):
-    review = rt.read(root / 'reviews' / name)
-    if any(review.get(key) is not True for key in required) or review.get(digest_key) != rt.sha(root / artifact):
-        raise RuntimeError(f'Actual review missing, rejected or stale: reviews/{name}')
-    return review
 
 
 def recorded_status(root):
@@ -245,84 +205,6 @@ def recorded_status(root):
         if (root / name).is_file():
             report[key] = rt.read(root / name)
     return report
-
-
-def record_review(root, kind, decision, note):
-    """Record the user's actual visual judgment, bound to current artifacts.
-
-    This command cannot establish physical calibration or quality acceptance.
-    It never starts a stage or generates a positive decision automatically.
-    """
-    root = Path(root).resolve()
-    run = rt.read(root / 'run.json')
-    if run.get('schema') != SCHEMA:
-        raise ValueError('Reviews require an engineering 119 run.')
-    if decision not in ('approve', 'reject') or not isinstance(note, str) or not note.strip():
-        raise ValueError('Record approve or reject with a nonempty note after actual visual review.')
-    approved = decision == 'approve'
-    entry = dict(created=rt.now(), decision=decision, note=note.strip(),
-                 judgment_source='explicit_user_visual_review_record',
-                 quality_accepted=False, physical_calibration_accepted=False,
-                 formal_training_admitted=False)
-    if kind == 'fit':
-        artifact = root / 'fit/fitted.npz'
-        gate = rt.read(root / 'fit/geometry-gate.json')
-        if gate.get('fit_sha256') != rt.sha(artifact) or gate.get('coarse_initialization_gate_passed') is not True:
-            raise ValueError('Fit gate is failed or stale; a review cannot override a numerical failure.')
-        if not list((root / 'reviews/fit').glob('*_mesh_overlay.png')):
-            raise FileNotFoundError('Inspect the actual images in reviews/fit before recording the fit review.')
-        filename = 'fit-decision.json'
-        entry.update(fit_sha256=rt.sha(artifact), actual_same_camera_fit_reviewed=True,
-                     allow_surface_initialization=approved)
-    elif kind == 'surface':
-        artifact = root / 'clothing-init/points.npz'
-        audit = rt.read(root / 'clothing-init/audit.json')
-        if audit.get('point_sha256') != rt.sha(artifact):
-            raise ValueError('Initialization audit does not match the actual points.')
-        if not (root / 'clothing-init/initialization.ply').is_file() or not list((root / 'clothing-init').glob('*_initialization.png')):
-            raise FileNotFoundError('Inspect clothing-init/initialization.ply and its actual renders before recording the surface review.')
-        filename = 'surface-decision.json'
-        entry.update(points_sha256=rt.sha(artifact), actual_initialization_review=True,
-                     allow_finite_research_training=approved)
-    elif kind == 'checkpoint':
-        snapshot = root / 'gaussian-run/step-001000'
-        artifact = snapshot / 'world.ply'
-        parity = rt.read(snapshot / 'native-ply-parity.json')
-        if parity.get('passed') is not True or parity.get('sha256') != rt.sha(artifact):
-            raise ValueError('The actual 1000-step PLY has no matching native-parity check.')
-        if not (snapshot / 'center-distribution.json').is_file() or not list(snapshot.glob('*_render.png')):
-            raise FileNotFoundError('Inspect the 1000-step renders, point centers and PLY before recording continuation.')
-        filename = 'gaussian-step-001000-decision.json'
-        entry.update(snapshot_sha256=rt.sha(artifact), actual_same_camera_review=True,
-                     actual_center_distribution_review=True, continue_same_run=approved)
-    else:
-        raise ValueError(f'Unknown actual-review type: {kind}')
-    target = root / 'reviews' / filename
-    if target.is_file():
-        with (target.parent / 'review-history.jsonl').open('a', encoding='utf-8') as history:
-            history.write(json.dumps(dict(previous_file=filename, previous=rt.read(target)), ensure_ascii=False) + '\n')
-    rt.save(target, entry)
-    return dict(review=str(target), **entry)
-
-
-def checkpoint_review(root, step, snapshot, *, timeout_seconds=1800):
-    if step != 1000:
-        return True
-    decision = root / 'reviews/gaussian-step-001000-decision.json'
-    digest = rt.sha(snapshot / 'world.ply')
-    rt.save(root / 'status.json', dict(state='actual_review_pending', stage='train', step=step,
-            optimizer_waiting=True, snapshot_sha256=digest, quality_accepted=False,
-            formal_training_admitted=False, updated=rt.now()))
-    deadline = time.monotonic() + timeout_seconds
-    while time.monotonic() < deadline:
-        if decision.is_file():
-            d = rt.read(decision)
-            if (d.get('snapshot_sha256') != digest or d.get('actual_same_camera_review') is not True or
-                    d.get('actual_center_distribution_review') is not True):
-                raise RuntimeError('1000-step decision does not match the actual reviewed snapshot.')
-            return d.get('continue_same_run') is True
-        time.sleep(min(5, max(0, deadline - time.monotonic())))
-    return False
 
 
 def execute_stage(name, root, assets):
@@ -356,19 +238,13 @@ def execute_stage(name, root, assets):
     elif name == 'surface':
         if (root / 'clothing-init').exists():
             raise FileExistsError('119 initialization already exists.')
-        require_review(root, 'fit-decision.json',
-            ('actual_same_camera_fit_reviewed', 'allow_surface_initialization'),
-            'fit/fitted.npz', 'fit_sha256')
         from .clothed_surface import initialize
         initialize(root, cfg)
     elif name == 'train':
         if (root / 'gaussian-run').exists():
             raise FileExistsError('119 Gaussian run already exists; no cross-run resume.')
-        require_review(root, 'surface-decision.json',
-            ('actual_initialization_review', 'allow_finite_research_training'),
-            'clothing-init/points.npz', 'points_sha256')
         from .clothed_training import train_clothed
-        train_clothed(root, cfg, checkpoint_review=lambda step, snapshot: checkpoint_review(root, step, snapshot))
+        train_clothed(root, cfg)
     elif name == 'export':
         if (root / 'export').exists():
             raise FileExistsError('119 export already exists; preserve its evidence.')
@@ -390,21 +266,23 @@ def run_stage(name, root, assets):
         rt.save(root / 'status.json', dict(state='failed', stage=name, updated=rt.now(),
                 error=traceback.format_exc(), quality_accepted=False, formal_training_admitted=False))
         raise
-    result = dict(state='stage_complete_pending_actual_review', stage=name,
+    result = dict(state='stage_complete', stage=name,
                   updated=rt.now(), quality_accepted=False, formal_training_admitted=False)
     if name == 'train':
         result['training_result'] = rt.read(root / 'gaussian-run/result.json')
         result['state'] = result['training_result']['state']
+    elif name == 'export':
+        result['result'] = rt.read(root / 'result.json')
+        result['state'] = result['result']['state']
     rt.save(root / 'status.json', result)
     print(json.dumps(result, ensure_ascii=False), flush=True)
 
 
-def reconstruct(video, root, assets, cfg=None, *, stop_after='fit-gate'):
-    """Fresh video front end plus 119 stages; review gates cannot be skipped."""
-    try:
-        from .video119 import prepare_video
-    except ImportError as exc:
-        raise RuntimeError('119 video preparation is not installed. Only explicit prepared inputs are supported; video-to-PLY is unavailable.') from exc
+def reconstruct(video, root, assets, cfg=None, *, stop_after='export'):
+    """Complete the fixed recipe with automatic numerical checks."""
+    if stop_after not in STAGES:
+        raise ValueError(f'Unknown stop stage: {stop_after}')
+    from .video119 import prepare_video
     from .cli import gpu_lock
     with gpu_lock():
         # Acquire first: a busy task must not leave an unused new run behind.
@@ -427,7 +305,7 @@ def reconstruct(video, root, assets, cfg=None, *, stop_after='fit-gate'):
                 if name == stop_after:
                     break
                 if name == 'train' and rt.read(root / 'gaussian-run/result.json')['steps'] != cfg['iterations']:
-                    raise RuntimeError('119 stopped after actual review; no completed 18000-step result is claimed.')
+                    raise RuntimeError('119 training was incomplete; no completed 18000-step result is claimed.')
         except Exception:
             rt.save(root / 'status.json', dict(state='failed', stage=active_stage, updated=rt.now(),
                     error=traceback.format_exc(), quality_accepted=False, formal_training_admitted=False))
@@ -435,49 +313,73 @@ def reconstruct(video, root, assets, cfg=None, *, stop_after='fit-gate'):
     return root
 
 
+def configure_deployment(assets, runs, output):
+    """Bind server-owned assets and run storage after the actual asset/GPU doctor."""
+    from .cli import doctor
+    assets, runs, output = (Path(p).expanduser().resolve() for p in (assets, runs, output))
+    for name, path in (('assets', assets), ('runs', runs), ('deployment profile', output)):
+        if path == rt.PROJECT or rt.PROJECT in path.parents:
+            raise ValueError(f'{name} must be outside the Git checkout.')
+    checks = doctor(assets)
+    profile = dict(schema='shuolee-deployment119-v1', created=rt.now(), assets=str(assets),
+                   runs=str(runs), environment=str(Path(sys.prefix).resolve()),
+                   doctor=checks, viewer_required=False, training_started=False)
+    rt.save(output, profile)
+    return profile
+
+
+def train_video(video, deployment, *, output=None):
+    """Daily interface: the configured server only needs a new video path."""
+    profile = rt.read(deployment)
+    if profile.get('schema') != 'shuolee-deployment119-v1':
+        raise ValueError('Run setup_server.sh --assets first to configure the 119 deployment.')
+    if Path(profile['environment']).resolve() != Path(sys.prefix).resolve():
+        raise RuntimeError('Use the Python environment validated by setup_server.sh.')
+    video = Path(video).expanduser().resolve()
+    if not video.is_file():
+        raise FileNotFoundError(video)
+    if output is None:
+        label = re.sub(r'[^\w.-]+', '_', video.stem, flags=re.UNICODE).strip('._')[:48] or 'video'
+        stamp = time.strftime('%Y%m%d-%H%M%S', time.gmtime())
+        output = Path(profile['runs']) / f'{stamp}-{label}-{uuid.uuid4().hex[:8]}'
+    output = Path(output).resolve()
+    print(json.dumps(dict(run=str(output), video=str(video), viewer_required=False), ensure_ascii=False), flush=True)
+    cfg = rt.read(rt.PROJECT / 'configs/video119.json')
+    return reconstruct(video, output, profile['assets'], cfg)
+
+
 def main(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__,
-        epilog='Finite 119 research only. It retains the historical FOV vote limitation and never grants formal alignment/quality acceptance.')
+    parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest='command', required=True)
-    p = commands.add_parser('reconstruct', help='Fresh video preparation and 119 research stages; default stops after coarse fit diagnostics.')
+    p = commands.add_parser('train', help='One video through 119 reconstruction and standard export.')
+    p.add_argument('video', type=Path)
+    p.add_argument('--deployment', type=Path, default=Path(sys.prefix) / 'install/deployment119.json')
+    p.add_argument('--output', type=Path)
+    p = commands.add_parser('configure', help='Save server assets and run storage after the GPU/model check.')
+    p.add_argument('--assets', type=Path, required=True)
+    p.add_argument('--runs', type=Path, default=Path.home() / 'shuolee/runs')
+    p.add_argument('--output', type=Path, default=Path(sys.prefix) / 'install/deployment119.json')
+    p = commands.add_parser('doctor', help='Check model assets and GPU dependencies.')
+    p.add_argument('--assets', type=Path, required=True)
+    p = commands.add_parser('reconstruct', help='Full reconstruction with explicit server paths.')
     p.add_argument('--video', type=Path, required=True)
     p.add_argument('--output', type=Path, required=True)
-    p.add_argument('--config', type=Path)
+    p.add_argument('--config', type=Path, default=rt.PROJECT / 'configs/video119.json')
     p.add_argument('--assets', type=Path, required=True)
-    p.add_argument('--stop-after', choices=STAGES, default='fit-gate')
-    p = commands.add_parser('init-prepared', help='Import measured inputs with a fresh-video receipt; never imports fit/GS state.')
-    p.add_argument('--prepared', type=Path, required=True)
-    p.add_argument('--output', type=Path, required=True)
-    p.add_argument('--config', type=Path)
-    p.add_argument('--assets', type=Path, required=True)
-    p = commands.add_parser('inspect', help='CPU-only pixel/camera/COCO-133 consistency audit.')
+    p = commands.add_parser('status', help='Read the recorded stage, progress and original error.')
     p.add_argument('--run', type=Path, required=True)
-    p = commands.add_parser('status', help='Read stored run/preparation/progress evidence, including failures; does not infer PID liveness.')
-    p.add_argument('--run', type=Path, required=True)
-    p = commands.add_parser('review', help='After viewing the actual review images/PLY, record approve/reject; this does not validate calibration or quality.')
-    p.add_argument('kind', choices=['fit', 'surface', 'checkpoint'])
-    p.add_argument('--run', type=Path, required=True)
-    p.add_argument('--decision', choices=['approve', 'reject'], required=True)
-    p.add_argument('--note', required=True, help='State what was actually seen in review images/viewer. No automatic approval is generated.')
-    p = commands.add_parser('stage', help='Run one reviewed 119 stage without changing existing outputs.')
-    p.add_argument('stage', choices=STAGES[1:])
-    p.add_argument('--run', type=Path, required=True)
-    p.add_argument('--assets', type=Path, required=True)
     args = parser.parse_args(argv)
-    if args.command == 'inspect':
-        print(json.dumps(inspect_prepared(args.run), ensure_ascii=False, indent=2))
+    if args.command == 'train':
+        train_video(args.video, args.deployment, output=args.output)
+    elif args.command == 'configure':
+        configure_deployment(args.assets, args.runs, args.output)
+    elif args.command == 'doctor':
+        from .cli import doctor
+        doctor(args.assets)
     elif args.command == 'status':
         print(json.dumps(recorded_status(args.run), ensure_ascii=False, indent=2))
-    elif args.command == 'review':
-        print(json.dumps(record_review(args.run, args.kind, args.decision, args.note), ensure_ascii=False, indent=2))
-    elif args.command == 'init-prepared':
-        initialize_prepared(args.prepared, args.output, args.assets, rt.read(args.config) if args.config else None)
-    elif args.command == 'reconstruct':
-        reconstruct(args.video, args.output, args.assets, rt.read(args.config) if args.config else None, stop_after=args.stop_after)
     else:
-        from .cli import gpu_lock
-        with gpu_lock():
-            run_stage(args.stage, args.run, args.assets)
+        reconstruct(args.video, args.output, args.assets, rt.read(args.config))
 
 
 if __name__ == '__main__':

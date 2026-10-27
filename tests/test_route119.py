@@ -131,24 +131,7 @@ class PreparedInputTests(PreparedFixture):
         with self.assertRaisesRegex(ValueError, 'pose interpolation'):
             route119.inspect_prepared(self.root)
 
-    def test_prepared_import_ignores_learned_state_and_normalizes_height(self):
-        (self.root / 'fit').mkdir()
-        (self.root / 'fit/fitted.npz').write_bytes(b'forbidden old personalized fit')
-        (self.root / 'gaussian-run').mkdir()
-        (self.root / 'gaussian-run/checkpoint.pth').write_bytes(b'forbidden optimizer')
-        target = self.base / 'new-run'
-        route119.initialize_prepared(self.root, target, self.base / 'assets')
-        self.assertFalse((target / 'fit').exists())
-        self.assertFalse((target / 'gaussian-run').exists())
-        self.assertEqual(rt.read(target / 'config.json')['training_height'], 32)
-        self.assertEqual(rt.sha(target / 'data/observations.npz'), rt.sha(self.root / 'data/observations.npz'))
 
-    def test_stale_video_receipt_is_rejected_before_creating_output(self):
-        self.video.write_bytes(b'different uploaded video')
-        target = self.base / 'new-run'
-        with self.assertRaisesRegex(ValueError, 'original video'):
-            route119.initialize_prepared(self.root, target, self.base / 'assets')
-        self.assertFalse(target.exists())
 
     def test_fresh_run_refuses_existing_directory(self):
         digest = rt.sha(self.root / 'run.json')
@@ -156,16 +139,6 @@ class PreparedInputTests(PreparedFixture):
             route119.initialize_run(self.root, self.video, self.cfg, self.base / 'assets')
         self.assertEqual(digest, rt.sha(self.root / 'run.json'))
 
-    def test_stale_actual_review_is_rejected_before_gpu_allocation(self):
-        (self.root / 'clothing-init').mkdir()
-        (self.root / 'clothing-init/points.npz').write_bytes(b'actual points')
-        rt.save(self.root / 'reviews/surface-decision.json', dict(
-            actual_initialization_review=True, allow_finite_research_training=True,
-            points_sha256='0' * 64))
-        with patch.object(rt, 'configure') as configure:
-            with self.assertRaisesRegex(RuntimeError, 'stale'):
-                route119.execute_stage('train', self.root, self.base / 'assets')
-        self.assertFalse((self.root / 'gaussian-run').exists())
 
     def test_nonexistent_run_is_not_created_by_stage_status(self):
         absent = self.base / 'absent'
@@ -198,41 +171,7 @@ class PreparedInputTests(PreparedFixture):
         self.assertEqual(report['status']['stage'], 'prepare')
         self.assertIn('original decoder failure', report['status']['error'])
 
-    def test_fit_review_binds_actual_artifact_and_does_not_admit_quality(self):
-        (self.root / 'fit').mkdir()
-        artifact = self.root / 'fit/fitted.npz'
-        artifact.write_bytes(b'fresh fit fixture')
-        rt.save(self.root / 'fit/geometry-gate.json', dict(
-            fit_sha256=rt.sha(artifact), coarse_initialization_gate_passed=True))
-        (self.root / 'reviews/fit').mkdir(parents=True)
-        Image.new('RGB', (24, 32)).save(self.root / 'reviews/fit/frame_000000_mesh_overlay.png')
-        result = route119.record_review(self.root, 'fit', 'approve', 'Inspected the same-camera overlays.')
-        self.assertEqual(result['fit_sha256'], rt.sha(artifact))
-        self.assertTrue(result['allow_surface_initialization'])
-        self.assertFalse(result['quality_accepted'])
-        self.assertFalse(result['formal_training_admitted'])
-        route119.record_review(self.root, 'fit', 'reject', 'Observed a displaced sleeve in a second inspection.')
-        self.assertFalse(rt.read(self.root / 'reviews/fit-decision.json')['allow_surface_initialization'])
-        self.assertTrue((self.root / 'reviews/review-history.jsonl').is_file())
 
-    def test_surface_and_checkpoint_reviews_use_actual_hashes(self):
-        surface = self.root / 'clothing-init'
-        surface.mkdir()
-        (surface / 'points.npz').write_bytes(b'fresh point fixture')
-        (surface / 'initialization.ply').write_bytes(b'ply fixture identity')
-        rt.save(surface / 'audit.json', dict(point_sha256=rt.sha(surface / 'points.npz')))
-        Image.new('RGB', (24, 32)).save(surface / 'frame_000000_initialization.png')
-        result = route119.record_review(self.root, 'surface', 'approve', 'Inspected initialization and centers.')
-        self.assertTrue(result['allow_finite_research_training'])
-        self.assertEqual(result['points_sha256'], rt.sha(surface / 'points.npz'))
-        snapshot = self.root / 'gaussian-run/step-001000'
-        snapshot.mkdir(parents=True)
-        (snapshot / 'world.ply').write_bytes(b'actual snapshot identity fixture')
-        rt.save(snapshot / 'native-ply-parity.json', dict(passed=True, sha256=rt.sha(snapshot / 'world.ply')))
-        rt.save(snapshot / 'center-distribution.json', dict(binding_is_none=True))
-        Image.new('RGB', (24, 32)).save(snapshot / 'frame_000000_render.png')
-        route119.record_review(self.root, 'checkpoint', 'reject', 'Observed doubled facial features.')
-        self.assertFalse(route119.checkpoint_review(self.root, 1000, snapshot, timeout_seconds=1))
 
 
 class RecipeTests(unittest.TestCase):

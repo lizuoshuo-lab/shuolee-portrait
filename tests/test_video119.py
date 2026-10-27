@@ -145,7 +145,7 @@ class Video119Tests(unittest.TestCase):
             self.assertEqual(len(decoded['records']), 12)
             self.assertEqual([row['source_frame_index'] for row in decoded['records']], list(range(12)))
             failure = json.loads((run / 'preparation.json').read_text())
-            self.assertEqual(failure['state'], 'failed_preserved_for_review')
+            self.assertEqual(failure['state'], 'failed')
             self.assertTrue(failure['from_this_video'])
             self.assertFalse(failure['old_subject_state_loaded'])
             self.assertFalse(failure['training_started'])

@@ -1,0 +1,28 @@
+{
+  "schema": "shuolee-deployment119-validation-v1",
+  "date": "2026-10-27",
+  "branch": "codex/reconstruction-119",
+  "scope": "Reconstruction only; Git source, video-only business input, no viewer deployment or human approval",
+  "local": {
+    "os": "Windows + Ubuntu 20.04 WSL2",
+    "gpu": "NVIDIA GeForce RTX 5080",
+    "python": "3.10.19",
+    "torch": "2.7.1+cu128",
+    "cuda": "12.8",
+    "existing_isolated_environment_reused": true,
+    "fresh_dependency_install_this_turn": false,
+    "actual_cuda_forward_backward_passed": true,
+    "asset_sha256_checks_passed": 21,
+    "cpu_regression_tests": 42
+  },
+  "fresh_video": {
+    "sha256": "cb11ad325834b399c655371dc5d161e1801a3719b0892da959dc1e57e764572f",
+    "frames": 89,
+    "all_camera_frames_registered": true,
+    "old_subject_or_camera_state_reused": false,
+    "full_pipeline": "in_progress"
+  },
+  "company00_deployed": false,
+  "server113_deployed": false,
+  "quality_accepted": false
+}

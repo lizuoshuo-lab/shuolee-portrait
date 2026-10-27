@@ -13,7 +13,7 @@ from .training import Views,foreground_loss,image
 from .clothed_surface import make_model,center_statistics
 
 
-def train_clothed(root,cfg,checkpoint_review=None):
+def train_clothed(root,cfg):
     import torch
     from scene.gaussian_model import GaussianModel
     from gaussian_renderer import render
@@ -66,7 +66,7 @@ def train_clothed(root,cfg,checkpoint_review=None):
         get_xyz_is_exact_world_parameter=torch.equal(model._xyz,model.get_xyz)))
     del pkg,photo,aa,other
     rng=np.random.default_rng(seed);stack=[];counts=np.zeros(len(rows),np.int32);start=time.monotonic()
-    selected=np.unique(np.linspace(0,len(rows)-1,6).astype(int));stopped=False
+    selected=np.unique(np.linspace(0,len(rows)-1,6).astype(int))
     with (out/'loss.jsonl').open('x') as log:
         for step in range(1,steps+1):
             model.update_learning_rate(step)
@@ -119,9 +119,7 @@ def train_clothed(root,cfg,checkpoint_review=None):
                     stats['kernel_max_std_model_m']={str(q):float(torch.quantile(std.max(1).values,q)) for q in [.5,.9,.99]}
                     stats['binding_is_none']=model.binding is None
                     rt.save(snapshot/'center-distribution.json',stats);del reloaded
-                if checkpoint_review is not None and not checkpoint_review(step,snapshot):
-                    stopped=True;break
-    rt.save(out/'result.json',dict(state='stopped_after_actual_review' if stopped else 'completed_quality_review_pending',
+    rt.save(out/'result.json',dict(state='completed',
         from_scratch=True,steps=step,schedule_steps=steps,execution_kind='finite_clothing_distribution_research',
         formal_training_admitted=False,per_frame_updates=counts.tolist(),final_snapshot=f'step-{step:06d}',quality_accepted=False,
         representation='shared_static_world_clothed_surface',old_checkpoint_loaded=False,binding=False))

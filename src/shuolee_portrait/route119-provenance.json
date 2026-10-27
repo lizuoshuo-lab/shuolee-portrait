@@ -7,21 +7,22 @@
       "destination": "src/shuolee_portrait/clothed_surface.py",
       "source": "C:\\Users\\Administrator\\Desktop\\GS-SLAM-Lab\\outputs\\mini-splatting2-mip-depth-001\\shuolee\\current\\clothed-surface-119\\source\\clothed_surface.py",
       "source_sha256": "b945c28846d9c9f149eaa2bcd32687f14fe65e30b03de83dceece41613ee0e73",
-      "destination_sha256": "cf7219ad7e378c1d3ffd4f49fa83019d08fe2863a75e07975c26bc740e5419bf",
+      "destination_sha256": "0ab60660d0ea0cef912f5c0689c0e452b0aff4d4b99f6f9e22b1d460114bd7de",
       "baseline_destination_sha256": null,
       "behavior_differences": [
         "Numerical initialization and legacy all-view vote denominator retained.",
-        "Add explicit vote-policy rejection, known out-of-FOV limitation and audit fields; no visibility correction."
+        "Add explicit vote-policy rejection, known out-of-FOV limitation and audit fields; no visibility correction.",
+        "Completion marker no longer requests human review; initialization equations are unchanged."
       ]
     },
     {
       "destination": "src/shuolee_portrait/clothed_training.py",
       "source": "C:\\Users\\Administrator\\Desktop\\GS-SLAM-Lab\\outputs\\mini-splatting2-mip-depth-001\\shuolee\\current\\clothed-surface-119\\source\\clothed_training.py",
       "source_sha256": "12b830120f1733ba6bc44a764d9b5e810bbb94a272f7b1a3067887151b40cdaf",
-      "destination_sha256": "12b830120f1733ba6bc44a764d9b5e810bbb94a272f7b1a3067887151b40cdaf",
+      "destination_sha256": "ba57d5d31a4911b6c8e32b609b8b2afe89ec21811694d94f7c43c9c834437606",
       "baseline_destination_sha256": null,
       "behavior_differences": [
-        "Byte-for-byte 119 snapshot; wrapper enforces new run/input/review contracts."
+        "Keep numerical 119 training schedule and renderer unchanged; remove optional manual checkpoint callback and pending-review status."
       ]
     },
     {
@@ -50,12 +51,13 @@
       "destination": "src/shuolee_portrait/export.py",
       "source": "C:\\Users\\Administrator\\Desktop\\GS-SLAM-Lab\\outputs\\mini-splatting2-mip-depth-001\\shuolee\\current\\clothed-surface-119\\source\\export.py",
       "source_sha256": "f476dd84b12be6b26fc935808a139dd2fc3ae59cd314941ac99b05e77eaca638",
-      "destination_sha256": "eb43e2a5d9e1b04079a312ef17205fa8021524c7e362f0efcf7c0dcd19c515ce",
+      "destination_sha256": "9ecf90302ef6afa9df4a81390954ffc8143210a26c0b1b9f9d354ad26aaa9a0c",
       "baseline_destination_sha256": "f1ab832f0b132b5ae99a6c74a5bf67eb943be7b45afdddee88f01ece81f7acb5",
       "behavior_differences": [
         "Port proper-rotation roundoff normalization, nearest-scene-axis export and actual result step count.",
         "Disable PLY memory mapping to release file handles for Windows candidate validation/renaming.",
-        "119 static_clothed_world exports common 3DGS cameras.json and COLMAP PINHOLE text; original private records/world_to_viewer move to optional camera_provenance.json. Legacy formal-route camera manifest is unchanged."
+        "119 static_clothed_world exports common 3DGS cameras.json and COLMAP PINHOLE text; original private records/world_to_viewer move to optional camera_provenance.json. Legacy formal-route camera manifest is unchanged.",
+        "119 export emits standard model/cameras and numerical validation only; no HTML review page or 36-view UI preview. Legacy bound-route output remains unchanged."
       ]
     },
     {
@@ -72,16 +74,14 @@
       "destination": "src/shuolee_portrait/route119.py",
       "source": "C:\\Users\\Administrator\\Desktop\\GS-SLAM-Lab\\outputs\\mini-splatting2-mip-depth-001\\shuolee\\current\\clothed-surface-119\\source\\capture119_clothed.py",
       "source_sha256": "8d206c6dec355c4de5968c4f9ff3f1d1a250a0a0e10c7b6e02dbd2cf6f566bbf",
-      "destination_sha256": "15ab3143c9bc572b8b1fd5fa20df30909fde7de6241563d7c0d3b7bd5d019ae1",
+      "destination_sha256": "d9cddce3ee7d8487101bd0919dde25fd5c8b9f4fae2013d9c1216f4ff4905d77",
       "baseline_destination_sha256": null,
       "behavior_differences": [
-        "Replaced fixed machine/subject/cache paths with explicit video/run/assets arguments and fresh prepared-input validation.",
-        "New video frontend delegated to video119.prepare_video; cameras are regenerated rather than copied from 118.",
-        "Finite research remains separate from the formal alignment admission command; fit/surface/1000-step actual-review gates retained.",
-        "Never copy prior/fit/Gaussian/optimizer state; no silent source modification, threshold sweep or FOV fix.",
-        "Read-only status includes failed preparation without assuming old PIDs are alive.",
-        "Actual-review CLI computes artifact hashes; it never starts training or declares calibration/quality accepted.",
-        "Acquire GPU task lock before creating a fresh run; record stage-specific failures after initialization."
+        "Portable fresh-video/assets/output interface; no learned subject state is reused.",
+        "One uninterrupted 119 run through 18000 steps and generic export; no manual review commands, decisions or checkpoint waiting.",
+        "Numerical fit, surface, training and PLY parity checks remain enforced; completion does not claim physical accuracy.",
+        "One-time GPU/model configuration; daily train command accepts only a video and optional output path.",
+        "Acquire GPU lock before creating output; persist the original stage-specific exception; status is CPU-only."
       ]
     }
   ],
@@ -124,7 +124,7 @@
     "quality_accepted": false,
     "physical_calibration_accepted": false
   },
-  "validation_scope": "CPU real-file/NPZ contract, half-pixel convention, mask support and synthetic anisotropic degree-3 PLY rigid-transform roundtrip. No CUDA fitting/training or new-video quality validation by this migration. Historical119 real viewer interoperability is recorded separately in provenance/engineering-119-viewer.json; new-pipeline output and company00 remain unverified.",
+  "validation_scope": "Local deployment evidence is in provenance/deployment119-validation.json; historical viewer compatibility remains separate.",
   "vendor_changes": [
     {
       "destination": "src/avatar_core/utils/sh_utils.py",

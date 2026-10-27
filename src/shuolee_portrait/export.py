@@ -121,28 +121,35 @@ def export(root,cfg):
         rt.save(out/'cameras.json',dict(records=targetrows,convention='OpenCV world-to-camera; COLMAP pixel corners',world_to_viewer=report))
     source=GaussianModel(3);source.load_ply(str(snapshot/'world.ply'));portable=GaussianModel(3);portable.load_ply(str(checking))
     pipe=SimpleNamespace(convert_SHs_python=False,compute_cov3D_python=False,debug=False);bg=torch.zeros(3,device='cuda');checks=[]
-    review=out/'review';review.mkdir();panels=[]
+    standard119=cfg.get('gaussian_representation')=='static_clothed_world'
+    if not standard119:
+        review=out/'review';review.mkdir()
+    panels=[]
     with torch.no_grad():
         for i in np.unique(np.linspace(0,len(rows)-1,6).astype(int)):
             ca,_=camera(rows[i],int(i),768);cb,_=camera(targetrows[i],int(i),768)
             a=render(ca,source,pipe,bg)['render'];b=render(cb,portable,pipe,bg)['render'];d=abs(a-b)
             checks.append(dict(frame=rows[i]['frame'],mean_abs=float(d.mean()),max_abs=float(d.max())))
-            image(a).save(review/f'{rows[i]["frame"]}_native.png');image(b).save(review/f'{rows[i]["frame"]}_viewer.png')
-            from PIL import Image
-            with Image.open(rows[i]['image']) as im:im.convert('RGB').resize((ca.image_width,ca.image_height),Image.Resampling.LANCZOS).save(review/f'{rows[i]["frame"]}_input.png')
-            panels.append('<figure><figcaption>'+html.escape(rows[i]['frame'])+'</figcaption>'+''.join(f'<img src="review/{rows[i]["frame"]}_{suffix}.png" alt="{suffix}">' for suffix in ['input','native','viewer'])+'</figure>')
-        xyz=portable.get_xyz.cpu().numpy();center=np.median(xyz,axis=0);height=float(np.quantile(xyz[:,1],.99)-np.quantile(xyz[:,1],.01));radius=max(height*1.4,.1)
-        report['viewer_focus']=center.tolist()
-        for i,angle in enumerate(np.linspace(0,2*np.pi,36,endpoint=False)):
-            eye=center+radius*np.array([np.sin(angle),.12,np.cos(angle)]);forward=center-eye;forward/=np.linalg.norm(forward)
-            right=np.cross(forward,[0,1,0]);right/=np.linalg.norm(right);down=np.cross(forward,right)
-            E=np.eye(4);E[:3,:3]=np.stack([right,down,forward]);E[:3,3]=-E[:3,:3]@eye
-            row=dict(frame=f'novel_{i:03d}',wh=[512,768],K=[[768,0,256],[0,768,384],[0,0,1]],w2c=E.tolist())
-            cam,_=camera(row,i);image(render(cam,portable,pipe,bg)['render']).save(review/f'novel_{i:03d}.png')
+            if not standard119:
+                image(a).save(review/f'{rows[i]["frame"]}_native.png');image(b).save(review/f'{rows[i]["frame"]}_viewer.png')
+                from PIL import Image
+                with Image.open(rows[i]['image']) as im:im.convert('RGB').resize((ca.image_width,ca.image_height),Image.Resampling.LANCZOS).save(review/f'{rows[i]["frame"]}_input.png')
+                panels.append('<figure><figcaption>'+html.escape(rows[i]['frame'])+'</figcaption>'+''.join(f'<img src="review/{rows[i]["frame"]}_{suffix}.png" alt="{suffix}">' for suffix in ['input','native','viewer'])+'</figure>')
+        if not standard119:
+            xyz=portable.get_xyz.cpu().numpy();center=np.median(xyz,axis=0);height=float(np.quantile(xyz[:,1],.99)-np.quantile(xyz[:,1],.01));radius=max(height*1.4,.1)
+            report['viewer_focus']=center.tolist()
+            for i,angle in enumerate(np.linspace(0,2*np.pi,36,endpoint=False)):
+                eye=center+radius*np.array([np.sin(angle),.12,np.cos(angle)]);forward=center-eye;forward/=np.linalg.norm(forward)
+                right=np.cross(forward,[0,1,0]);right/=np.linalg.norm(right);down=np.cross(forward,right)
+                E=np.eye(4);E[:3,:3]=np.stack([right,down,forward]);E[:3,3]=-E[:3,:3]@eye
+                row=dict(frame=f'novel_{i:03d}',wh=[512,768],K=[[768,0,256],[0,768,384],[0,0,1]],w2c=E.tolist())
+                cam,_=camera(row,i);image(render(cam,portable,pipe,bg)['render']).save(review/f'novel_{i:03d}.png')
     report['native_render_checks']=checks;report['format_passed']=all(c['mean_abs']<2e-6 and c['max_abs']<.005 for c in checks)
-    report['viewer_ui_review']='pending';rt.save(out/'validation.json',report)
+    if not standard119:report['viewer_ui_review']='pending'
+    rt.save(out/'validation.json',report)
     if not report['format_passed']:raise RuntimeError('+Y PLY render parity failed; candidate retained as checking.ply, not published.')
     checking.rename(out/'point_cloud.ply')
-    htmltext='<!doctype html><meta charset="utf-8"><title>Shuolee reconstruction review</title><style>body{font:16px sans-serif;background:#eee;margin:24px}figure{margin:16px 0}img{max-width:30%;height:auto}</style><h1>新视频静态重建检查</h1><p>每行：原图 / 原生渲染 / +Y PLY。尚未通过重影与未知视角质量验收。图片保持比例，不叠字。</p>'+''.join(panels)+'<h2>连续未知视角（无实拍真值）</h2><input id="angle" type="range" min="0" max="35" value="0"><br><img id="orbit" src="review/novel_000.png"><script>angle.oninput=()=>orbit.src="review/novel_"+angle.value.padStart(3,"0")+".png"</script>'
-    (out/'review.html').write_text(htmltext,encoding='utf-8')
-    rt.save(root/'result.json',dict(state='completed_pending_quality_review',ply='export/point_cloud.ply',sha256=report['sha256'],format_passed=True,quality_accepted=False,from_scratch=True,frames=len(rows),steps=result['steps'],local_adapter=True,execution_kind=result.get('execution_kind','formal_training'),formal_training_admitted=result.get('formal_training_admitted',False)))
+    if not standard119:
+        htmltext='<!doctype html><meta charset="utf-8"><title>Shuolee reconstruction review</title><style>body{font:16px sans-serif;background:#eee;margin:24px}figure{margin:16px 0}img{max-width:30%;height:auto}</style><h1>新视频静态重建检查</h1><p>每行：原图 / 原生渲染 / +Y PLY。尚未通过重影与未知视角质量验收。图片保持比例，不叠字。</p>'+''.join(panels)+'<h2>连续未知视角（无实拍真值）</h2><input id="angle" type="range" min="0" max="35" value="0"><br><img id="orbit" src="review/novel_000.png"><script>angle.oninput=()=>orbit.src="review/novel_"+angle.value.padStart(3,"0")+".png"</script>'
+        (out/'review.html').write_text(htmltext,encoding='utf-8')
+    rt.save(root/'result.json',dict(state='completed' if standard119 else 'completed_pending_quality_review',ply='export/point_cloud.ply',sha256=report['sha256'],format_passed=True,quality_accepted=False,from_scratch=True,frames=len(rows),steps=result['steps'],local_adapter=True,execution_kind=result.get('execution_kind','formal_training'),formal_training_admitted=result.get('formal_training_admitted',False)))

@@ -139,4 +139,4 @@ def initialize(root,cfg):
         limitations=['Outer silhouette envelope, not independently measured surface depth.',
             'Historical 119 counts out-of-image points as negative silhouette evidence; not a corrected visibility model.',
             'Unseen concavities/occluders/micro-motion or camera error may invalidate this envelope.'])
-    rt.save(out/'audit.json',audit);print('SURFACE_READY_FOR_ACTUAL_REVIEW',flush=True)
+    rt.save(out/'audit.json',audit);print('SURFACE_COMPLETE',flush=True)

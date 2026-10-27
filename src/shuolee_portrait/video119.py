@@ -346,7 +346,7 @@ def solve_camera_geometry(xy, records, K, out, settings=None, status=None):
     _save(out/'held-evaluation.json',dict(records=hold_results,all_errors=summary([e for t in hold_results for e in t['errors']]),
         whole_tracks_reserved=True,landmarks_are_not_material_truth=True,physical_identity_reviewed=False,formal_calibration_accepted=False))
     errors = np.linalg.norm(residual(sol.x).reshape(-1, 2), axis=1)
-    result = dict(state='camera_candidate_review_pending', frames=n, before=before,
+    result = dict(state='camera_estimation_complete', frames=n, before=before,
         fitting_errors=summary(errors), optimizer_success=bool(sol.success), nfev=sol.nfev,
         held_track_count=len(held), held_test_count=len(hold_results),
         independent_physical_accuracy_proven=False, formal_training_admitted=False,
@@ -455,13 +455,13 @@ def prepare_video(video, root, cfg, assets, *, camera_only=False):
         rt.verify_assets()
         from .observations import observe
         observe(root, cfg)
-        report.update(state='fresh_observations_complete_review_pending', observations_complete=True,
+        report.update(state='observations_complete', observations_complete=True,
             masks_source='fresh_official_SAM2', observations_source='fresh_official_RTMw_COCO133',
-            actual_camera_and_mask_review_required=True, formal_training_admitted=False)
+            formal_training_admitted=False)
         _save(root / 'preparation.json', report)
         return report
     except BaseException as exc:
-        report.update(state='failed_preserved_for_review', error=repr(exc), traceback=traceback.format_exc())
+        report.update(state='failed', error=repr(exc), traceback=traceback.format_exc())
         _save(root / 'preparation.json', report)
         raise
 
