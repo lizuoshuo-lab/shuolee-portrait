@@ -1,8 +1,8 @@
 {
   "schema": "shuolee-deployment119-validation-v1",
-  "date": "2026-10-27",
+  "date": "2026-10-28",
   "branch": "codex/reconstruction-119",
-  "scope": "Reconstruction only; Git source, video-only business input, no viewer deployment or human approval",
+  "scope": "One-command Git deployment, automatic video-folder intake, uninterrupted 119 reconstruction and generic export; no viewer or human approval",
   "local": {
     "os": "Windows + Ubuntu 20.04 WSL2",
     "gpu": "NVIDIA GeForce RTX 5080",
@@ -13,9 +13,44 @@
     "fresh_dependency_install_this_turn": false,
     "actual_cuda_forward_backward_passed": true,
     "asset_sha256_checks_passed": 21,
-    "cpu_regression_tests": 54
+    "cpu_regression_tests": 54,
+    "systemd_parser_test_passed": true
   },
   "fresh_video": {
+    "sha256": "cb11ad325834b399c655371dc5d161e1801a3719b0892da959dc1e57e764572f",
+    "frames": 89,
+    "all_camera_frames_registered": true,
+    "old_subject_or_camera_state_reused": false,
+    "full_pipeline": "completed",
+    "trigger": "folder upload only",
+    "source_git": "92273acecbc7d9444c380108a63fcf7ec8646838",
+    "steps": 18000,
+    "export_points": 204201,
+    "export_sha256": "479a19972ac81bfb9cd86bcacd3e8a859ddae4e26071e7ba6ab3b9d3d38b14db",
+    "native_export_max_abs": 0.0011298656463623047,
+    "independent_readers": [
+      "plyfile",
+      "pycolmap 3.10.0"
+    ],
+    "physical_quality_accepted": false
+  },
+  "company00_deployed": false,
+  "server113_deployed": false,
+  "quality_accepted": false,
+  "folder_service": {
+    "state": "passed",
+    "entrypoint": "deploy119.sh",
+    "deployment_source": "clean sparse checkout from GitHub",
+    "partial_upload_ignored": true,
+    "content_deduplication": true,
+    "restart_did_not_retrain": true,
+    "systemd_enabled_verified": true,
+    "completed_jobs_after_restart": 1,
+    "persistent_serial_queue": true,
+    "viewer_files_in_deployment": false,
+    "local_test_service_stopped_after_validation": true
+  },
+  "previous_cli_validation": {
     "sha256": "cb11ad325834b399c655371dc5d161e1801a3719b0892da959dc1e57e764572f",
     "frames": 89,
     "all_camera_frames_registered": true,
@@ -27,14 +62,18 @@
     "export_sha256": "e8713218d47fa2ca380470fb41fac6846b1c86b6004ff326daeb611ed95cb44f",
     "native_export_max_abs": 5.0067901611328125e-06
   },
-  "company00_deployed": false,
-  "server113_deployed": false,
-  "quality_accepted": false,
-  "folder_service": {
-    "state": "local_integration_in_progress",
-    "automatic_upload_intake": true,
-    "content_deduplication": true,
-    "persistent_serial_queue": true,
-    "systemd_boot_service": true
+  "ci": {
+    "tests_passed": 55,
+    "os": "Ubuntu 24.04",
+    "source_git": "a58bac4d2f5d0986e3934f74a89a1189b0d9e699",
+    "url": "https://github.com/lizuoshuo-lab/shuolee-portrait/actions/runs/40536651981",
+    "conclusion": "success"
+  },
+  "local_evidence": {
+    "directory": "D:/Projects/Shuolee-validation-20261027",
+    "deployment_log": "folder119-deploy.log",
+    "folder_integration": "folder119-integration.json",
+    "independent_export": "folder119-independent-export.json",
+    "run": "/opt/gs-slam-lab/shuolee-folder119-validation-20261027/runs/sofa119-cb11ad325834b399"
   }
 }

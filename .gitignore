@@ -1,6 +1,7 @@
 /assets/
 /weight-parts/
 *.part
+*.filepart
 *.assembling
 /data/
 /runs/
@@ -20,6 +21,10 @@
 *.npz
 *.mp4
 *.mov
+*.mkv
+*.avi
+*.m4v
+*.webm
 *.zip
 *.so
 *.pyd
