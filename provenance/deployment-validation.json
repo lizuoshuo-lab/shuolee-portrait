@@ -2,7 +2,7 @@
   "schema": "shuolee-deployment119-validation-v1",
   "date": "2026-10-28",
   "branch": "codex/smpl-x",
-  "scope": "One-command Git deployment, automatic video-folder intake, uninterrupted 119 reconstruction and generic export; no viewer or human approval",
+  "scope": "One-command Git deployment, automatic video-folder intake, SMPL-X reconstruction and generic export; no viewer or human approval",
   "local": {
     "os": "Windows + Ubuntu 20.04 WSL2",
     "gpu": "NVIDIA GeForce RTX 5080",
@@ -65,8 +65,8 @@
   "ci": {
     "tests_passed": 55,
     "os": "Ubuntu 24.04",
-    "source_git": "a58bac4d2f5d0986e3934f74a89a1189b0d9e699",
-    "url": "https://github.com/lizuoshuo-lab/shuolee-portrait/actions/runs/40536651981",
+    "source_git": "1ca488493bba31b4473c42d59e810073e5c7a69d",
+    "url": "https://github.com/lizuoshuo-lab/shuolee-portrait/actions/runs/40544427296",
     "conclusion": "success"
   },
   "local_evidence": {
@@ -85,6 +85,62 @@
     "default_root": "~/smpl-x",
     "training_recipe_changed": false,
     "previous_full_training_evidence_preserved": true,
-    "verification": "in_progress"
+    "verification": "passed",
+    "source_git": "1ca488493bba31b4473c42d59e810073e5c7a69d",
+    "actual_systemd_service": "smpl-x.service",
+    "manual_train_helper_uses_saved_environment": true,
+    "local_service_stopped_after_test": true
+  },
+  "video_input_checks": {
+    "state": "passed",
+    "scope": "Stream checks and one actual decoded frame per video; not full reconstruction",
+    "landscape": 5,
+    "portrait": 3,
+    "HEVC_10bit": 6,
+    "HEVC_8bit": 2,
+    "landscape_decoded_wh": [
+      1600,
+      899
+    ],
+    "portrait_decoded_wh": [
+      899,
+      1600
+    ],
+    "evidence_directory": "D:\\Projects\\Shuolee-validation-20261028",
+    "evidence_file": "video-inputs.json"
+  },
+  "portrait_full_pipeline": {
+    "state": "failed",
+    "source_git": "1ca488493bba31b4473c42d59e810073e5c7a69d",
+    "source_sha256": "32be30636adabfc4c25a1c8387cf19302d3ca39b4f040072081646d36523317c",
+    "source_wh": [
+      1520,
+      2704
+    ],
+    "decoded_wh": [
+      899,
+      1600
+    ],
+    "decoded_frames": 112,
+    "stage": "prepare",
+    "training_started": false,
+    "error": "Fresh focal solve reached its declared lower bound.",
+    "estimated_focal_px": 560.0004319847528,
+    "focal_bounds_px": [
+      560,
+      8000
+    ],
+    "all_temporal_anchor_mean_optimum_px": 559.9999999999999,
+    "thresholds_changed": false,
+    "run": "/opt/gs-slam-lab/smpl-x-validation-20261028/runs/portrait-32be30636adabfc4",
+    "evidence": "smplx-validation.json",
+    "all_portrait_videos_supported": false
+  },
+  "current_acceptance": {
+    "deployment_and_naming": "passed",
+    "landscape_reference_full_training": "passed_18000_steps",
+    "portrait_reference_full_training": "failed_before_training",
+    "two_video_categories_confirmed_by_user": false,
+    "all_inputs_reconstruct_successfully": false
   }
 }
