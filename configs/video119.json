@@ -5,7 +5,14 @@
   "max_frames": 300,
   "quality_accepted": false,
   "video119": {
-    "intrinsics": {"mode": "estimate_focal"},
+    "intrinsics": {
+      "mode": "rectified_center_crop",
+      "input_domain": "rectified_pinhole",
+      "reference_wh": [4000, 3000],
+      "K": [[1658.0353708015184, 0.0, 2001.5157183009285], [0.0, 1656.5394007261227, 1505.826949073819], [0.0, 0.0, 1.0]],
+      "pixel_convention": "integer_centers",
+      "provenance": "MONO_MAIN_MFR mono_main_calib.yaml first camera_matrix, SHA256 7cded3ee3a21d6c6c0e496a61295db726fa964140b59db6eb5082788f7fe1f50. Existing capture workflow: 4000x3000 rectified output, downsample and centered crop; exact device integer ROI unverified."
+    },
     "camera_seconds": 1800,
     "max_ba_points": 5000,
     "max_ba_nfev": 60

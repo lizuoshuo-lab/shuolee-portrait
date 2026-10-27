@@ -13,7 +13,7 @@ from scipy.spatial.transform import Rotation
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
 from shuolee_portrait.video119 import (
     VideoPreparationNotReady, estimate_focal_intrinsics, fixed_intrinsics,
-    prepare_video, settings_for, solve_camera_geometry, split_track_records,
+    prepare_video, rectified_center_crop_intrinsics, settings_for, solve_camera_geometry, split_track_records,
     validate_video_stream,
 )
 
@@ -38,6 +38,56 @@ def synthetic_tracks(n=6, count=330):
 
 
 class Video119Tests(unittest.TestCase):
+    def test_center_crop_maps_landscape_and_portrait_without_swapping_camera_axes(self):
+        profile = dict(mode='rectified_center_crop', input_domain='rectified_pinhole',
+            reference_wh=[4000, 3000], K=[[1600., 0, 2100.], [0, 1500., 1400.], [0, 0, 1]],
+            pixel_convention='integer_centers', provenance='Synthetic rectified reference with off-center principal point')
+        cases = [([2000, 1000], [1000, 500], 'landscape',
+                  [[400, 0, 524.625], [0, 375, 224.625], [0, 0, 1]]),
+                 ([1000, 2000], [500, 1000], 'portrait',
+                  [[1600/3, 0, 283.], [0, 500, 1399/3], [0, 0, 1]])]
+        for source, decoded, orientation, expected in cases:
+            with self.subTest(orientation=orientation):
+                K, contract = rectified_center_crop_intrinsics(profile, source, decoded)
+                np.testing.assert_allclose(K, expected, atol=1e-10)
+                mapped_center = np.asarray(contract['pixel_map']) @ [1999.5, 1499.5, 1.]
+                np.testing.assert_allclose(mapped_center, [(decoded[0]-1)/2, (decoded[1]-1)/2, 1.], atol=1e-10)
+                self.assertEqual(contract['orientation'], orientation)
+                self.assertFalse(contract['exact_device_integer_ROI_verified'])
+                self.assertFalse(contract['physical_calibration_accepted'])
+                corners = {**profile, 'pixel_convention': 'pixel_corners',
+                           'K': [[1600, 0, 2100.5], [0, 1500, 1400.5], [0, 0, 1]]}
+                np.testing.assert_allclose(rectified_center_crop_intrinsics(corners, source, decoded)[0], K)
+
+    def test_center_crop_rejects_undeclared_rectification_and_invalid_geometry(self):
+        profile = dict(mode='rectified_center_crop', input_domain='rectified_pinhole',
+            reference_wh=[4000, 3000], K=[[1600, 0, 2000], [0, 1600, 1500], [0, 0, 1]],
+            pixel_convention='integer_centers', provenance='Synthetic rectified camera')
+        for changed in ({'input_domain': 'raw_fisheye'}, {'reference_wh': [4000, 0]},
+                        {'reference_wh': [4000., 3000]}, {'distortion': [.1, 0]}):
+            with self.subTest(changed=changed), self.assertRaises(VideoPreparationNotReady):
+                rectified_center_crop_intrinsics({**profile, **changed}, [1520, 2704], [899, 1600])
+        for source, decoded in [([0, 2704], [899, 1600]), ([1520, 2704], [899, float('nan')])]:
+            with self.assertRaises(VideoPreparationNotReady):
+                rectified_center_crop_intrinsics(profile, source, decoded)
+
+    def test_deployed_profile_preserves_original_factory_crop_mapping_for_both_orientations(self):
+        cfg = json.loads((Path(__file__).resolve().parents[1] / 'configs/video119.json').read_text())
+        profile = settings_for(cfg)['intrinsics']
+        self.assertEqual(profile['mode'], 'rectified_center_crop')
+        for source, decoded in [([2704, 1520], [1600, 899]), ([1520, 2704], [899, 1600])]:
+            # Independent original workflow expression: crop reference first,
+            # then resize. It must equal resize-reference then center-crop video.
+            fw, fh = profile['reference_wh']
+            aspect = source[0] / source[1]
+            cw, ch = (fw, fw/aspect) if aspect >= fw/fh else (fh*aspect, fh)
+            x0, y0 = (fw-cw)/2, (fh-ch)/2
+            w, h = decoded
+            A = np.array([[w/cw, 0, w/cw*(.5-x0)-.5], [0, h/ch, h/ch*(.5-y0)-.5], [0, 0, 1.]])
+            expected = A @ np.asarray(profile['K'])
+            K, _ = rectified_center_crop_intrinsics(profile, source, decoded)
+            np.testing.assert_allclose(K, expected, atol=1e-10)
+
     def test_resize_contract_preserves_pixel_center_and_off_axis_principal_point(self):
         profile = dict(mode='fixed_pinhole', image_wh=[1920, 1080],
             provenance='Known exported-video K, reviewed crop mapping', pixel_convention='integer_centers',

@@ -10,6 +10,8 @@ git clone --filter=blob:none --sparse -b codex/smpl-x https://github.com/lizuosh
 
 随后把视频上传到 **`~/smpl-x/videos/`**。文件稳定30秒后自动排队，一次训练一个，关闭SSH或WinSCP后继续运行，服务器重启后服务自动启动。相同内容的视频只处理一次。
 
+当前采集相机的横屏、竖屏视频使用同一个文件夹和训练命令，按实际宽高自动换算已有标定的缩放与居中裁剪参数。
+
 也可以在服务器手动训练指定视频：
 
 ```bash

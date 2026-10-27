@@ -10,7 +10,13 @@
     "sift_kept_features_per_image": 5000,
     "same_frame_dedup_radius_px": 1.5,
     "mutual_descriptor_ratio": 0.75,
-    "temporal_hops": [1, 2, 4, 8, 16],
+    "temporal_hops": [
+      1,
+      2,
+      4,
+      8,
+      16
+    ],
     "first_last_window": 8,
     "held_track_fraction": "hash modulo 5 equals 0",
     "minimum_held_tracks": 30,
@@ -29,32 +35,58 @@
   "engineering_changes": [
     "All inputs derive from the uploaded video in a fresh run; no previous frames, camera tracks, person masks, fits, Gaussian parameters or optimizer are imported.",
     "Research-global paths and subject lists are replaced with explicit video/root/config/assets parameters.",
-    "New default estimates one bounded focal hypothesis from fresh training-track fundamental matrices before fixed-K geometry. It assumes square pixels, zero skew, centered principal point, rectified pixels and a static scene; it is not physical calibration.",
+    "Earlier engineering default estimated one bounded focal hypothesis from fresh training-track fundamental matrices before fixed-K geometry. It assumes square pixels, zero skew, centered principal point, rectified pixels and a static scene; it is not physical calibration.",
     "An explicit fixed_pinhole profile instead declares K in the exact exported-video image_wh and pixel convention with provenance. Only declared resize is mapped; no sensor crop is guessed and nonzero distortion is rejected.",
     "Pixel-center conversion is explicit: profile and decoded observations use integer centers; training records store principal point plus 0.5 for corner coordinates.",
     "The seed changes from 118 to 119; thresholds and numerical geometry procedure remain frozen. User config may lower the finite point/evaluation/time budgets, never raise them.",
     "Rotation metadata and HDR require a reviewed mapping instead of silent reinterpretation. Source video hashes must remain stable across decoding.",
     "Official pinned YOLO/SAM2/RTMW assets generate new masks and COCO-133 observations. Missing assets or dependencies fail with preserved evidence; there is no synthetic mask or historical cache fallback.",
-    "Standalone camera-only output deliberately omits training-inputs/observations and cannot be imported as a complete prepared training run."
+    "Standalone camera-only output deliberately omits training-inputs/observations and cannot be imported as a complete prepared training run.",
+    "Default restored to original fixed factory-crop camera procedure: first supplied 4000x3000 K, uniform resize and centered crop selected from encoded width/height. Landscape and portrait preserve distinct focal lengths and off-axis principal point; no axis swap, new focal estimate, distortion remap, old pose or person state."
   ],
   "fresh_focal_constraints": {
-    "candidate_pairs": [[0, 1], [0, 2], [0, 4], [0, 8], [0, 16]],
+    "candidate_pairs": [
+      [
+        0,
+        1
+      ],
+      [
+        0,
+        2
+      ],
+      [
+        0,
+        4
+      ],
+      [
+        0,
+        8
+      ],
+      [
+        0,
+        16
+      ]
+    ],
     "minimum_supported_pairs": 2,
     "minimum_direct_matches": 160,
     "minimum_fundamental_inliers": 80,
-    "focal_bounds_relative_to_largest_image_dimension": [0.35, 5],
+    "focal_bounds_relative_to_largest_image_dimension": [
+      0.35,
+      5
+    ],
     "max_scalar_iterations": 80,
     "boundary_and_local_unobservability_rejected": true,
     "held_tracks_used": false
   },
   "verified": {
-    "cpu_test_count": 9,
+    "cpu_test_count": 12,
     "command": "python -m unittest discover -s tests -p test_video119.py -v",
     "controls": [
       "Six synthetic views execute real Essential/PnP/BA and all register; held-track identities are absent from solver inputs.",
       "Synthetic focal recovery and held-track exclusion.",
       "Real FFmpeg extraction of a new 12-frame textureless video preserves source indices and rejects unusable geometry without fallback.",
-      "Fixed-K pixel-center/resize mapping, HDR/rotation rejection, input budgets and preserved failure directories."
+      "Fixed-K pixel-center/resize mapping, HDR/rotation rejection, input budgets and preserved failure directories.",
+      "Landscape and portrait full-K projection, off-axis principal point and pixel-center controls; equivalence with the original fixed factory-crop expression; rejection of raw-fisheye and invalid dimensions."
     ]
   },
   "unverified": [
@@ -71,5 +103,17 @@
   },
   "quality_accepted": false,
   "physical_calibration_accepted": false,
-  "formal_training_admitted": false
+  "formal_training_admitted": false,
+  "default_camera": {
+    "mode": "rectified_center_crop",
+    "reference_wh": [
+      4000,
+      3000
+    ],
+    "calibration_sha256": "7cded3ee3a21d6c6c0e496a61295db726fa964140b59db6eb5082788f7fe1f50",
+    "source_field": "camera_matrix",
+    "exact_device_integer_ROI_verified": false,
+    "physical_accuracy_proven": false,
+    "new_camera_numerical_thresholds": false
+  }
 }

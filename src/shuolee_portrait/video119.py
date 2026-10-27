@@ -1,9 +1,9 @@
 """Fresh video frontend for route 119; no historical frames, cameras or masks.
 
 Camera candidates use fresh SIFT tracks, whole-track holdouts reserved before
-geometry, OpenCV Essential/PnP and sparse fixed-K BA.  A video-only invocation
-estimates a bounded focal hypothesis from fresh fundamental matrices.  This
-does not establish physical calibration or independent facial accuracy.
+geometry, OpenCV Essential/PnP and sparse fixed-K BA. The deployed camera profile
+maps the supplied rectified camera K through resize and centered crop for either
+video orientation. This does not establish independent physical accuracy.
 
 The numerical camera procedure is migrated from the audited
 capture118_all_subjects.py research procedure; paths, old caches and per-person
@@ -25,7 +25,7 @@ import numpy as np
 DEFAULTS = {
     'frame_stride': 5, 'max_image_size': 1600, 'min_frames': 12,
     'max_frames': 300, 'camera_seconds': 1800, 'max_ba_points': 5000,
-    'max_ba_nfev': 60, 'intrinsics': {'mode': 'estimate_focal'},
+    'max_ba_nfev': 60,
 }
 
 
@@ -55,6 +55,8 @@ def _sha(path):
 
 def settings_for(cfg):
     settings = {**DEFAULTS, **{k: cfg[k] for k in DEFAULTS if k in cfg}, **cfg.get('video119', {})}
+    if 'intrinsics' not in settings:
+        settings['intrinsics'] = cfg.get('intrinsics', _read(Path(__file__).resolve().parents[2] / 'configs/video119.json')['video119']['intrinsics'])
     for name in ['frame_stride', 'max_image_size', 'min_frames', 'max_frames', 'camera_seconds', 'max_ba_points', 'max_ba_nfev']:
         if type(settings[name]) is not int or settings[name] <= 0:
             raise ValueError(f'video119.{name} must be a positive integer.')
@@ -63,8 +65,8 @@ def settings_for(cfg):
     if settings['max_ba_points'] > 5000 or settings['max_ba_nfev'] > 60 or settings['camera_seconds'] > 1800:
         raise ValueError('Video119 camera budget cannot exceed the registered 5000-point / 60-evaluation / 1800-second procedure.')
     intrinsics = settings['intrinsics']
-    if not isinstance(intrinsics, dict) or intrinsics.get('mode') not in ['estimate_focal', 'fixed_pinhole']:
-        raise ValueError('video119.intrinsics.mode must be estimate_focal or fixed_pinhole.')
+    if not isinstance(intrinsics, dict) or intrinsics.get('mode') not in ['estimate_focal', 'fixed_pinhole', 'rectified_center_crop']:
+        raise ValueError('video119.intrinsics.mode must be estimate_focal, fixed_pinhole or rectified_center_crop.')
     for name in ['quality_accepted', 'physical_calibration_accepted', 'physical_calibration_validated', 'formal_training_admitted']:
         if cfg.get(name, False) is not False:
             raise ValueError(f'An input configuration cannot preapprove {name}.')
@@ -105,6 +107,42 @@ def fixed_intrinsics(profile, source_wh, decoded_wh):
     sx, sy = np.asarray(decoded_wh, dtype=float) / np.asarray(source_wh, dtype=float)
     A = np.array([[sx, 0, .5 * sx - .5], [0, sy, .5 * sy - .5], [0, 0, 1.]])
     return A @ K, A
+
+
+def rectified_center_crop_intrinsics(profile, source_wh, decoded_wh):
+    """Map the capture profile into the actual landscape or portrait pixel domain.
+
+    Orientation changes the centered crop, not the sensor axes. Fractional crop
+    edges preserve the original workflow's continuous resize/crop hypothesis;
+    the precise device integer ROI is not independently measured here.
+    """
+    if profile.get('mode') != 'rectified_center_crop':
+        raise ValueError('Expected rectified_center_crop profile.')
+    if profile.get('input_domain') != 'rectified_pinhole':
+        raise VideoPreparationNotReady('Center-crop input must already be rectified; raw fisheye is not remapped here.')
+    reference_wh = profile.get('reference_wh')
+    for name, wh in [('reference_wh', reference_wh), ('source_wh', source_wh), ('decoded_wh', decoded_wh)]:
+        if not isinstance(wh, (list, tuple)) or len(wh) != 2 or any(type(v) is not int or v <= 0 for v in wh):
+            raise VideoPreparationNotReady(f'{name} must contain two positive integer dimensions.')
+    reference, _ = fixed_intrinsics({**profile, 'mode': 'fixed_pinhole', 'image_wh': list(reference_wh)},
+                                    reference_wh, reference_wh)
+    scale = max(source_wh[0] / reference_wh[0], source_wh[1] / reference_wh[1])
+    resized_wh = np.asarray(reference_wh, dtype=float) * scale
+    crop_xy = (resized_wh - np.asarray(source_wh)) / 2
+    source_map = np.array([[scale, 0, .5 * scale - .5 - crop_xy[0]],
+                           [0, scale, .5 * scale - .5 - crop_xy[1]], [0, 0, 1.]])
+    source_K = source_map @ reference
+    K, decoded_map = fixed_intrinsics({**profile, 'mode': 'fixed_pinhole', 'image_wh': list(source_wh),
+        'K': source_K.tolist(), 'pixel_convention': 'integer_centers'}, source_wh, decoded_wh)
+    return K, dict(mode='rectified_center_crop', profile=profile,
+        orientation='landscape' if source_wh[0] > source_wh[1] else 'portrait' if source_wh[0] < source_wh[1] else 'square',
+        reference_wh=list(reference_wh), reference_K_integer=reference.tolist(),
+        resized_reference_wh=resized_wh.tolist(), centered_crop_xywh=[*crop_xy.tolist(), *source_wh],
+        source_K_integer=source_K.tolist(), reference_to_video=source_map.tolist(),
+        video_to_decoded=decoded_map.tolist(), pixel_map=(decoded_map @ source_map).tolist(),
+        processing_assumption='Supplied rectified K, uniform resize, centered crop; no image-axis rotation.',
+        exact_device_integer_ROI_verified=False, physical_calibration_accepted=False,
+        profile_is_not_independent_accuracy_evidence=True)
 
 
 def split_track_records(components):
@@ -421,6 +459,8 @@ def prepare_video(video, root, cfg, assets, *, camera_only=False):
             K, mapping = fixed_intrinsics(profile, source_wh, wh)
             intrinsic = dict(mode='fixed_pinhole', profile=profile, pixel_map=mapping.tolist(),
                 physical_calibration_accepted=False, profile_is_not_independent_accuracy_evidence=True)
+        elif profile['mode'] == 'rectified_center_crop':
+            K, intrinsic = rectified_center_crop_intrinsics(profile, source_wh, wh)
         else:
             K, intrinsic = estimate_focal_intrinsics(xy, tracks, wh)
         intrinsic.update(raw_K_integer=K.tolist(), wh=wh, original_video_wh=source_wh,
