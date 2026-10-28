@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
 from shuolee_portrait.video119 import (
     VideoPreparationNotReady, estimate_focal_intrinsics, fixed_intrinsics,
     prepare_video, rectified_center_crop_intrinsics, settings_for, solve_camera_geometry, split_track_records,
-    validate_video_stream,
+    validate_video_stream, retained_camera_indices, select_balanced_tracks, _fresh_tracks,
 )
 
 
@@ -38,6 +38,55 @@ def synthetic_tracks(n=6, count=330):
 
 
 class Video119Tests(unittest.TestCase):
+    def test_balanced_selection_prevents_long_tracks_starving_other_views(self):
+        verified = {k: [(i, k) for i in range(5)] for k in range(5000)}
+        verified.update({k: [(i, k) for i in (4, 5, 6)] for k in range(5000, 5060)})
+        selected, counts, available = select_balanced_tracks(verified, list(range(7)), 5000)
+        self.assertEqual(len(selected), 5000)
+        self.assertEqual(len(set(selected)), 5000)
+        self.assertGreaterEqual(min(counts.values()), 50)
+        self.assertEqual(available[6], 60)
+        old = sorted(verified, key=lambda k: (-len(verified[k]), k))[:5000]
+        self.assertFalse(any(i == 6 for k in old for i, _ in verified[k]))
+
+    def test_frame_selection_limits_gaps_and_keeps_original_indices(self):
+        wanted = [i for i in range(59) if i not in (22, 23)]
+        self.assertEqual(retained_camera_indices(59, wanted), wanted)
+        for total, removed in ((20, [4, 5, 6]), (100, [40, 41, 42]), (12, [5])):
+            with self.assertRaisesRegex(VideoPreparationNotReady, 'camera coverage'):
+                retained_camera_indices(total, [i for i in range(total) if i not in removed])
+
+    def test_real_geometry_recovers_an_isolated_missing_frame_without_interpolation(self):
+        xy, records, K, _ = synthetic_tracks(n=20, count=400)
+        bad = 9
+        xy[bad] = np.empty((0, 2))
+        records = [dict(r, nodes=[(i, j) for i, j in r['nodes'] if i != bad]) for r in records]
+        with tempfile.TemporaryDirectory() as directory:
+            Es, report = solve_camera_geometry(xy, records, K, directory,
+                settings_for({'video119': {'max_ba_nfev': 10}}))
+            self.assertEqual(Es.shape, (19, 4, 4))
+            self.assertEqual(report['retained_input_indices'], [i for i in range(20) if i != bad])
+            self.assertEqual(report['dropped_frames'], [dict(index=bad, reason='camera_unregistered')])
+            self.assertLess(report['fitting_errors']['max'], .02)
+            evidence = json.loads((Path(directory) / 'frame-selection.json').read_text())
+            self.assertFalse(evidence['interpolation_used'])
+            with np.load(Path(directory) / 'solver-output.npz') as solved:
+                self.assertEqual(set(solved['obs_cam']), set(range(19)))
+
+    def test_foreground_texture_cannot_supply_camera_features_through_exclusion_mask(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'raw').mkdir(); (root / 'camera').mkdir(); (root / 'masks').mkdir()
+            image = np.full((300, 400), 127, np.uint8)
+            image[70:230, 100:300] = np.random.default_rng(123).integers(0, 255, (160, 200), dtype=np.uint8)
+            mask = np.full_like(image, 255); mask[40:260, 70:330] = 0
+            rows = [dict(frame=f'f{i}', name=f'f{i}.png') for i in range(3)]
+            for row in rows:
+                cv2.imwrite(str(root / 'raw' / row['name']), image)
+                cv2.imwrite(str(root / 'masks' / row['name']), mask)
+            with self.assertRaisesRegex(VideoPreparationNotReady, 'No fresh texture'):
+                _fresh_tracks(root, rows, root / 'camera', lambda *a, **k: None, root / 'masks')
+
     def test_center_crop_maps_landscape_and_portrait_without_swapping_camera_axes(self):
         profile = dict(mode='rectified_center_crop', input_domain='rectified_pinhole',
             reference_wh=[4000, 3000], K=[[1600., 0, 2100.], [0, 1500., 1400.], [0, 0, 1]],

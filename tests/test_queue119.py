@@ -7,6 +7,7 @@ import sys
 import tempfile
 import time
 import unittest
+import signal
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
@@ -22,6 +23,10 @@ print('real child received '+a.video, flush=True)
 time.sleep(0.05)
 payload=Path(a.video).read_bytes()
 if payload == b'fail': raise RuntimeError('original child error')
+if payload == b'camera': raise RuntimeError('Missing real camera poses: [22, 23]')
+if payload == b'killed':
+ import os, signal
+ os.kill(os.getpid(), signal.SIGKILL)
 root=Path(a.output); (root/'export').mkdir(parents=True)
 (root/'export/point_cloud.ply').write_text('orchestration fixture only')
 steps=100 if payload == b'short' else 18000
@@ -128,9 +133,49 @@ class QueueTests(unittest.TestCase):
         failed = self.q.jobs()[0]
         self.assertEqual(failed['state'], 'failed')
         self.assertIn('original child error', Path(failed['log']).read_text())
+        result = read(failed['result'])
+        self.assertEqual(result['outcome'], 'system_error')
+        self.assertFalse(result['model_available'])
         self.q.start_next()
         self.finish()
         self.assertEqual(self.q.jobs()[1]['state'], 'completed')
+        good = read(self.q.jobs()[1]['result'])
+        self.assertEqual(good['outcome'], 'completed')
+        self.assertTrue(good['model_available'])
+
+    def test_camera_failure_produces_actionable_result_and_status_does_not_launch_worker(self):
+        self.upload(content=b'camera'); self.admit(); self.q.start_next(); self.finish()
+        job = self.q.jobs()[0]
+        result = read(job['result'])
+        self.assertEqual(result['outcome'], 'needs_recapture')
+        self.assertEqual(result['code'], 'CAMERA_NOT_RECOVERABLE')
+        self.assertFalse(result['model_available'])
+        self.assertTrue(result['actions'])
+        command = [sys.executable, str(Path(__file__).resolve().parents[1] / 'watch.py'),
+                   '--deployment', str(self.profile), '--status']
+        run = subprocess.run(command, capture_output=True, encoding='utf-8', timeout=10)
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertIn('person.mp4', run.stdout)
+        self.assertIn('相机位姿', run.stdout)
+        self.assertEqual(len(self.q.jobs()), 1)
+
+    @unittest.skipIf(os.name == 'nt', 'POSIX signal evidence')
+    def test_killed_child_always_has_result_without_inventing_oom(self):
+        self.upload(content=b'killed'); self.admit(); self.q.start_next(); self.finish()
+        job = self.q.jobs()[0]
+        self.assertEqual(job['exit_code'], -signal.SIGKILL)
+        result = read(job['result'])
+        self.assertEqual(result['code'], 'PROCESS_TERMINATED')
+        self.assertFalse(result['model_available'])
+
+    def test_old_terminal_job_gets_feedback_without_retraining(self):
+        self.upload(); self.admit()
+        job = self.q.jobs()[0]
+        job.update(state='failed', error='Insufficient verified fitting observations per real camera.')
+        self.q.record(job)
+        self.q.recover(); self.q.start_next()
+        self.assertIsNone(self.q.child)
+        self.assertEqual(read(self.q.jobs()[0]['result'])['code'], 'CAMERA_NOT_RECOVERABLE')
 
     def test_zero_exit_without_full_training_is_not_success(self):
         self.upload(content=b'short')
@@ -140,6 +185,7 @@ class QueueTests(unittest.TestCase):
         job = self.q.jobs()[0]
         self.assertEqual(job['exit_code'], 0)
         self.assertEqual(job['state'], 'failed')
+        self.assertEqual(read(job['result'])['code'], 'INCOMPLETE_RESULT')
 
     def test_restart_preserves_interrupted_output_without_implicit_retraining(self):
         self.upload()
@@ -149,6 +195,7 @@ class QueueTests(unittest.TestCase):
         self.q.record(job)
         self.q.recover()
         self.assertEqual(self.q.jobs()[0]['state'], 'interrupted')
+        self.assertEqual(read(self.q.jobs()[0]['result'])['outcome'], 'interrupted')
         self.q.start_next()
         self.assertIsNone(self.q.child)
 

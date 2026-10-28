@@ -165,7 +165,90 @@ def _summary(errors):
     return dict(count=len(values), median=float(np.median(values)), p90=float(np.quantile(values, .9)), max=float(values.max()))
 
 
-def _fresh_tracks(root, decoded, out, status):
+def retained_camera_indices(total, retained, minimum=12):
+    """Allow isolated unusable samples, never a large gap or an invented pose."""
+    retained = sorted(set(retained))
+    missing = sorted(set(range(total)) - set(retained))
+    if not missing:
+        return retained
+    longest = current = 0
+    missing_set = set(missing)
+    for i in range(total):
+        current = current + 1 if i in missing_set else 0
+        longest = max(longest, current)
+    if len(retained) < minimum or len(missing) / total > .1 or longest > 2:
+        raise VideoPreparationNotReady(f'Insufficient camera coverage: {len(retained)}/{total} frames; '
+            f'missing={missing}; longest gap={longest}. Need at least {minimum} frames, 90% coverage and at most two consecutive missing samples.')
+    return retained
+
+
+def select_balanced_tracks(verified, frames, limit, minimum=50):
+    """Reserve support for scarce views before filling with long tracks."""
+    ranked = sorted(verified, key=lambda k: (-len(verified[k]), k))
+    by_frame = {i: [] for i in frames}
+    for k in ranked:
+        for i, _ in verified[k]:
+            by_frame[i].append(k)
+    selected, chosen = [], set()
+    counts = {i: 0 for i in frames}
+    def add(k):
+        if k in chosen or len(selected) == limit:
+            return
+        selected.append(k)
+        chosen.add(k)
+        for i, _ in verified[k]:
+            counts[i] += 1
+    for i in sorted(frames, key=lambda i: (len(by_frame[i]), i)):
+        for k in by_frame[i]:
+            if counts[i] >= minimum:
+                break
+            add(k)
+    for k in ranked:
+        add(k)
+        if len(selected) == limit:
+            break
+    return selected, counts, {i: len(by_frame[i]) for i in frames}
+
+
+def background_masks(root, decoded, out, assets, status):
+    """Exclude all detected people before geometry, using padded full-frame boxes.
+
+    The remaining pixels are background candidates, not verified static truth.
+    """
+    import cv2
+    from . import runtime as rt
+    from .observations import load_detector
+    rt.configure(assets, root)
+    detector = load_detector()
+    directory = out / 'background-masks'
+    directory.mkdir()
+    records = []
+    for i, row in enumerate(decoded):
+        image = cv2.imread(str(root / 'raw' / row['name']))
+        if image is None:
+            raise VideoPreparationNotReady(f'Missing or unreadable new frame {row["name"]}.')
+        h, w = image.shape[:2]
+        boxes = detector.predict(image, classes=[0], conf=.25, verbose=False, device='cpu')[0].boxes.xyxy.cpu().numpy()
+        mask = np.full((h, w), 255 if len(boxes) else 0, dtype=np.uint8)
+        for box in boxes:
+            margin = .08 * max(box[2:] - box[:2])
+            x0, y0 = np.maximum(0, np.floor(box[:2] - margin)).astype(int)
+            x1, y1 = np.minimum([w, h], np.ceil(box[2:] + margin)).astype(int)
+            mask[y0:y1, x0:x1] = 0
+        path = directory / row['name']
+        if not cv2.imwrite(str(path), mask):
+            raise OSError(f'Cannot save camera background mask: {path}')
+        records.append(dict(frame=row['frame'], boxes=boxes.tolist(), mask_sha256=_sha(path),
+                            usable_fraction=float(np.mean(mask > 0)), person_detected=bool(len(boxes))))
+        if i % 10 == 0:
+            status('camera_background', done=i + 1, total=len(decoded))
+    _save(out / 'background-exclusion.json', dict(records=records, detector='pinned_yolov8n',
+        confidence=.25, box_padding_fraction=.08, all_detected_people_excluded=True,
+        missing_detection_frame_excluded=True, static_background_verified=False))
+    return directory
+
+
+def _fresh_tracks(root, decoded, out, status, masks=None):
     import cv2
     n = len(decoded)
     cv2.setNumThreads(6);cv2.setRNGSeed(119)
@@ -173,8 +256,12 @@ def _fresh_tracks(root, decoded, out, status):
     for i,r in enumerate(decoded):
         image=cv2.imread(str(root/'raw'/r['name']),cv2.IMREAD_GRAYSCALE)
         if image is None:raise VideoPreparationNotReady(f'Missing or unreadable new frame {r["name"]}.')
-        key,desc=sift.detectAndCompute(image,None)
-        if desc is None:raise VideoPreparationNotReady(f'No fresh texture in {r["name"]}.')
+        mask = None if masks is None else cv2.imread(str(masks / r['name']), cv2.IMREAD_GRAYSCALE)
+        if masks is not None and (mask is None or mask.shape != image.shape):
+            raise VideoPreparationNotReady(f'Missing or invalid background mask for {r["name"]}.')
+        key,desc=sift.detectAndCompute(image,mask)
+        if desc is None:
+            key, desc = [], np.empty((0, 128), dtype=np.float32)
         order=sorted(range(len(key)),key=lambda j:(-key[j].response,key[j].pt[0],key[j].pt[1]))
         # Keep the strongest descriptor per small pixel neighborhood, including scale duplicates.
         cells={};kept=[]
@@ -184,10 +271,13 @@ def _fresh_tracks(root, decoded, out, status):
             if any(np.linalg.norm(p-v)<1.5 for v in neighbours):continue
             kept.append(j);cells.setdefault(cell,[]).append(p)
             if len(kept)==5000:break
-        if len(kept)<100:raise RuntimeError(f'Insufficient fresh raw texture at {r["frame"]}.')
-        xy.append(np.asarray([key[j].pt for j in kept],np.float64));ds.append(np.ascontiguousarray(desc[kept],np.float32));offset.append(offset[-1]+len(kept))
+        if len(kept) < 100:
+            kept = []
+        xy.append(np.asarray([key[j].pt for j in kept],np.float64).reshape(-1, 2));ds.append(np.ascontiguousarray(desc[kept],np.float32));offset.append(offset[-1]+len(kept))
         np.savez_compressed(out/f'features-{i:03d}.npz',xy=xy[-1],descriptors=ds[-1])
         if i%10==0:status('fresh_SIFT',done=i+1)
+    if not any(len(points) for points in xy):
+        raise VideoPreparationNotReady('No fresh texture in usable camera background.')
     parent=np.arange(offset[-1]);sz=np.ones(offset[-1],int)
     def find(a):
         while parent[a]!=a:parent[a]=parent[parent[a]];a=int(parent[a])
@@ -201,6 +291,8 @@ def _fresh_tracks(root, decoded, out, status):
     for i in range(n):
         js=sorted(set([i+d for d in [1,2,4,8,16] if i+d<n]+(list(range(max(i+1,n-8),n)) if i<8 else [])))
         for j in js:
+            if len(ds[i]) < 2 or len(ds[j]) < 2:
+                continue
             fw=matcher.knnMatch(ds[i],ds[j],k=2);bw=matcher.knnMatch(ds[j],ds[i],k=2)
             back={a.queryIdx:a.trainIdx for a,b in bw if a.distance<.75*b.distance}
             m=[(a.queryIdx,a.trainIdx) for a,b in fw if a.distance<.75*b.distance and back.get(a.trainIdx)==a.queryIdx]
@@ -285,21 +377,25 @@ def solve_camera_geometry(xy, records, K, out, settings=None, status=None):
     train=[r for r in records if not r['held']];held=[r for r in records if r['held']]
     tracks=[dict(r['nodes']) for r in train]
     if len(held)<30:raise RuntimeError('Fewer than30 whole-track holdouts; no geometry solve.')
+    usable = [i for i in range(n) if len(xy[i]) >= 100]
+    if not usable:
+        raise VideoPreparationNotReady('No fresh texture for camera initialization.')
+    seed_i = usable[0]
     seed_pairs=[]
-    for j in [1,2,4,8,16]:
-        count=sum(0 in t and j in t for t in tracks)
+    for j in [seed_i + d for d in [1,2,4,8,16]]:
+        count=sum(seed_i in t and j in t for t in tracks)
         if j<n and count>=160:seed_pairs.append((j,count))
     if not seed_pairs:raise RuntimeError('No sufficiently supported fresh seed pair.')
     seed_j,seed_matches=max(seed_pairs)
-    seed=[k for k,t in enumerate(tracks) if 0 in t and seed_j in t]
-    a=np.array([xy[0][tracks[k][0]] for k in seed]);b=np.array([xy[seed_j][tracks[k][seed_j]] for k in seed])
+    seed=[k for k,t in enumerate(tracks) if seed_i in t and seed_j in t]
+    a=np.array([xy[seed_i][tracks[k][seed_i]] for k in seed]);b=np.array([xy[seed_j][tracks[k][seed_j]] for k in seed])
     norm=lambda v:cv2.undistortPoints(v.reshape(-1,1,2),K,None).reshape(-1,2)
     essential,mask=cv2.findEssentialMat(norm(a),norm(b),np.eye(3),method=cv2.RANSAC,prob=.999,threshold=1.5/np.mean([K[0,0],K[1,1]]),maxIters=10000)
     if essential is None or essential.shape!=(3,3):raise RuntimeError('One essential matrix not found.')
     count,R,t,mask=cv2.recoverPose(essential,norm(a),norm(b),np.eye(3),mask=mask)
-    _save(out/'seed.json',dict(pair=[0,seed_j],appearance_matches=seed_matches,cheirality=int(count)))
+    _save(out/'seed.json',dict(pair=[seed_i,seed_j],appearance_matches=seed_matches,cheirality=int(count)))
     if count<80:raise RuntimeError(f'Seed cheirality {count}<80; no threshold retry.')
-    E=np.eye(4);E[:3,:3]=R;E[:3,3]=t[:,0];matrices={0:np.eye(4),seed_j:E};points={}
+    E=np.eye(4);E[:3,:3]=R;E[:3,3]=t[:,0];matrices={seed_i:np.eye(4),seed_j:E};points={}
     def triangulate():
         centers={i:-e[:3,:3].T@e[:3,3] for i,e in matrices.items()};groups={}
         for ti,tr in enumerate(tracks):
@@ -330,22 +426,64 @@ def solve_camera_geometry(xy, records, K, out, settings=None, status=None):
             ii=ii[:,0];r,t=cv2.solvePnPRefineLM(X[ii],u[ii],K,None,r,t)
             e=np.eye(4);e[:3,:3]=cv2.Rodrigues(r)[0];e[:3,3]=t[:,0];matrices[i]=e;done+=1
         triangulate();status('fresh_PnP_registration',registered=len(matrices),points=len(points))
-        if not done:raise RuntimeError('Missing real camera poses: '+str(sorted(set(range(n))-matrices.keys())))
+        if not done:
+            break
+    _save(out / 'registration.json', dict(total=n, registered=sorted(matrices),
+        missing=sorted(set(range(n)) - matrices.keys()), interpolation_used=False))
+    retained_camera_indices(n, matrices, settings['min_frames'])
     verified={}
     for k,X in points.items():
         kept=[]
         for i,j in tracks[k].items():
+            if i not in matrices:
+                continue
             p,z=project(matrices[i],X[None])
             if np.isfinite(p).all() and z[0]>0 and np.linalg.norm(p[0]-xy[i][j])<3:kept.append((i,j))
         if len(kept)>=3:verified[k]=kept
-    selected=sorted(verified,key=lambda k:(-len(verified[k]),k))[:settings["max_ba_points"]]
+    retained = sorted(matrices)
+    while True:
+        available = {i: 0 for i in retained}
+        for nodes in verified.values():
+            for i, _ in nodes:
+                available[i] += 1
+        supported = [i for i in retained if available[i] >= 50]
+        _save(out / 'observation-coverage.json', dict(available=available, minimum=50,
+            retained=supported, input_frames=n))
+        retained_camera_indices(n, supported, settings['min_frames'])
+        if supported == retained:
+            break
+        retained = supported
+        kept_frames = set(retained)
+        filtered = {k: [(i, j) for i, j in nodes if i in kept_frames] for k, nodes in verified.items()}
+        verified = {k: nodes for k, nodes in filtered.items() if len(nodes) >= 3}
+    selected, counts, available = select_balanced_tracks(verified, retained, settings['max_ba_points'])
+    _save(out / 'observation-coverage.json', dict(available=available, selected=counts, minimum=50,
+        retained=retained, input_frames=n, selected_points=len(selected), selection='per_view_support_then_long_tracks'))
+    if not counts or min(counts.values()) < 50:
+        raise VideoPreparationNotReady('Insufficient verified fitting observations per real camera within the point budget.')
+    if seed_i not in retained or seed_j not in retained:
+        raise VideoPreparationNotReady('Insufficient camera coverage at the initialization pair.')
+    original_n = n
+    frame_map = {old: new for new, old in enumerate(retained)}
+    n = len(retained)
+    held = [dict(row, nodes=[(frame_map[i], j) for i, j in row['nodes'] if i in frame_map]) for row in held]
+    held = [row for row in held if len(row['nodes']) >= 3]
+    if len(held) < 30:
+        raise VideoPreparationNotReady('Fewer than30 whole-track holdouts after frame selection.')
+    dropped = [dict(index=i, reason='camera_unregistered' if i not in matrices else 'insufficient_verified_observations')
+               for i in range(original_n) if i not in frame_map]
+    _save(out / 'frame-selection.json', dict(input_frames=original_n, retained=retained, dropped=dropped,
+        minimum_retained_fraction=.9, maximum_consecutive_missing=2, interpolation_used=False))
     ci=[];pi=[];uv=[]
     for p,k in enumerate(selected):
-        for i,j in verified[k]:ci.append(i);pi.append(p);uv.append(xy[i][j])
+        for i,j in verified[k]:ci.append(frame_map[i]);pi.append(p);uv.append(xy[i][j])
     ci,pi,uv=np.array(ci,dtype=np.int64),np.array(pi,dtype=np.int64),np.array(uv,dtype=np.float64)
     if len(uv)==0 or np.bincount(ci,minlength=n).min()<50:raise RuntimeError('Insufficient verified fitting observations per real camera.')
-    cp=np.array([np.r_[Rotation.from_matrix(matrices[i][:3,:3]).as_rotvec(),matrices[i][:3,3]] for i in range(n)])
-    free=np.ones((n,6),bool);free[0]=False;free[seed_j,3+np.argmax(abs(cp[seed_j,3:]))]=False
+    xy = [xy[i] for i in retained]
+    cp=np.array([np.r_[Rotation.from_matrix(matrices[i][:3,:3]).as_rotvec(),matrices[i][:3,3]] for i in retained])
+    free=np.ones((n,6),bool);free[frame_map[seed_i]]=False
+    anchor = frame_map[seed_j]
+    free[anchor,3+np.argmax(abs(cp[anchor,3:]))]=False
     cols=np.full((n,6),-1,int);cols[free]=np.arange(free.sum());nc=int(free.sum())
     initial=np.r_[cp[free],np.array([points[k] for k in selected]).ravel()]
     sparsity=lil_matrix((2*len(uv),len(initial)),dtype=np.int8);rr=np.arange(len(uv))
@@ -384,7 +522,8 @@ def solve_camera_geometry(xy, records, K, out, settings=None, status=None):
     _save(out/'held-evaluation.json',dict(records=hold_results,all_errors=summary([e for t in hold_results for e in t['errors']]),
         whole_tracks_reserved=True,landmarks_are_not_material_truth=True,physical_identity_reviewed=False,formal_calibration_accepted=False))
     errors = np.linalg.norm(residual(sol.x).reshape(-1, 2), axis=1)
-    result = dict(state='camera_estimation_complete', frames=n, before=before,
+    result = dict(state='camera_estimation_complete', frames=n, input_frames=original_n,
+        retained_input_indices=retained, dropped_frames=dropped, before=before,
         fitting_errors=summary(errors), optimizer_success=bool(sol.success), nfev=sol.nfev,
         held_track_count=len(held), held_test_count=len(hold_results),
         independent_physical_accuracy_proven=False, formal_training_admitted=False,
@@ -452,7 +591,8 @@ def prepare_video(video, root, cfg, assets, *, camera_only=False):
             held='one fifth of complete appearance tracks frozen before focal/pose/point estimation',
             physical_material_identity_verified=False, max_ba_points=settings['max_ba_points'],
             max_ba_nfev=settings['max_ba_nfev'], budget_seconds=settings['camera_seconds']))
-        xy, tracks = _fresh_tracks(root, decoded, out, status)
+        masks = background_masks(root, decoded, out, assets, status) if assets is not None else None
+        xy, tracks = _fresh_tracks(root, decoded, out, status, masks)
         status('fresh_tracks_frozen', tracks=len(tracks), held_tracks=sum(row['held'] for row in tracks))
         profile = settings['intrinsics']
         if profile['mode'] == 'fixed_pinhole':
@@ -468,6 +608,7 @@ def prepare_video(video, root, cfg, assets, *, camera_only=False):
             calibration_applicability_confirmed=False)
         _save(root / 'intrinsic-contract.json', intrinsic)
         Es, camera_report = solve_camera_geometry(xy, tracks, K, out, settings, status)
+        decoded = [decoded[i] for i in camera_report['retained_input_indices']]
         Kc = K.copy()
         Kc[:2, 2] += .5
         rows = [dict(**decoded[i], image=str(root / 'raw' / decoded[i]['name']), K=Kc.tolist(),
@@ -479,6 +620,7 @@ def prepare_video(video, root, cfg, assets, *, camera_only=False):
             pixel_domain='fresh decoded exported video; no lens remap',
             coordinate_contract='K is pixel corners; detector observations use integer centers; renderer subtracts 0.5',
             camera_source='Fresh OpenCV/SciPy fixed-K candidate', formal_calibration_accepted=False,
+            camera_background_exclusion=masks is not None, frame_selection='camera/frame-selection.json',
             physical_calibration_accepted=False, formal_training_admitted=False)
         _save(root / 'data/inputs.json', manifest)
         _save(out / 'candidate-cameras.json', manifest)

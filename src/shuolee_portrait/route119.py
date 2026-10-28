@@ -17,6 +17,7 @@ import numpy as np
 from PIL import Image
 
 from . import runtime as rt
+from .outcomes import failure_feedback
 
 
 SCHEMA = 'shuolee-119-video-v2'
@@ -187,7 +188,8 @@ def initialize_run(root, video, cfg, assets):
                 quality_accepted=False, formal_training_admitted=False))
     except BaseException as exc:
         rt.save(root / 'status.json', dict(state='interrupted' if isinstance(exc, KeyboardInterrupt) else 'failed', stage='initialize', updated=rt.now(),
-                error=traceback.format_exc(), quality_accepted=False, formal_training_admitted=False))
+                error=traceback.format_exc(), feedback=failure_feedback(exc, stage='initialize', interrupted=isinstance(exc, KeyboardInterrupt)),
+                quality_accepted=False, formal_training_admitted=False))
         raise
     return root
 
@@ -264,7 +266,8 @@ def run_stage(name, root, assets):
         execute_stage(name, root, assets)
     except BaseException as exc:
         rt.save(root / 'status.json', dict(state='interrupted' if isinstance(exc, KeyboardInterrupt) else 'failed', stage=name, updated=rt.now(),
-                error=traceback.format_exc(), quality_accepted=False, formal_training_admitted=False))
+                error=traceback.format_exc(), feedback=failure_feedback(exc, stage=name, interrupted=isinstance(exc, KeyboardInterrupt)),
+                quality_accepted=False, formal_training_admitted=False))
         raise
     result = dict(state='stage_complete', stage=name,
                   updated=rt.now(), quality_accepted=False, formal_training_admitted=False)
@@ -308,7 +311,8 @@ def reconstruct(video, root, assets, cfg=None, *, stop_after='export'):
                     raise RuntimeError('SMPL-X training was incomplete; no completed 18000-step result is claimed.')
         except BaseException as exc:
             rt.save(root / 'status.json', dict(state='interrupted' if isinstance(exc, KeyboardInterrupt) else 'failed', stage=active_stage, updated=rt.now(),
-                    error=traceback.format_exc(), quality_accepted=False, formal_training_admitted=False))
+                    error=traceback.format_exc(), feedback=failure_feedback(exc, stage=active_stage, interrupted=isinstance(exc, KeyboardInterrupt)),
+                    quality_accepted=False, formal_training_admitted=False))
             raise
     return root
 

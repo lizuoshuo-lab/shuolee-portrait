@@ -13,6 +13,8 @@ import sys
 import tempfile
 import time
 
+from .outcomes import job_outcome
+
 PROJECT = Path(__file__).resolve().parents[2]
 VIDEO_SUFFIXES = {'.mp4', '.mov', '.mkv', '.avi', '.m4v', '.webm'}
 
@@ -112,7 +114,7 @@ class VideoQueue:
             if path == PROJECT or PROJECT in path.parents:
                 raise ValueError('Videos, queue and runs must be outside the Git checkout.')
             path.mkdir(parents=True, exist_ok=True)
-        for name in ('jobs', 'inputs', 'logs'):
+        for name in ('jobs', 'inputs', 'logs', 'results'):
             (self.root / name).mkdir(exist_ok=True)
         self.settle_seconds = settle_seconds
         self.command = command or [sys.executable, '-s', str(PROJECT / 'run_smplx.py'), 'train']
@@ -130,6 +132,12 @@ class VideoQueue:
     def record(self, job):
         job['updated'] = now()
         save(self.root / 'jobs' / (job['id'] + '.json'), job)
+
+    def publish_outcome(self, job, completed=None):
+        report = job_outcome(job, completed)
+        path = self.root / 'results' / (job['id'] + '.json')
+        save(path, report)
+        job.update(outcome=report['outcome'], message=report['message'], result=str(path))
 
     def snapshot(self, source, expected):
         """Keep the upload untouched and train an immutable copy, identified by content."""
@@ -212,7 +220,13 @@ class VideoQueue:
                 result = self.finished_result(job)
                 job.update(state='completed' if result else 'interrupted', finished=now(),
                            error=None if result else 'Worker stopped before training completed; output retained.')
+                self.publish_outcome(job, result)
                 self.record(job)
+            elif job['state'] in ('completed', 'failed', 'interrupted'):
+                # Upgrade older jobs to readable outcomes without restarting training.
+                if not (self.root / 'results' / (job['id'] + '.json')).is_file():
+                    self.publish_outcome(job, self.finished_result(job) if job['state'] == 'completed' else None)
+                    self.record(job)
 
     def start_next(self):
         if self.active is not None or self.stopping:
@@ -240,6 +254,7 @@ class VideoQueue:
             self.log.close()
             self.log = None
             job.update(state='failed', finished=now(), error=str(exc))
+            self.publish_outcome(job)
             self.record(job)
             return
         self.active = job
@@ -255,6 +270,7 @@ class VideoQueue:
         state = 'completed' if code == 0 and result else ('interrupted' if self.stopping else 'failed')
         self.active.update(state=state, finished=now(), exit_code=code,
                            error=None if state == 'completed' else 'See job log and run/status.json.')
+        self.publish_outcome(self.active, result if state == 'completed' else None)
         self.record(self.active)
         print(json.dumps(dict(state=state, run=self.active['run'], exit_code=code)), flush=True)
         self.log.close()
@@ -310,5 +326,22 @@ class VideoQueue:
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--deployment', type=Path, default=Path.home() / 'smpl-x/queue/deployment.json')
+    parser.add_argument('--status', action='store_true', help='Show per-video results without starting the worker.')
     args = parser.parse_args(argv)
+    if args.status:
+        queue = Path(read(args.deployment)['runs']).resolve().parent / 'queue'
+        jobs = sorted((read(p) for p in (queue / 'jobs').glob('*.json')), key=lambda j: (j['created'], j['id']))
+        if not jobs:
+            print('尚未接收到视频。')
+        for job in jobs:
+            if job['state'] in ('queued', 'running'):
+                print(f'{Path(job["video"]).name}: ' + ('等待处理' if job['state'] == 'queued' else '正在处理'))
+                continue
+            result = job_outcome(job, VideoQueue.finished_result(job) if job['state'] == 'completed' else None)
+            print(f'{Path(job["video"]).name}: {result["message"]}')
+            for action in result['actions']:
+                print('  ' + action)
+            if result.get('model'):
+                print('  ' + result['model'])
+        return
     VideoQueue(args.deployment).serve()

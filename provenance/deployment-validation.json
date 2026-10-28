@@ -352,5 +352,77 @@
       "asset-deploy-runtime.json",
       "asset-preparation-tests.log"
     ]
+  },
+  "camera_recovery_and_feedback": {
+    "date": "2026-10-28",
+    "state": "local_checks_passed_server_failed_inputs_partly_unavailable",
+    "scope": "Camera background exclusion, balanced observations, bounded frame recovery, per-job terminal feedback",
+    "source_base_commit": "cbc7ffa3edfc5df62d4572ca6acbd8c2853f20d5",
+    "source_sha256": {
+      "src/shuolee_portrait/video119.py": "e7922e9bcb937e0fc286fb8f6d730a127f3c49b3dbbb42567f0a8cca7d7a3545",
+      "src/shuolee_portrait/outcomes.py": "56901c4896e277c3ae419d66e4c82e570b6d25238fb0a1a56f71c85bf6967f7c",
+      "src/shuolee_portrait/queue119.py": "7d520c463a3c9677f6bf5abe648219f63728b5cc7e0a6799003af87bf08f9120",
+      "src/shuolee_portrait/route119.py": "f6fa6bdbc0faebe56497eb80c144367e9ef09e8b441c5a9eaae6f38aafe87c17"
+    },
+    "cpu_regression_checks_passed": 84,
+    "synthetic_missing_frame_recovery_passed": true,
+    "real_process_signal_and_recovery_feedback_passed": true,
+    "old_jobs_backfilled_without_retraining": true,
+    "real_video_camera_checks": [
+      {
+        "label": "video7",
+        "video_sha256": "a028323a751e69ab3236bb3879b636159780906cf34acf19dc2edc2bebfb30a8",
+        "state": "passed",
+        "frames": 177,
+        "input_frames": 177,
+        "seconds": 344.203717192,
+        "optimizer_success": true,
+        "minimum_selected_observations": 50,
+        "dropped_frames": [],
+        "background_exclusion": true,
+        "training_started": false,
+        "temporary_run_removed": true,
+        "evidence": "camera-recovery-video7.json"
+      },
+      {
+        "label": "portrait",
+        "video_sha256": "32be30636adabfc4c25a1c8387cf19302d3ca39b4f040072081646d36523317c",
+        "state": "passed",
+        "frames": 112,
+        "input_frames": 112,
+        "seconds": 150.03627661800004,
+        "optimizer_success": true,
+        "minimum_selected_observations": 364,
+        "dropped_frames": [],
+        "background_exclusion": true,
+        "training_started": false,
+        "temporary_run_removed": true,
+        "evidence": "camera-recovery-portrait.json"
+      }
+    ],
+    "new_complete_training_verified": false,
+    "original_video9_and_video10_available": false,
+    "target_server_update_verified": false,
+    "physical_quality_accepted": false,
+    "foreground_mask": "all detected person boxes padded by 8%; background candidates still require geometry",
+    "recovery_limits": {
+      "min_frames": 12,
+      "min_retained_fraction": 0.9,
+      "max_consecutive_missing": 2,
+      "min_observations_per_view": 50,
+      "max_ba_points": 5000
+    },
+    "user_result_states": [
+      "completed",
+      "needs_recapture",
+      "system_error",
+      "interrupted"
+    ],
+    "evidence": [
+      "camera-recovery-tests-final.log",
+      "camera-recovery-video7.json",
+      "camera-recovery-portrait.json",
+      "server-log-user-outcomes.json"
+    ]
   }
 }
