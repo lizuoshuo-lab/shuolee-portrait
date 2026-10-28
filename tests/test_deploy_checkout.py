@@ -70,14 +70,17 @@ class DeployCheckoutTests(unittest.TestCase):
 
     def test_legacy_non_cone_checkout_keeps_root_entrypoints_and_locks(self):
         self.command('git', '-C', self.app, 'sparse-checkout', 'init', '--no-cone')
+        self.command('git', '-C', self.app, 'checkout', '--quiet')
         self.assert_deploy_reaches_environment_check()
 
     def test_fresh_cone_checkout_keeps_root_entrypoints_and_locks(self):
         self.command('git', '-C', self.app, 'sparse-checkout', 'init', '--cone')
+        self.command('git', '-C', self.app, 'checkout', '--quiet')
         self.assert_deploy_reaches_environment_check()
 
     def test_documented_recovery_restores_previously_excluded_entrypoint(self):
         self.command('git', '-C', self.app, 'sparse-checkout', 'init', '--no-cone')
+        self.command('git', '-C', self.app, 'checkout', '--quiet')
         self.command('git', '-C', self.app, 'sparse-checkout', 'set', 'scripts', 'src')
         self.assertFalse((self.app / 'deploy.sh').exists())
         self.assertFalse((self.app / 'constraints-linux-cu128.txt').exists())

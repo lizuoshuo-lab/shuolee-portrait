@@ -279,7 +279,7 @@
     "public_clone_without_credentials": true,
     "old_public_deploy_error_reproduced": true,
     "existing_failed_checkout_recovered": true,
-    "fresh_clone_command": "clone --no-checkout followed by sparse-checkout init --cone",
+    "fresh_clone_command": "clone --no-checkout followed by sparse-checkout init --cone and checkout",
     "checkout_regression_cases": 4,
     "linux_regression_tests_passed": 66,
     "actual_production_deploy_passed": true,
@@ -299,8 +299,11 @@
       "sparse-checkout-reproduction.json",
       "sparse-full-tests.log",
       "sparse-real-deployment.json",
-      "sparse-real-deploy.log"
+      "sparse-real-deploy.log",
+      "modern-git-checkout.json"
     ],
-    "target_server_retry_verified": false
+    "target_server_retry_verified": false,
+    "additional_checkout_test_git": "2.48.1.windows.1",
+    "modern_no_checkout_clone_materialized": true
   }
 }
