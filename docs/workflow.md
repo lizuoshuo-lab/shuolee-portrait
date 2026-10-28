@@ -1,8 +1,10 @@
 # smpl-x 自动重建
 
-按根目录README的一行命令部署，然后上传视频到 `~/smpl-x/videos/`。服务名为 `smpl-x`，通过systemd常驻并开机启动。
+按根目录README的一行命令部署，然后上传视频到 `~/smpl-x/videos/`。部署自动检测systemd：可用时安装 `smpl-x` 服务并开机启动；不可用时以当前用户启动独立后台进程，不需要sudo或保持终端连接。
 
 公开仓库的部署分支为 `main`，下载不需要GitHub登录。如果先前克隆因用户名读取失败而退出，可以直接重新执行README中的命令；Git会清理未完成的目标目录。
+
+如果已经克隆成功、仅部署报错，用 `git -C ~/smpl-x/app pull --ff-only && bash ~/smpl-x/app/deploy.sh` 更新并重新部署，不重复克隆。
 
 ## 输入和结果
 
@@ -27,9 +29,11 @@
 
 ## 维护
 
-日常只需上传视频。排查服务可用 `systemctl status smpl-x` 和 `journalctl -u smpl-x -n 80`；具体阶段和原始错误在运行目录的 `status.json` 与队列任务日志内。
+日常只需上传视频。部署成功会输出 `smpl-x READY`、启动方式和状态路径。systemd方式可用 `systemctl status smpl-x` 和 `journalctl -u smpl-x -n 80`；后台方式的进程日志在 `~/smpl-x/queue/worker.log`。两种方式共用 `queue/status.json`；具体阶段和原始错误在运行目录的 `status.json` 与队列任务日志内。
 
-Git更新应在队列空闲时进行：停止服务，`git pull --ff-only`，再运行 `bash deploy.sh`。不会覆盖已有结果。部署目录已存在时直接运行其 `deploy.sh`，不重复克隆。
+后台方式在机器或容器重启后需再次运行 `bash ~/smpl-x/app/deploy.sh`。重复部署会核实并复用已运行的进程；退出SSH/WinSCP不会停止接收视频。工作进程异常退出时，仍存活的训练子进程持有队列锁；重启还会检查原训练进程组，避免同时启动第二份训练。中断的任务保留结果，不自动重训。
+
+Git更新应在队列空闲时进行：停止服务，`git pull --ff-only`，再运行 `bash deploy.sh`。后台方式可向状态文件中核实属于本项目的工作进程PID发送SIGTERM，等状态变为 `stopped` 后更新。不会覆盖已有结果。部署目录已存在时直接运行其 `deploy.sh`，不重复克隆。
 
 自定义路径只需首次部署前设置环境变量：`SMPLX_ROOT`改变videos/runs/queue的共同父目录；`SMPLX_ENV_DIR`指定隔离Python环境；`SMPLX_ASSETS`指定已有通用模型目录。安装过程实际检查CUDA前向/反向和21个模型哈希。服务以部署用户身份运行，配置记录于 `queue/deployment.json`。
 

@@ -243,5 +243,32 @@
   "company00_deployed": false,
   "server113_deployed": false,
   "quality_accepted": false,
-  "fresh_dependency_install_verified": false
+  "fresh_dependency_install_verified": false,
+  "service_compatibility": {
+    "date": "2026-10-28",
+    "reported_error": "A Linux host with systemd is required.",
+    "systemd_required": false,
+    "automatic_backend_selection": "systemd when its manager responds, otherwise detached background process",
+    "linux_regression_tests_passed": 62,
+    "production_entry_without_systemd_verified": true,
+    "verification_environment": "Ubuntu 20.04 WSL2; private mount namespace hides systemd runtime",
+    "terminal_exit_and_SIGHUP_survived": true,
+    "repeat_install_reuses_worker": true,
+    "stale_status_cannot_report_false_readiness": true,
+    "training_child_keeps_queue_lock_after_worker_death": true,
+    "live_training_descendants_block_queue_recovery": true,
+    "queue_child_tests": "Real processes with CPU orchestration fixtures; no reconstruction claims",
+    "new_GPU_training_performed": false,
+    "test_processes_stopped": true,
+    "background_host_restart": "Run deploy.sh again after host/container restart",
+    "source_sha256": {
+      "scripts/install_service.py": "3c8cb1d8c520937d061d33beebf96c94635054f50255c1f3ebb31cd71f1e8dd1",
+      "src/shuolee_portrait/queue119.py": "924d9a14e777d2d703ebdcb2c93a310c75a5c8320501298cb248ab7079509d3e"
+    },
+    "evidence": [
+      "background-full-tests.log",
+      "background-real-runtime.json"
+    ],
+    "target_server_retry_verified": false
+  }
 }

@@ -75,6 +75,28 @@ def signature(path):
     return stat.st_size, stat.st_mtime_ns, stat.st_ino
 
 
+def process_group_running(pid):
+    try:
+        os.killpg(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    # Container PID 1 may leave exited children as zombies. They hold no locks
+    # or GPU state; count live group members, including descendants of a dead leader.
+    uncertain = False
+    for path in Path('/proc').glob('[0-9]*/stat'):
+        try:
+            fields = path.read_text().rsplit(')', 1)[1].split()
+            if int(fields[2]) == pid and fields[0] not in ('Z', 'X'):
+                return True
+        except FileNotFoundError:
+            continue
+        except (OSError, ValueError, IndexError):
+            uncertain = True
+    return uncertain
+
+
 class VideoQueue:
     def __init__(self, deployment, *, settle_seconds=30, command=None):
         self.deployment = Path(deployment).resolve()
@@ -99,6 +121,7 @@ class VideoQueue:
         self.child = None
         self.log = None
         self.stopping = False
+        self.lock_stream = None
 
     def jobs(self):
         return sorted((read(p) for p in (self.root / 'jobs').glob('*.json')),
@@ -178,10 +201,14 @@ class VideoQueue:
         return None
 
     def recover(self):
-        # systemd owns the entire service cgroup, including its training child.
-        # It terminates that cgroup before restarting a failed service.
+        # A detached worker can die while a training process group is still alive.
+        # Do not recover its job or admit another one until that group has exited.
         for job in self.jobs():
             if job['state'] == 'running':
+                if (os.name != 'nt' and isinstance(job.get('pid'), int) and job['pid'] > 0
+                        and process_group_running(job['pid'])):
+                    raise RuntimeError(f'Previous training process group {job["pid"]} is still active; '
+                                       'wait for it to exit before restarting this queue.')
                 result = self.finished_result(job)
                 job.update(state='completed' if result else 'interrupted', finished=now(),
                            error=None if result else 'Worker stopped before training completed; output retained.')
@@ -201,11 +228,14 @@ class VideoQueue:
         env.pop('SHUOLEE_EXTRA_PYTHONPATH', None)
         env.update(PYTHONNOUSERSITE='1', PYTHONUNBUFFERED='1', OMP_NUM_THREADS='4', OPENBLAS_NUM_THREADS='4')
         self.log = Path(job['log']).open('ab', buffering=0)
+        inherited = {}
+        if os.name != 'nt' and self.lock_stream is not None and not self.lock_stream.closed:
+            inherited['pass_fds'] = (self.lock_stream.fileno(),)
         try:
             self.child = subprocess.Popen(
                 [*self.command, job['input'], '--deployment', str(self.deployment), '--output', job['run']],
                 cwd=PROJECT, env=env, stdin=subprocess.DEVNULL, stdout=self.log,
-                stderr=subprocess.STDOUT, start_new_session=os.name != 'nt')
+                stderr=subprocess.STDOUT, start_new_session=os.name != 'nt', **inherited)
         except OSError as exc:
             self.log.close()
             self.log = None
@@ -247,10 +277,13 @@ class VideoQueue:
                 self.child.terminate()
 
     def serve(self, poll_seconds=3):
-        with worker_lock(self.root / 'worker.lock'):
+        with worker_lock(self.root / 'worker.lock') as stream:
+            self.lock_stream = stream
             self.recover()
             signal.signal(signal.SIGTERM, self.stop)
             signal.signal(signal.SIGINT, self.stop)
+            if os.name != 'nt':
+                signal.signal(signal.SIGHUP, signal.SIG_IGN)
             try:
                 while not self.stopping or self.child is not None:
                     self.collect()
