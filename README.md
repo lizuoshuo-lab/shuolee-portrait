@@ -20,7 +20,7 @@ bash ~/smpl-x/app/scripts/train.sh /path/to/person.mp4
 
 结果在 **`~/smpl-x/runs/<视频名>-<内容标识>/export/point_cloud.ply`**，同时提供通用3DGS相机JSON和COLMAP相机。状态在 `~/smpl-x/queue/status.json`，每个视频的日志在 `~/smpl-x/queue/logs/`。
 
-本地验证现状：横屏样本已完成18000步及通用导出；竖屏样本在焦距求解阶段失败，尚未通过完整重建验证。
+本地已用00数据集的横屏、竖屏各一段，从视频文件夹自动完成18000步训练与通用导出；分别为89帧和112帧。独立PLY/COLMAP读取检查通过，服务重启不会重复训练。
 
 目标环境需要Linux x86_64/systemd、NVIDIA驱动、Python 3.10、CUDA 12.8开发工具、FFmpeg及C++构建工具。脚本安装隔离依赖环境；已有环境自动核验复用。已有113服务器的 `~/shuolee/models/113/` 和 `cuda128.env` 自动识别，通用预训练模型须满足[模型清单](docs/模型配置.md)。私有Git仓库使用服务器已有Git凭据；安装系统服务需要sudo权限。
 

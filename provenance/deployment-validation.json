@@ -1,8 +1,10 @@
 {
-  "schema": "shuolee-deployment119-validation-v1",
+  "schema": "smpl-x-deployment-validation-v2",
   "date": "2026-10-28",
+  "application": "smpl-x",
   "branch": "codex/smpl-x",
   "scope": "One-command Git deployment, automatic video-folder intake, SMPL-X reconstruction and generic export; no viewer or human approval",
+  "source_git": "61791febe2b34d221f140ddeafe005a7f0ee0225",
   "local": {
     "os": "Windows + Ubuntu 20.04 WSL2",
     "gpu": "NVIDIA GeForce RTX 5080",
@@ -13,84 +15,14 @@
     "fresh_dependency_install_this_turn": false,
     "actual_cuda_forward_backward_passed": true,
     "asset_sha256_checks_passed": 21,
-    "cpu_regression_tests": 54,
-    "systemd_parser_test_passed": true
+    "cpu_regression_tests_passed": 57,
+    "cpu_regression_tests_skipped": 1,
+    "skipped_check": "systemd parser; passed separately in Ubuntu CI"
   },
-  "fresh_video": {
-    "sha256": "cb11ad325834b399c655371dc5d161e1801a3719b0892da959dc1e57e764572f",
-    "frames": 89,
-    "all_camera_frames_registered": true,
-    "old_subject_or_camera_state_reused": false,
-    "full_pipeline": "completed",
-    "trigger": "folder upload only",
-    "source_git": "92273acecbc7d9444c380108a63fcf7ec8646838",
-    "steps": 18000,
-    "export_points": 204201,
-    "export_sha256": "479a19972ac81bfb9cd86bcacd3e8a859ddae4e26071e7ba6ab3b9d3d38b14db",
-    "native_export_max_abs": 0.0011298656463623047,
-    "independent_readers": [
-      "plyfile",
-      "pycolmap 3.10.0"
-    ],
-    "physical_quality_accepted": false
-  },
-  "company00_deployed": false,
-  "server113_deployed": false,
-  "quality_accepted": false,
-  "folder_service": {
-    "state": "passed",
-    "entrypoint": "deploy119.sh",
-    "deployment_source": "clean sparse checkout from GitHub",
-    "partial_upload_ignored": true,
-    "content_deduplication": true,
-    "restart_did_not_retrain": true,
-    "systemd_enabled_verified": true,
-    "completed_jobs_after_restart": 1,
-    "persistent_serial_queue": true,
-    "viewer_files_in_deployment": false,
-    "local_test_service_stopped_after_validation": true
-  },
-  "previous_cli_validation": {
-    "sha256": "cb11ad325834b399c655371dc5d161e1801a3719b0892da959dc1e57e764572f",
-    "frames": 89,
-    "all_camera_frames_registered": true,
-    "old_subject_or_camera_state_reused": false,
-    "full_pipeline": "completed",
-    "source_git": "ea95a8d461db13cdb1e92abdf1d1f84cd13fa6dd",
-    "steps": 18000,
-    "export_points": 204529,
-    "export_sha256": "e8713218d47fa2ca380470fb41fac6846b1c86b6004ff326daeb611ed95cb44f",
-    "native_export_max_abs": 5.0067901611328125e-06
-  },
-  "ci": {
-    "tests_passed": 55,
-    "os": "Ubuntu 24.04",
-    "source_git": "1ca488493bba31b4473c42d59e810073e5c7a69d",
-    "url": "https://github.com/lizuoshuo-lab/shuolee-portrait/actions/runs/40544427296",
-    "conclusion": "success"
-  },
-  "local_evidence": {
-    "directory": "D:/Projects/Shuolee-validation-20261027",
-    "deployment_log": "folder119-deploy.log",
-    "folder_integration": "folder119-integration.json",
-    "independent_export": "folder119-independent-export.json",
-    "run": "/opt/gs-slam-lab/shuolee-folder119-validation-20261027/runs/sofa119-cb11ad325834b399"
-  },
-  "application": "smpl-x",
-  "validated_branch_before_rename": "codex/reconstruction-119",
-  "current_entrypoint": "deploy.sh",
-  "naming_change": {
-    "application": "smpl-x",
-    "service": "smpl-x.service",
-    "default_root": "~/smpl-x",
-    "training_recipe_changed": false,
-    "previous_full_training_evidence_preserved": true,
-    "verification": "passed",
-    "source_git": "1ca488493bba31b4473c42d59e810073e5c7a69d",
-    "actual_systemd_service": "smpl-x.service",
-    "manual_train_helper_uses_saved_environment": true,
-    "local_service_stopped_after_test": true
-  },
+  "video_categories_confirmed_by_user": [
+    "landscape",
+    "portrait"
+  ],
   "video_input_checks": {
     "state": "passed",
     "scope": "Stream checks and one actual decoded frame per video; not full reconstruction",
@@ -109,38 +41,207 @@
     "evidence_directory": "D:\\Projects\\Shuolee-validation-20261028",
     "evidence_file": "video-inputs.json"
   },
-  "portrait_full_pipeline": {
-    "state": "failed",
+  "fresh_video_runs": {
+    "portrait": {
+      "state": "passed",
+      "run": "/opt/gs-slam-lab/smpl-x-orientations-20261028/runs/portrait-32be30636adabfc4",
+      "readers": [
+        "plyfile",
+        "pycolmap 3.10.0"
+      ],
+      "points": 288749,
+      "properties": 62,
+      "sha256": "013aed204ec4212c17581dee5499bee33cadf4c4dd5d07640e1f2c2b3f285c54",
+      "finite": true,
+      "frames": 112,
+      "decoded_wh": [
+        899,
+        1600
+      ],
+      "exported_K": [
+        [
+          883.8841120043701,
+          0.0,
+          450.57456174448544
+        ],
+        [
+          0.0,
+          883.4876803872655,
+          803.3743728393702
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "steps": 18000,
+      "fit_steps": 1200,
+      "initial_points": 200000,
+      "free_world_gaussians": true,
+      "fresh_subject_and_optimizer": true,
+      "full_camera_intrinsics_preserved": true,
+      "max_native_export_error": 0.0006738603115081787,
+      "physical_quality_accepted": false,
+      "viewer_required": false,
+      "source_sha256": "32be30636adabfc4c25a1c8387cf19302d3ca39b4f040072081646d36523317c",
+      "intrinsics_mode": "rectified_center_crop"
+    },
+    "landscape": {
+      "state": "passed",
+      "run": "/opt/gs-slam-lab/smpl-x-orientations-20261028/runs/landscape-cb11ad325834b399",
+      "readers": [
+        "plyfile",
+        "pycolmap 3.10.0"
+      ],
+      "points": 205434,
+      "properties": 62,
+      "sha256": "ee4d66ab5171d5c21fb2808817b348cd0750ca54c99adb25f8619d60763207bd",
+      "finite": true,
+      "frames": 89,
+      "decoded_wh": [
+        1600,
+        899
+      ],
+      "exported_K": [
+        [
+          663.2141483206074,
+          0.0,
+          800.8062873203716
+        ],
+        [
+          0.0,
+          662.314967609791,
+          452.0296307887746
+        ],
+        [
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "steps": 18000,
+      "fit_steps": 1200,
+      "initial_points": 200000,
+      "free_world_gaussians": true,
+      "fresh_subject_and_optimizer": true,
+      "full_camera_intrinsics_preserved": true,
+      "max_native_export_error": 0.001242607831954956,
+      "physical_quality_accepted": false,
+      "viewer_required": false,
+      "source_sha256": "cb11ad325834b399c655371dc5d161e1801a3719b0892da959dc1e57e764572f",
+      "intrinsics_mode": "rectified_center_crop"
+    }
+  },
+  "camera_profile": {
+    "mode": "rectified_center_crop",
+    "reference_wh": [
+      4000,
+      3000
+    ],
+    "calibration_sha256": "7cded3ee3a21d6c6c0e496a61295db726fa964140b59db6eb5082788f7fe1f50",
+    "source": "Existing MONO_MAIN_MFR first matrix and original resize/center-crop procedure",
+    "old_poses_loaded": false,
+    "focal_estimation_required": false,
+    "images_warped": false,
+    "exact_device_integer_ROI_verified": false,
+    "physical_calibration_accepted": false
+  },
+  "folder_service": {
+    "state": "passed",
+    "entrypoint": "deploy.sh",
+    "deployment_source": "clean sparse checkout from GitHub",
+    "partial_upload_ignored": true,
+    "restart_did_not_retrain": true,
+    "completed_jobs_after_restart": 2,
+    "persistent_serial_queue": true,
+    "viewer_files_in_deployment": false,
+    "local_test_service_stopped_after_validation": true,
+    "content_deduplication": true,
+    "content_deduplication_evidence": "Previous actual folder-service validation and current queue regression tests"
+  },
+  "naming_change": {
+    "application": "smpl-x",
+    "service": "smpl-x.service",
+    "default_root": "~/smpl-x",
+    "training_recipe_changed": false,
+    "previous_full_training_evidence_preserved": true,
+    "verification": "passed",
     "source_git": "1ca488493bba31b4473c42d59e810073e5c7a69d",
-    "source_sha256": "32be30636adabfc4c25a1c8387cf19302d3ca39b4f040072081646d36523317c",
-    "source_wh": [
-      1520,
-      2704
-    ],
-    "decoded_wh": [
-      899,
-      1600
-    ],
-    "decoded_frames": 112,
-    "stage": "prepare",
-    "training_started": false,
-    "error": "Fresh focal solve reached its declared lower bound.",
-    "estimated_focal_px": 560.0004319847528,
-    "focal_bounds_px": [
-      560,
-      8000
-    ],
-    "all_temporal_anchor_mean_optimum_px": 559.9999999999999,
-    "thresholds_changed": false,
-    "run": "/opt/gs-slam-lab/smpl-x-validation-20261028/runs/portrait-32be30636adabfc4",
-    "evidence": "smplx-validation.json",
-    "all_portrait_videos_supported": false
+    "actual_systemd_service": "smpl-x.service",
+    "manual_train_helper_uses_saved_environment": true,
+    "local_service_stopped_after_test": true
+  },
+  "ci": {
+    "tests_passed": 58,
+    "os": "Ubuntu 24.04",
+    "source_git": "61791febe2b34d221f140ddeafe005a7f0ee0225",
+    "url": "https://github.com/lizuoshuo-lab/shuolee-portrait/actions/runs/40601192477",
+    "conclusion": "success"
+  },
+  "local_evidence": {
+    "directory": "D:/Projects/Shuolee-validation-20261028",
+    "deployment_log": "orientation-deploy.log",
+    "folder_integration": "orientation-validation.json",
+    "independent_export": "orientation-independent-exports.json",
+    "gpu_serialization": "gpu-coordination.json"
+  },
+  "previous_attempts": {
+    "landscape_focal_estimation": {
+      "sha256": "cb11ad325834b399c655371dc5d161e1801a3719b0892da959dc1e57e764572f",
+      "frames": 89,
+      "all_camera_frames_registered": true,
+      "old_subject_or_camera_state_reused": false,
+      "full_pipeline": "completed",
+      "trigger": "folder upload only",
+      "source_git": "92273acecbc7d9444c380108a63fcf7ec8646838",
+      "steps": 18000,
+      "export_points": 204201,
+      "export_sha256": "479a19972ac81bfb9cd86bcacd3e8a859ddae4e26071e7ba6ab3b9d3d38b14db",
+      "native_export_max_abs": 0.0011298656463623047,
+      "independent_readers": [
+        "plyfile",
+        "pycolmap 3.10.0"
+      ],
+      "physical_quality_accepted": false
+    },
+    "portrait_focal_estimation": {
+      "state": "failed",
+      "source_git": "1ca488493bba31b4473c42d59e810073e5c7a69d",
+      "source_sha256": "32be30636adabfc4c25a1c8387cf19302d3ca39b4f040072081646d36523317c",
+      "source_wh": [
+        1520,
+        2704
+      ],
+      "decoded_wh": [
+        899,
+        1600
+      ],
+      "decoded_frames": 112,
+      "stage": "prepare",
+      "training_started": false,
+      "error": "Fresh focal solve reached its declared lower bound.",
+      "estimated_focal_px": 560.0004319847528,
+      "focal_bounds_px": [
+        560,
+        8000
+      ],
+      "all_temporal_anchor_mean_optimum_px": 559.9999999999999,
+      "thresholds_changed": false,
+      "run": "/opt/gs-slam-lab/smpl-x-validation-20261028/runs/portrait-32be30636adabfc4",
+      "evidence": "smplx-validation.json",
+      "all_portrait_videos_supported": false
+    }
   },
   "current_acceptance": {
     "deployment_and_naming": "passed",
     "landscape_reference_full_training": "passed_18000_steps",
-    "portrait_reference_full_training": "failed_before_training",
-    "two_video_categories_confirmed_by_user": false,
-    "all_inputs_reconstruct_successfully": false
-  }
+    "portrait_reference_full_training": "passed_18000_steps",
+    "two_video_categories_confirmed_by_user": true,
+    "all_inputs_reconstruct_successfully": "not_claimed; two full runs and eight decode checks"
+  },
+  "company00_deployed": false,
+  "server113_deployed": false,
+  "quality_accepted": false,
+  "fresh_dependency_install_verified": false
 }

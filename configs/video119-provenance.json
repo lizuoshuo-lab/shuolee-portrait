@@ -87,11 +87,18 @@
       "Real FFmpeg extraction of a new 12-frame textureless video preserves source indices and rejects unusable geometry without fallback.",
       "Fixed-K pixel-center/resize mapping, HDR/rotation rejection, input budgets and preserved failure directories.",
       "Landscape and portrait full-K projection, off-axis principal point and pixel-center controls; equivalence with the original fixed factory-crop expression; rejection of raw-fisheye and invalid dimensions."
-    ]
+    ],
+    "fresh_real_video_runs": {
+      "source_git": "61791febe2b34d221f140ddeafe005a7f0ee0225",
+      "landscape_frames": 89,
+      "portrait_frames": 112,
+      "steps_each": 18000,
+      "all_camera_frames_registered": true,
+      "fresh_official_detector_SAM2_RTMw": true,
+      "evidence": "provenance/deployment-validation.json"
+    }
   },
   "unverified": [
-    "Successful full raw-video feature-to-camera reconstruction on a newly uploaded real portrait video.",
-    "Fresh GPU detector/SAM2/RTMW inference through this migrated entry.",
     "Physical camera calibration, reviewed physical face correspondences and independent native-image subpixel accuracy.",
     "Company 00 or server execution through this migrated entry."
   ],
