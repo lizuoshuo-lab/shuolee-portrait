@@ -138,4 +138,4 @@ done
 "$ENV_PYTHON" -s "$PROJECT_ROOT/scripts/check_environment.py" --output "$SHUOLEE_ENV_DIR/install/environment-check.json"
 echo "Dependency installation passed. Activate: source '$SHUOLEE_ENV_DIR/bin/activate'"
 configure_smplx
-echo 'No model weights were downloaded; no reconstruction quality is implied.'
+echo 'Dependency checks completed; deploy.sh prepares models and starts automatic video intake.'

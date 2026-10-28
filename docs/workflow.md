@@ -39,7 +39,7 @@ git -C ~/smpl-x/app sparse-checkout init --cone && git -C ~/smpl-x/app sparse-ch
 
 Git更新应在队列空闲时进行：停止服务，`git pull --ff-only`，再运行 `bash deploy.sh`。后台方式可向状态文件中核实属于本项目的工作进程PID发送SIGTERM，等状态变为 `stopped` 后更新。不会覆盖已有结果。部署目录已存在时直接运行其 `deploy.sh`，不重复克隆。
 
-自定义路径只需首次部署前设置环境变量：`SMPLX_ROOT`改变videos/runs/queue的共同父目录；`SMPLX_ENV_DIR`指定隔离Python环境；`SMPLX_ASSETS`指定已有通用模型目录。安装过程实际检查CUDA前向/反向和21个模型哈希。服务以部署用户身份运行，配置记录于 `queue/deployment.json`。
+自定义路径只需首次部署前设置环境变量：`SMPLX_ROOT`改变videos/runs/queue的共同父目录；`SMPLX_ENV_DIR`指定隔离Python环境；`SMPLX_ASSETS`指定已有模型来源目录。部署优先复用完整目录；旧113目录缺少的公开依赖自动下载并组装到 `SMPLX_ROOT/models`，原目录保持不变。下载中断后再次部署会继续下载，完成后校验全部21个文件，再检查CUDA前向/反向。服务以部署用户身份运行，配置记录于 `queue/deployment.json`。
 
 本地验证记录于 `provenance/deployment-validation.json`，分开记录真实视频完整训练、文件夹触发、CPU队列测试、GPU环境复用和目标服务器部署状态。
 

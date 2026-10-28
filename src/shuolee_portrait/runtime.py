@@ -41,5 +41,5 @@ def verify_assets():
   p=ASSETS/row['path']
   if not p.is_file():missing.append(row['path']);continue
   if p.stat().st_size!=row['bytes'] or sha(p)!=row['sha256']:bad.append(row['path'])
- if missing or bad:raise RuntimeError(f'Asset check failed. Missing={missing}; checksum mismatch={bad}. See docs/模型配置.md and configs/server-assets.json; supply --assets with a server model directory. No automatic model download.')
+ if missing or bad:raise RuntimeError(f'Asset check failed. Missing={missing}; checksum mismatch={bad}. Model directory: {ASSETS}. Run bash deploy.sh to prepare server models; see docs/models.md and configs/server-assets.json.')
  return {'files':len(manifest['files']),'sha256_verified':True}

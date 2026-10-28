@@ -24,6 +24,6 @@ bash ~/smpl-x/app/scripts/train.sh /path/to/person.mp4
 
 本地已用00数据集的横屏、竖屏各一段，从视频文件夹自动完成18000步训练与通用导出；分别为89帧和112帧。独立PLY/COLMAP读取检查通过，服务重启不会重复训练。
 
-仓库公开，下载代码无需GitHub账号或凭据。目标环境需要Linux x86_64、NVIDIA驱动、Python 3.10、CUDA 12.8开发工具、FFmpeg及C++构建工具。脚本安装隔离依赖环境；已有环境自动核验复用。已有113服务器的 `~/shuolee/models/113/` 和 `cuda128.env` 自动识别，通用预训练模型须满足[模型清单](docs/模型配置.md)。仅安装systemd服务时需要sudo权限。
+仓库公开，下载代码无需GitHub账号或凭据。目标环境需要Linux x86_64、NVIDIA驱动、Python 3.10、CUDA 12.8开发工具、FFmpeg及C++构建工具。脚本安装隔离依赖环境；已有环境自动核验复用。已有113服务器的模型和 `cuda128.env` 自动识别；缺少的公开模型自动下载到 `~/smpl-x/models/`，逐个校验后启动接收视频。旧模型目录保持不变。全新服务器需要预置已授权的SMPL-X与VPoser，详见[模型配置](docs/models.md)。仅安装systemd服务时需要sudo权限。
 
 代码仅经Git部署，业务输入只有视频；没有查看器、Node.js、Spark专用格式或人工审核步骤。[流程与维护说明](docs/workflow.md) · [本地验证记录](provenance/deployment-validation.json)

@@ -1,5 +1,7 @@
 """Exercise production shell entrypoints against real sparse Git checkouts."""
 import os
+import hashlib
+import json
 from pathlib import Path
 import shutil
 import subprocess
@@ -24,7 +26,7 @@ class DeployCheckoutTests(unittest.TestCase):
                         GIT_CONFIG_GLOBAL='/dev/null', SMPLX_ROOT=str(self.root / 'runtime'),
                         SMPLX_ENV_DIR=str(self.root / 'environment'),
                         SMPLX_ASSETS=str(self.root / 'assets'))
-        for name in ('deploy.sh', 'scripts/setup_server.sh', 'constraints-linux-cu128.txt',
+        for name in ('deploy.sh', 'scripts/setup_server.sh', 'scripts/prepare_assets.py', 'constraints-linux-cu128.txt',
                      'requirements.txt', 'run_smplx.py', 'watch.py'):
             destination = self.source / name
             destination.parent.mkdir(parents=True, exist_ok=True)
@@ -34,13 +36,19 @@ class DeployCheckoutTests(unittest.TestCase):
             destination = self.source / name
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_text('checkout fixture\n')
+        asset = self.root / 'assets/template'
+        asset.parent.mkdir()
+        asset.write_bytes(b'checkout fixture')
+        manifest = {'files': [{'path': 'template', 'bytes': asset.stat().st_size,
+                               'sha256': hashlib.sha256(asset.read_bytes()).hexdigest()}]}
+        (self.source / 'configs/server-assets.json').write_text(json.dumps(manifest))
         self.command('git', 'init', '--quiet', self.source)
         self.command('git', '-C', self.source, 'add', '.')
         self.command('git', '-C', self.source, '-c', 'user.name=Fixture',
                      '-c', 'user.email=fixture@example.invalid', 'commit', '--quiet', '-m', 'fixture')
         self.command('git', 'clone', '--quiet', '--no-checkout', self.source, self.app)
-        # Stop at the real setup script's first Python call; no packages/models/GPU
-        # are mocked as valid, installed, or loaded by these checkout controls.
+        # Stop at the real setup script's first environment call. The small model
+        # fixture controls checkout only; no production model or GPU is loaded.
         executable = self.root / 'environment/bin/python'
         executable.parent.mkdir(parents=True)
         executable.write_text('#!/bin/sh\nprintf "%s\\n" "$@" > "$HOME/python-call"\nexit 42\n')

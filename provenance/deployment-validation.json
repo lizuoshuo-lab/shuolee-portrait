@@ -306,5 +306,51 @@
     "additional_checkout_test_git": "2.48.1.windows.1",
     "modern_no_checkout_clone_materialized": true,
     "recovery_resets_old_patterns_before_pull": true
+  },
+  "model_preparation": {
+    "reported_error": "16 missing model files; no checksum mismatch",
+    "legacy_root_reproduced": {
+      "present_files": 5,
+      "missing_files": 16,
+      "original_files_preserved": true
+    },
+    "resolution": "Prefer a complete verified model root; assemble missing public dependencies and reuse licensed templates in the runtime models directory",
+    "source_base_commit": "d52f9031fba0fc8afb8710206d5a382eeb1ac571",
+    "source_sha256": {
+      "deploy.sh": "f5758155d1ae33df953dba8f361e9ca35454d223ddd7ac76d4d5d95f1be82a38",
+      "scripts/prepare_assets.py": "812c3363ff75c24be9949f47c371511a83dde63f9a207b099036d673bcf1d583",
+      "configs/server-assets.json": "428e9ed82a0e214cf3f63e7d98069b7e3a2f7594c7de4030622b455257c077d4"
+    },
+    "regression_checks_passed": 77,
+    "real_online_downloads": {
+      "files": 16,
+      "bytes": 5800346425,
+      "all_sizes_and_sha256_verified": true,
+      "host": "Windows using its configured HTTP proxy"
+    },
+    "linux_validation": {
+      "legacy_assets_to_complete_root": true,
+      "files_verified": 21,
+      "repeat_reuses_complete_root": true,
+      "rtmw_package_extraction_verified": true,
+      "pinned_rtmw_configuration_crlf_preserved": true,
+      "model_dependent_imports_and_configuration_passed": true,
+      "actual_cuda_forward_backward_passed": true,
+      "production_deploy_ready": true,
+      "background_worker_started_and_stopped": true
+    },
+    "network_and_linux_checks": "Downloads were verified online; the final Linux assembly used identical files by pinned SHA-256 after correcting RTMW newline generation.",
+    "model_versions_and_sha256_unchanged": true,
+    "viewer_deployed": false,
+    "training_started": false,
+    "temporary_model_directories_removed": true,
+    "target_server_retry_verified": false,
+    "evidence": [
+      "server-missing-assets-error.json",
+      "asset-real-validation.json",
+      "asset-preparation-final.json",
+      "asset-deploy-runtime.json",
+      "asset-preparation-tests.log"
+    ]
   }
 }

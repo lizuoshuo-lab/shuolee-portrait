@@ -39,25 +39,11 @@ unset PYTHONPATH SHUOLEE_EXTRA_PYTHONPATH
 export PYTHONNOUSERSITE=1 PYTHONUNBUFFERED=1
 ENV_PYTHON="$SHUOLEE_ENV_DIR/bin/python"
 ASSETS_DIR="${SMPLX_ASSETS:-${SHUOLEE_ASSETS:-}}"
-if [[ -z "$ASSETS_DIR" ]]; then
-  ASSETS_DIR="$(python3 - "$SHUOLEE_ROOT" "$SHUOLEE_ENV_DIR" <<'PY'
-import json, sys
-from pathlib import Path
-root, env = map(Path, sys.argv[1:])
-candidates = []
-for profile in (root / 'queue/deployment.json', Path.home() / 'shuolee/queue/deployment.json', env / 'install/deployment119.json'):
-    if profile.is_file():
-        candidates.append(Path(json.loads(profile.read_text())['assets']))
-candidates += [root/'models', root/'assets', Path.home()/'shuolee/models/113', Path('/data/shuolee-models')]
-for candidate in candidates:
-    if (candidate/'smplx/SMPLX_NEUTRAL.npz').is_file():
-        print(candidate.resolve())
-        break
-else:
-    raise SystemExit('Server model assets missing. Set SMPLX_ASSETS to the existing model directory (docs/模型配置.md).')
-PY
-)"
+ASSET_ARGS=(--root "$SHUOLEE_ROOT" --environment "$SHUOLEE_ENV_DIR")
+if [[ -n "$ASSETS_DIR" ]]; then
+  ASSET_ARGS+=(--assets "$ASSETS_DIR")
 fi
+ASSETS_DIR="$(python3 -s "$PROJECT_ROOT/scripts/prepare_assets.py" "${ASSET_ARGS[@]}")"
 if [[ -x "$ENV_PYTHON" && -f "$SHUOLEE_ENV_DIR/pyvenv.cfg" ]]; then
   MODE=--verify-existing
 else

@@ -39,7 +39,7 @@ bash scripts/setup_server.sh
 source "$SHUOLEE_ENV_DIR/bin/activate"
 ~~~
 
-请将 Python 和 CUDA 路径改成服务器的实际位置。CUDA 扩展在目标机重新编译，不复制本机的 .so。若系统没有 Python 3.10，先安装兼容解释器。环境、缓存和编译目录默认放在用户主目录的 .local/share 中；禁止安装到 Git 工程内或 D:/00 的同步范围。安装脚本不借用历史实验的 site-packages，不下载模型权重。代码环境与模型资产分开；模型取得方式见 docs/模型配置.md。
+请将 Python 和 CUDA 路径改成服务器的实际位置。CUDA 扩展在目标机重新编译，不复制本机的 .so。若系统没有 Python 3.10，先安装兼容解释器。环境、缓存和编译目录默认放在用户主目录的 .local/share 中；禁止安装到 Git 工程内或 D:/00 的同步范围。安装脚本不借用历史实验的 site-packages，不下载模型权重。代码环境与模型资产分开；模型取得方式见 docs/models.md。
 
 安装日志在 `$SHUOLEE_ENV_DIR/install/setup.log`，实际安装版本在 `installed.txt`。直接和间接依赖由 constraints-linux-cu128.txt 固定，避免安装日期变化导致版本漂移。安装末尾会检查包的来源，并运行 kNN、网格和高斯 CUDA 前向/反向小样例；这只验证环境，不能证明人像质量。首次安装拒绝覆盖现有环境；只有依赖安装中断且查明日志原因后，使用 `bash scripts/setup_server.sh --resume-install`。该选项不会恢复任何人像训练。
 
