@@ -7,7 +7,7 @@
 如果已经克隆成功、仅部署报错，用下面一行更新并重新部署。它也会恢复旧版Git稀疏检出遗漏的根目录入口和依赖文件，不重复克隆：
 
 ```bash
-git -C ~/smpl-x/app sparse-checkout init --cone && git -C ~/smpl-x/app pull --ff-only && bash ~/smpl-x/app/deploy.sh
+git -C ~/smpl-x/app sparse-checkout init --cone && git -C ~/smpl-x/app sparse-checkout set && git -C ~/smpl-x/app pull --ff-only && bash ~/smpl-x/app/deploy.sh
 ```
 
 ## 输入和结果

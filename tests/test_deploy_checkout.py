@@ -85,6 +85,7 @@ class DeployCheckoutTests(unittest.TestCase):
         self.assertFalse((self.app / 'deploy.sh').exists())
         self.assertFalse((self.app / 'constraints-linux-cu128.txt').exists())
         self.command('git', '-C', self.app, 'sparse-checkout', 'init', '--cone')
+        self.command('git', '-C', self.app, 'sparse-checkout', 'set')
         self.command('git', '-C', self.app, 'pull', '--ff-only')
         self.assert_deploy_reaches_environment_check()
 

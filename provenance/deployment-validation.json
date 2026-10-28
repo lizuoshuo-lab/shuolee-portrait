@@ -304,6 +304,7 @@
     ],
     "target_server_retry_verified": false,
     "additional_checkout_test_git": "2.48.1.windows.1",
-    "modern_no_checkout_clone_materialized": true
+    "modern_no_checkout_clone_materialized": true,
+    "recovery_resets_old_patterns_before_pull": true
   }
 }
