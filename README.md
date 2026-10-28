@@ -5,7 +5,7 @@
 在目标Linux服务器执行这一行：
 
 ```bash
-git clone --filter=blob:none --sparse -b codex/smpl-x https://github.com/lizuoshuo-lab/shuolee-portrait.git ~/smpl-x/app && bash ~/smpl-x/app/deploy.sh
+git clone --filter=blob:none --sparse -b main https://github.com/lizuoshuo-lab/shuolee-portrait.git ~/smpl-x/app && bash ~/smpl-x/app/deploy.sh
 ```
 
 随后把视频上传到 **`~/smpl-x/videos/`**。文件稳定30秒后自动排队，一次训练一个，关闭SSH或WinSCP后继续运行，服务器重启后服务自动启动。相同内容的视频只处理一次。
@@ -22,6 +22,6 @@ bash ~/smpl-x/app/scripts/train.sh /path/to/person.mp4
 
 本地已用00数据集的横屏、竖屏各一段，从视频文件夹自动完成18000步训练与通用导出；分别为89帧和112帧。独立PLY/COLMAP读取检查通过，服务重启不会重复训练。
 
-目标环境需要Linux x86_64/systemd、NVIDIA驱动、Python 3.10、CUDA 12.8开发工具、FFmpeg及C++构建工具。脚本安装隔离依赖环境；已有环境自动核验复用。已有113服务器的 `~/shuolee/models/113/` 和 `cuda128.env` 自动识别，通用预训练模型须满足[模型清单](docs/模型配置.md)。私有Git仓库使用服务器已有Git凭据；安装系统服务需要sudo权限。
+仓库公开，下载代码无需GitHub账号或凭据。目标环境需要Linux x86_64/systemd、NVIDIA驱动、Python 3.10、CUDA 12.8开发工具、FFmpeg及C++构建工具。脚本安装隔离依赖环境；已有环境自动核验复用。已有113服务器的 `~/shuolee/models/113/` 和 `cuda128.env` 自动识别，通用预训练模型须满足[模型清单](docs/模型配置.md)。安装系统服务需要sudo权限。
 
 代码仅经Git部署，业务输入只有视频；没有查看器、Node.js、Spark专用格式或人工审核步骤。[流程与维护说明](docs/workflow.md) · [本地验证记录](provenance/deployment-validation.json)

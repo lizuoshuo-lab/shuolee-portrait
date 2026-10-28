@@ -2,7 +2,7 @@
   "schema": "smpl-x-deployment-validation-v2",
   "date": "2026-10-28",
   "application": "smpl-x",
-  "branch": "codex/smpl-x",
+  "branch": "main",
   "scope": "One-command Git deployment, automatic video-folder intake, SMPL-X reconstruction and generic export; no viewer or human approval",
   "source_git": "61791febe2b34d221f140ddeafe005a7f0ee0225",
   "local": {
