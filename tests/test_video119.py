@@ -1,10 +1,13 @@
 """CPU evidence for fresh video preparation; synthetic controls are not quality acceptance."""
 import json
+import os
 from pathlib import Path
 import shutil
 import sys
 import tempfile
+from types import SimpleNamespace
 import unittest
+from unittest.mock import Mock, patch
 
 import cv2
 import numpy as np
@@ -14,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
 from shuolee_portrait.video119 import (
     VideoPreparationNotReady, estimate_focal_intrinsics, fixed_intrinsics,
     prepare_video, rectified_center_crop_intrinsics, settings_for, solve_camera_geometry, split_track_records,
-    validate_video_stream, retained_camera_indices, select_balanced_tracks, _fresh_tracks,
+    validate_video_stream, retained_camera_indices, select_balanced_tracks, _fresh_tracks, _cpu_person_boxes,
 )
 
 
@@ -38,6 +41,34 @@ def synthetic_tracks(n=6, count=330):
 
 
 class Video119Tests(unittest.TestCase):
+    def test_cpu_detection_restores_gpu_visibility_on_success_and_failure(self):
+        boxes = np.array([[10., 20., 30., 40.]])
+        result = Mock()
+        result.boxes.xyxy.cpu.return_value.numpy.return_value = boxes
+        device = SimpleNamespace(type='cpu')
+        torch_api = SimpleNamespace(device=Mock(return_value=device))
+        for previous in (None, '0', '2,3', ''):
+            for fail in (False, True):
+                with self.subTest(previous=previous, fail=fail), patch.dict(os.environ), patch.dict(sys.modules, {'torch': torch_api}):
+                    if previous is None:
+                        os.environ.pop('CUDA_VISIBLE_DEVICES', None)
+                    else:
+                        os.environ['CUDA_VISIBLE_DEVICES'] = previous
+                    def predict(*args, **kwargs):
+                        self.assertIs(kwargs['device'], device)
+                        os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+                        if fail:
+                            raise RuntimeError('detector failed')
+                        return [result]
+                    detector = Mock(predict=predict)
+                    if fail:
+                        with self.assertRaisesRegex(RuntimeError, 'detector failed'):
+                            _cpu_person_boxes(detector, np.zeros((4, 4, 3), np.uint8))
+                    else:
+                        np.testing.assert_array_equal(_cpu_person_boxes(detector, np.zeros((4, 4, 3), np.uint8)), boxes)
+                    self.assertEqual(os.environ.get('CUDA_VISIBLE_DEVICES'), previous)
+                    torch_api.device.assert_called_with('cpu')
+
     def test_balanced_selection_prevents_long_tracks_starving_other_views(self):
         verified = {k: [(i, k) for i in range(5)] for k in range(5000)}
         verified.update({k: [(i, k) for i in (4, 5, 6)] for k in range(5000, 5060)})

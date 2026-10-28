@@ -210,6 +210,26 @@ def select_balanced_tracks(verified, frames, limit, minimum=50):
     return selected, counts, {i: len(by_frame[i]) for i in frames}
 
 
+def _cpu_person_boxes(detector, image):
+    """Keep CPU detector device selection local to this call."""
+    import os
+    import torch
+    visible = os.environ.get('CUDA_VISIBLE_DEVICES')
+    try:
+        # A torch.device bypasses Ultralytics' string selector, which hides
+        # CUDA before its backend can cache a zero-device runtime. Restoring
+        # the variable after that initialization alone is insufficient.
+        return detector.predict(image, classes=[0], conf=.25, verbose=False,
+                                device=torch.device('cpu'))[0].boxes.xyxy.cpu().numpy()
+    finally:
+        # Ultralytics selects CPU by hiding every CUDA device process-wide.
+        # SAM2 and the subsequent training stages still need the caller's GPUs.
+        if visible is None:
+            os.environ.pop('CUDA_VISIBLE_DEVICES', None)
+        else:
+            os.environ['CUDA_VISIBLE_DEVICES'] = visible
+
+
 def background_masks(root, decoded, out, assets, status):
     """Exclude all detected people before geometry, using padded full-frame boxes.
 
@@ -228,7 +248,7 @@ def background_masks(root, decoded, out, assets, status):
         if image is None:
             raise VideoPreparationNotReady(f'Missing or unreadable new frame {row["name"]}.')
         h, w = image.shape[:2]
-        boxes = detector.predict(image, classes=[0], conf=.25, verbose=False, device='cpu')[0].boxes.xyxy.cpu().numpy()
+        boxes = _cpu_person_boxes(detector, image)
         mask = np.full((h, w), 255 if len(boxes) else 0, dtype=np.uint8)
         for box in boxes:
             margin = .08 * max(box[2:] - box[:2])
