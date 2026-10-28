@@ -278,11 +278,15 @@ class VideoQueue:
 
     def heartbeat(self):
         counts = {}
-        for job in self.jobs():
+        jobs = self.jobs()
+        for job in jobs:
             counts[job['state']] = counts.get(job['state'], 0) + 1
+        recent_results = [dict(video=job.get('video'), outcome=job['outcome'],
+                               message=job['message'], result=job['result'])
+                          for job in jobs if 'outcome' in job][-10:]
         save(self.root / 'status.json', dict(state='stopping' if self.stopping else 'watching',
              updated=now(), pid=os.getpid(), inbox=str(self.inbox), runs=str(self.runs),
-             active=self.active, counts=counts))
+             active=self.active, counts=counts, recent_results=recent_results))
 
     def stop(self, *_):
         self.stopping = True

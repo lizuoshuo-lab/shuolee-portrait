@@ -151,6 +151,10 @@ class QueueTests(unittest.TestCase):
         self.assertEqual(result['code'], 'CAMERA_NOT_RECOVERABLE')
         self.assertFalse(result['model_available'])
         self.assertTrue(result['actions'])
+        self.q.heartbeat()
+        status = read(self.q.root / 'status.json')
+        self.assertEqual(status['recent_results'][0]['outcome'], 'needs_recapture')
+        self.assertEqual(status['recent_results'][0]['message'], result['message'])
         command = [sys.executable, str(Path(__file__).resolve().parents[1] / 'watch.py'),
                    '--deployment', str(self.profile), '--status']
         run = subprocess.run(command, capture_output=True, encoding='utf-8', timeout=10)
