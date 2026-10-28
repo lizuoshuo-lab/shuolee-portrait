@@ -270,5 +270,37 @@
       "background-real-runtime.json"
     ],
     "target_server_retry_verified": false
+  },
+  "sparse_checkout_compatibility": {
+    "date": "2026-10-28",
+    "reported_error": "ERROR: Missing pinned dependency constraints.",
+    "cause": "Directory-only patterns in non-cone sparse checkout excluded root entrypoints and dependency locks.",
+    "git_version_tested": "2.25.1",
+    "public_clone_without_credentials": true,
+    "old_public_deploy_error_reproduced": true,
+    "existing_failed_checkout_recovered": true,
+    "fresh_clone_command": "clone --no-checkout followed by sparse-checkout init --cone",
+    "checkout_regression_cases": 4,
+    "linux_regression_tests_passed": 66,
+    "actual_production_deploy_passed": true,
+    "pip_check_passed": true,
+    "CUDA_forward_backward_passed": true,
+    "asset_sha256_checks_passed": 21,
+    "background_worker_ready": true,
+    "terminal_exit_and_SIGHUP_survived": true,
+    "viewer_deployed": false,
+    "training_started": false,
+    "test_worker_stopped": true,
+    "temporary_checkout_and_runtime_removed": true,
+    "candidate_sha256": {
+      "deploy.sh": "5600621e0a465f3bc73003c233becb2937e1fb3ac3dea90445c719156ad21f7a"
+    },
+    "evidence": [
+      "sparse-checkout-reproduction.json",
+      "sparse-full-tests.log",
+      "sparse-real-deployment.json",
+      "sparse-real-deploy.log"
+    ],
+    "target_server_retry_verified": false
   }
 }

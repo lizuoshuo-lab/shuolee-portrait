@@ -4,7 +4,11 @@
 
 公开仓库的部署分支为 `main`，下载不需要GitHub登录。如果先前克隆因用户名读取失败而退出，可以直接重新执行README中的命令；Git会清理未完成的目标目录。
 
-如果已经克隆成功、仅部署报错，用 `git -C ~/smpl-x/app pull --ff-only && bash ~/smpl-x/app/deploy.sh` 更新并重新部署，不重复克隆。
+如果已经克隆成功、仅部署报错，用下面一行更新并重新部署。它也会恢复旧版Git稀疏检出遗漏的根目录入口和依赖文件，不重复克隆：
+
+```bash
+git -C ~/smpl-x/app sparse-checkout init --cone && git -C ~/smpl-x/app pull --ff-only && bash ~/smpl-x/app/deploy.sh
+```
 
 ## 输入和结果
 

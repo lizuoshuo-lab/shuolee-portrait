@@ -5,7 +5,7 @@
 在目标Linux服务器执行这一行：
 
 ```bash
-git clone --filter=blob:none --sparse -b main https://github.com/lizuoshuo-lab/shuolee-portrait.git ~/smpl-x/app && bash ~/smpl-x/app/deploy.sh
+git clone --filter=blob:none --no-checkout -b main https://github.com/lizuoshuo-lab/shuolee-portrait.git ~/smpl-x/app && git -C ~/smpl-x/app sparse-checkout init --cone && bash ~/smpl-x/app/deploy.sh
 ```
 
 随后把视频上传到 **`~/smpl-x/videos/`**。文件稳定30秒后自动排队，一次训练一个，关闭SSH或WinSCP后继续运行。相同内容的视频只处理一次。

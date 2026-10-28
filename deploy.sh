@@ -24,6 +24,9 @@ SHUOLEE_SERVICE_NAME="${SMPLX_SERVICE_NAME:-${SHUOLEE_SERVICE_NAME:-smpl-x}}"
 command -v git >/dev/null
 command -v python3 >/dev/null
 if [[ "$(git -C "$PROJECT_ROOT" config --get core.sparseCheckout || true)" == true ]]; then
+  # Older Git defaults to non-cone patterns, which would remove root entrypoints
+  # and dependency locks when selecting only directories below.
+  git -C "$PROJECT_ROOT" sparse-checkout init --cone
   git -C "$PROJECT_ROOT" sparse-checkout set configs scripts src third_party docs tests provenance .github
 fi
 # Existing 113 servers already have their compiler/driver paths here.
