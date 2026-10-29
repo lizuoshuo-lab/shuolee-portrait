@@ -26,7 +26,7 @@ while [[ $# -gt 0 ]]; do
       shift 2 ;;
     --help|-h)
       echo 'Usage: bash scripts/setup_server.sh [--preflight-only|--resume-install|--verify-existing] [--assets PATH] [--runs PATH] [--deployment PATH]'
-      echo 'Dependency installation helper. For automatic video intake, run bash deploy.sh.'
+      echo 'Dependency installation helper. For the reconstruction deployment profile, run bash deploy.sh.'
       exit 0 ;;
     *) fail "Unknown argument: $1" ;;
   esac
@@ -138,4 +138,4 @@ done
 "$ENV_PYTHON" -s "$PROJECT_ROOT/scripts/check_environment.py" --output "$SHUOLEE_ENV_DIR/install/environment-check.json"
 echo "Dependency installation passed. Activate: source '$SHUOLEE_ENV_DIR/bin/activate'"
 configure_smplx
-echo 'Dependency checks completed; deploy.sh prepares models and starts automatic video intake.'
+echo 'Dependency checks completed; deploy.sh prepares models and prints the reconstruction command.'

@@ -2,11 +2,11 @@
 
 一个 Git 工程、一个视频入口。复用官方 SMPLify-X 拟合流程，仅适配二维关键点、完整相机输入和 SMPL-X 输出到自由衣物高斯训练的接口，最终导出标准 PLY 及同坐标相机。原始视频、模型权重和运行结果保存在 Git 目录之外。
 
-**当前 `smplx/reconstruction` 是本地集成开发分支，尚未发布或完成新视频端到端验证。** 默认入口已连接官方逐帧拟合、按帧选择姿态的高斯训练和指定参考姿态导出。历史结果的 CPU 装配与接口检查通过；画质、服务器执行及总耗时仍未通过验收。
+**当前 `smplx/reconstruction` 是集成开发分支，尚未完成新视频端到端验证。** 默认入口已连接官方逐帧拟合、按帧选择姿态的高斯训练和指定参考姿态导出。历史结果的 CPU 装配与接口检查通过；画质、服务器执行及总耗时仍未通过验收。
 
 ## 部署和运行
 
-服务器需要 Linux x86_64、NVIDIA GPU、CUDA 12.8 开发工具、Python 3.10、Git、FFmpeg 和 C++ 构建工具。模型许可与文件来源见 [模型说明](docs/models.md)。官方 SMPLify-X 固定版本源码的自动配置，以及旧部署依赖的清理仍待完成。以下是开发接口；本地分支尚未推送，不能据此认为服务器已经获得此版本。
+服务器需要 Linux x86_64、NVIDIA GPU、CUDA 12.8 开发工具、Python 3.10、Git、FFmpeg 和 C++ 构建工具。模型许可与文件来源见 [模型说明](docs/models.md)。官方 SMPLify-X 固定版本源码的自动配置，以及旧部署依赖的清理仍待完成。以下是开发接口；服务器需要另行更新并验证这一版本。
 
 ```bash
 git clone --branch smplx/reconstruction --single-branch https://github.com/lizuoshuo-lab/shuolee-portrait.git ~/smpl-x/app && bash ~/smpl-x/app/deploy.sh

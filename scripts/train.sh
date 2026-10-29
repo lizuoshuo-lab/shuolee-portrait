@@ -1,9 +1,26 @@
 #!/usr/bin/env bash
-# Source and dependencies come from Git/setup; the only daily input is a video.
+# Forward one video and camera configuration to the unified reconstruction CLI.
 set -euo pipefail
+if [[ $# -eq 0 || "${1:-}" == --help || "${1:-}" == -h ]]; then
+  echo 'Usage: bash scripts/train.sh VIDEO --camera-config CONFIG [--reference-frame frame_000001] [--output RUN]'
+  echo 'Uses the environment/assets/runs deployment profile created by bash deploy.sh.'
+  if [[ $# -eq 0 ]]; then exit 2; fi
+  exit 0
+fi
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SMPLX_ROOT="${SMPLX_ROOT:-${HOME}/smpl-x}"
+SMPLX_ROOT="${SMPLX_ROOT:-${SHUOLEE_ROOT:-${HOME}/smpl-x}}"
 DEPLOYMENT_FILE="$SMPLX_ROOT/queue/deployment.json"
+USER_ARGS=("$@")
+for ((i=0; i<${#USER_ARGS[@]}; i++)); do
+  case "${USER_ARGS[i]}" in
+    --deployment)
+      [[ $((i+1)) -lt ${#USER_ARGS[@]} && -n "${USER_ARGS[i+1]}" && "${USER_ARGS[i+1]}" != --* ]] || { echo 'Missing path after --deployment.' >&2; exit 2; }
+      DEPLOYMENT_FILE="${USER_ARGS[i+1]}" ;;
+    --deployment=*)
+      DEPLOYMENT_FILE="${USER_ARGS[i]#--deployment=}"
+      [[ -n "$DEPLOYMENT_FILE" ]] || { echo 'Missing path after --deployment.' >&2; exit 2; } ;;
+  esac
+done
 SHUOLEE_ENV_DIR="${SMPLX_ENV_DIR:-${SHUOLEE_ENV_DIR:-}}"
 if [[ -z "$SHUOLEE_ENV_DIR" && -f "$DEPLOYMENT_FILE" ]]; then
   SHUOLEE_ENV_DIR="$(python3 - "$DEPLOYMENT_FILE" <<'PY'
