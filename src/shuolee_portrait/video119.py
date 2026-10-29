@@ -555,7 +555,7 @@ def solve_camera_geometry(xy, records, K, out, settings=None, status=None):
     return Es, result
 
 
-def prepare_video(video, root, cfg, assets, *, camera_only=False):
+def prepare_video(video, root, cfg, assets, *, camera_only=False, required_assets=None):
     """Fill a fresh route119 run from this video; never import old prepared data.
 
     The caller creates root/data/logs/config.json/run.json. camera_only=True
@@ -654,7 +654,7 @@ def prepare_video(video, root, cfg, assets, *, camera_only=False):
             raise VideoPreparationNotReady('Fresh camera candidate saved. Official detector/SAM2/RTMW asset directory is required for new masks/observations.')
         from . import runtime as rt
         rt.configure(assets, root)
-        rt.verify_assets()
+        rt.verify_assets(required_assets)
         from .observations import observe
         observe(root, cfg)
         report.update(state='observations_complete', observations_complete=True,

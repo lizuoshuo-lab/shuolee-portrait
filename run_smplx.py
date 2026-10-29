@@ -3,7 +3,7 @@ from pathlib import Path
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / 'src'))
-from shuolee_portrait.route119 import main
+from shuolee_portrait.reconstruction import main
 
 if __name__ == '__main__':
     main()

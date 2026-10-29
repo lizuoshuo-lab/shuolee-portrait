@@ -34,12 +34,17 @@ def configure(assets,root=None):
  import shuolee_vposer as vp
  vp.MODEL=ASSETS/'vposer/V02_05';vp.CODE=PROJECT/'third_party/human_body_prior'
 
-def verify_assets():
+def verify_assets(required_paths=None):
  manifest=read(PROJECT/'configs/server-assets.json')
+ rows=manifest['files']
+ if required_paths is not None:
+  required=set(required_paths)
+  if not required or not required <= {r['path'] for r in rows}:raise ValueError('Unknown or empty required asset selection.')
+  rows=[r for r in rows if r['path'] in required]
  missing=[];bad=[]
- for row in manifest['files']:
+ for row in rows:
   p=ASSETS/row['path']
   if not p.is_file():missing.append(row['path']);continue
   if p.stat().st_size!=row['bytes'] or sha(p)!=row['sha256']:bad.append(row['path'])
  if missing or bad:raise RuntimeError(f'Asset check failed. Missing={missing}; checksum mismatch={bad}. Model directory: {ASSETS}. Run bash deploy.sh to prepare server models; see docs/models.md and configs/server-assets.json.')
- return {'files':len(manifest['files']),'sha256_verified':True}
+ return {'files':len(rows),'sha256_verified':True}
