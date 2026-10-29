@@ -1,5 +1,8 @@
 # CPU geometry, input contracts, PLY round-trip and fresh video controls.
 # Production CUDA dependencies remain in requirements.txt and its constraints.
+# Install this file into a dedicated CPU test environment, not the CUDA runtime.
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.7.1+cpu
 numpy==1.26.4
 scipy==1.14.1
 pillow==11.1.0
