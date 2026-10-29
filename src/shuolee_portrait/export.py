@@ -25,6 +25,28 @@ def rigid_rotation64(raw):
                        reason='float32 orientation roundoff only; same proper rotation applied to positions, covariance, SH and cameras')
 
 
+def reference_pose_index(fit, receipt):
+    """Match export orientation to the named pose baked into the world PLY."""
+    if 'frame_ids' not in fit:
+        return 0, None
+    ids = np.asarray(fit['frame_ids'])
+    reference = np.asarray(fit['reference_frame_id'])
+    if (ids.ndim != 1 or ids.dtype.kind not in 'US' or reference.shape != () or
+            reference.dtype.kind not in 'US'):
+        raise ValueError('Invalid named export reference.')
+    ids = ids.astype(str).tolist(); reference = str(reference.item())
+    if len(set(ids)) != len(ids) or reference not in ids:
+        raise ValueError('Export reference must identify exactly one fitted pose.')
+    slot = ids.index(reference)
+    if receipt.get('reference_frame_id') != reference or receipt.get('reference_pose_index') != slot:
+        raise ValueError('World PLY and body export reference pose differ.')
+    rotations, translations = np.asarray(fit['root_rotation']), np.asarray(fit['world_translation'])
+    if (rotations.shape != (len(ids), 3, 3) or translations.shape != (len(ids), 3) or
+            not np.isfinite(rotations).all() or not np.isfinite(translations).all()):
+        raise ValueError('Named export root transform arrays differ from the pose roster.')
+    return slot, reference
+
+
 def rotate_ply(source, target, R, origin):
     from utils.sh_utils import eval_sh
     # Explicit buffers release file handles before Windows validates/renames a
@@ -81,9 +103,12 @@ def export(root,cfg):
     receipt=rt.read(snapshot/'native-ply-parity.json')
     if not receipt['passed'] or receipt['sha256']!=rt.sha(snapshot/'world.ply'):
         raise RuntimeError('Native world export is not verified.')
-    out=root/'export';out.mkdir();fit=dict(np.load(root/'fit/fitted.npz'))
-    R,rotation_roundoff=rigid_rotation64(np.asarray(fit['root_rotation'][0],float).T)
-    origin=np.asarray(fit['world_translation'][0],float)
+    with np.load(root/'fit/fitted.npz',allow_pickle=False) as archive:fit=dict(archive)
+    reference_slot,reference_frame=reference_pose_index(fit,receipt)
+    standard_export=cfg.get('gaussian_representation')=='static_clothed_world' or reference_frame is not None
+    out=root/'export';out.mkdir()
+    R,rotation_roundoff=rigid_rotation64(np.asarray(fit['root_rotation'][reference_slot],float).T)
+    origin=np.asarray(fit['world_translation'][reference_slot],float)
     frame_mode=cfg.get('export_frame_mode','body_root')
     if frame_mode in ('nearest_scene_axes','scene_up_keep_axis_order'):
         candidates=[]
@@ -103,17 +128,19 @@ def export(root,cfg):
     checking=out/'point_cloud.checking.ply';report=rotate_ply(snapshot/'world.ply',checking,R,origin)
     report['orientation_roundoff']=rotation_roundoff
     report['export_frame_mode']=frame_mode
+    report['reference_frame_id']=reference_frame
+    report['reference_pose_index']=reference_slot
     if frame_mode in ('nearest_scene_axes','scene_up_keep_axis_order'):
         report['coordinate_space']='world +Y using nearest proper scene-axis permutation; original tilt and translation preserved, not measured gravity'
-        report['body_up_residual_degrees']=float(np.degrees(np.arccos(np.clip((R@fit['root_rotation'][0][:,1])[1],-1,1))))
+        report['body_up_residual_degrees']=float(np.degrees(np.arccos(np.clip((R@fit['root_rotation'][reference_slot][:,1])[1],-1,1))))
     rows=rt.read(root/'data/training-inputs.json')['records'];targetrows=[]
     for row in rows:
         E=np.asarray(row['w2c']);mapped=E.copy();mapped[:3,:3]=E[:3,:3]@R.T;mapped[:3,3]=E[:3,:3]@origin+E[:3,3]
         targetrow=dict(frame=row['frame'],source_frame_index=row['source_frame_index'],time_seconds=row['time_seconds'],wh=row['wh'],K=row['K'],w2c=mapped.tolist())
-        if cfg.get('gaussian_representation')=='static_clothed_world':
+        if standard_export:
             targetrow['name']=row.get('name',row['frame'])
         targetrows.append(targetrow)
-    if cfg.get('gaussian_representation')=='static_clothed_world':
+    if standard_export:
         from .camera_exchange import write_camera_exchange
         write_camera_exchange(out,targetrows,world_to_viewer=report)
     else:
@@ -121,21 +148,20 @@ def export(root,cfg):
         rt.save(out/'cameras.json',dict(records=targetrows,convention='OpenCV world-to-camera; COLMAP pixel corners',world_to_viewer=report))
     source=GaussianModel(3);source.load_ply(str(snapshot/'world.ply'));portable=GaussianModel(3);portable.load_ply(str(checking))
     pipe=SimpleNamespace(convert_SHs_python=False,compute_cov3D_python=False,debug=False);bg=torch.zeros(3,device='cuda');checks=[]
-    standard119=cfg.get('gaussian_representation')=='static_clothed_world'
-    if not standard119:
+    if not standard_export:
         review=out/'review';review.mkdir()
     panels=[]
     with torch.no_grad():
         for i in np.unique(np.linspace(0,len(rows)-1,6).astype(int)):
-            ca,_=camera(rows[i],int(i),768);cb,_=camera(targetrows[i],int(i),768)
+            ca,_=camera(rows[i],int(i),768,pose_index=reference_slot);cb,_=camera(targetrows[i],int(i),768,pose_index=reference_slot)
             a=render(ca,source,pipe,bg)['render'];b=render(cb,portable,pipe,bg)['render'];d=abs(a-b)
             checks.append(dict(frame=rows[i]['frame'],mean_abs=float(d.mean()),max_abs=float(d.max())))
-            if not standard119:
+            if not standard_export:
                 image(a).save(review/f'{rows[i]["frame"]}_native.png');image(b).save(review/f'{rows[i]["frame"]}_viewer.png')
                 from PIL import Image
                 with Image.open(rows[i]['image']) as im:im.convert('RGB').resize((ca.image_width,ca.image_height),Image.Resampling.LANCZOS).save(review/f'{rows[i]["frame"]}_input.png')
                 panels.append('<figure><figcaption>'+html.escape(rows[i]['frame'])+'</figcaption>'+''.join(f'<img src="review/{rows[i]["frame"]}_{suffix}.png" alt="{suffix}">' for suffix in ['input','native','viewer'])+'</figure>')
-        if not standard119:
+        if not standard_export:
             xyz=portable.get_xyz.cpu().numpy();center=np.median(xyz,axis=0);height=float(np.quantile(xyz[:,1],.99)-np.quantile(xyz[:,1],.01));radius=max(height*1.4,.1)
             report['viewer_focus']=center.tolist()
             for i,angle in enumerate(np.linspace(0,2*np.pi,36,endpoint=False)):
@@ -143,13 +169,13 @@ def export(root,cfg):
                 right=np.cross(forward,[0,1,0]);right/=np.linalg.norm(right);down=np.cross(forward,right)
                 E=np.eye(4);E[:3,:3]=np.stack([right,down,forward]);E[:3,3]=-E[:3,:3]@eye
                 row=dict(frame=f'novel_{i:03d}',wh=[512,768],K=[[768,0,256],[0,768,384],[0,0,1]],w2c=E.tolist())
-                cam,_=camera(row,i);image(render(cam,portable,pipe,bg)['render']).save(review/f'novel_{i:03d}.png')
+                cam,_=camera(row,i,pose_index=reference_slot);image(render(cam,portable,pipe,bg)['render']).save(review/f'novel_{i:03d}.png')
     report['native_render_checks']=checks;report['format_passed']=all(c['mean_abs']<2e-6 and c['max_abs']<.005 for c in checks)
-    if not standard119:report['viewer_ui_review']='pending'
+    if not standard_export:report['viewer_ui_review']='pending'
     rt.save(out/'validation.json',report)
     if not report['format_passed']:raise RuntimeError('+Y PLY render parity failed; candidate retained as checking.ply, not published.')
     checking.rename(out/'point_cloud.ply')
-    if not standard119:
+    if not standard_export:
         htmltext='<!doctype html><meta charset="utf-8"><title>Shuolee reconstruction review</title><style>body{font:16px sans-serif;background:#eee;margin:24px}figure{margin:16px 0}img{max-width:30%;height:auto}</style><h1>新视频静态重建检查</h1><p>每行：原图 / 原生渲染 / +Y PLY。尚未通过重影与未知视角质量验收。图片保持比例，不叠字。</p>'+''.join(panels)+'<h2>连续未知视角（无实拍真值）</h2><input id="angle" type="range" min="0" max="35" value="0"><br><img id="orbit" src="review/novel_000.png"><script>angle.oninput=()=>orbit.src="review/novel_"+angle.value.padStart(3,"0")+".png"</script>'
         (out/'review.html').write_text(htmltext,encoding='utf-8')
-    rt.save(root/'result.json',dict(state='completed' if standard119 else 'completed_pending_quality_review',ply='export/point_cloud.ply',sha256=report['sha256'],format_passed=True,quality_accepted=False,from_scratch=True,frames=len(rows),steps=result['steps'],local_adapter=True,execution_kind=result.get('execution_kind','formal_training'),formal_training_admitted=result.get('formal_training_admitted',False)))
+    rt.save(root/'result.json',dict(state='completed' if standard_export else 'completed_pending_quality_review',ply='export/point_cloud.ply',sha256=report['sha256'],format_passed=True,quality_accepted=False,reference_frame_id=reference_frame,reference_pose_index=reference_slot,from_scratch=True,frames=len(rows),steps=result['steps'],local_adapter=True,execution_kind=result.get('execution_kind','formal_training'),formal_training_admitted=result.get('formal_training_admitted',False)))

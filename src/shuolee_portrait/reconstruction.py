@@ -1,8 +1,7 @@
 """Single video reconstruction entry and recorded failure boundary.
 
 The framewise numerical pipeline is integrated through ``sequence_pipeline``.
-Until that implementation is available, fail before inference rather than
-silently dispatching to the historical shared-static-pose trainer.
+Official source, camera and shared-shape inputs are checked before fitting.
 """
 from __future__ import annotations
 

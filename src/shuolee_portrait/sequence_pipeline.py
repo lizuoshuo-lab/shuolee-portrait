@@ -1,4 +1,4 @@
-"""Fresh observations to named official fits; explicit downstream connection state."""
+"""Fresh video to official named fits, existing Gaussian training and generic PLY."""
 from pathlib import Path
 
 from . import runtime as rt
@@ -6,6 +6,8 @@ from .camera_world_units import validate_camera_length_contract
 
 OBSERVATION_ASSETS = ('detection/yolov8n.pt', 'sam2/sam2.1_hiera_tiny.pt',
                       'rtmw/rtmw-l-384x288.onnx', 'rtmw/normalization.json')
+GAUSSIAN_CONFIG = dict(initial_points=200000, iterations=18000, training_height=899,
+                       seed=6060, image_cache_frames=8, export_frame_mode='scene_up_keep_axis_order')
 
 
 def reconstruct(*, video, root, assets, configuration, reference_frame):
@@ -14,6 +16,8 @@ def reconstruct(*, video, root, assets, configuration, reference_frame):
     from .official_sequence import fit_named_sequence, read_shape_policy
     from .cli import gpu_lock
     from .video119 import prepare_video
+    from .training import train_official
+    from .export import export
 
     root, assets = Path(root), Path(assets)
     def progress(stage, **values):
@@ -34,7 +38,8 @@ def reconstruct(*, video, root, assets, configuration, reference_frame):
     length = validate_camera_length_contract(configuration.get('camera_length_contract'))
     if length['basis'] == 'synthetic_known':
         raise ReconstructionError('CAMERA_SCALE_UNRESOLVED', 'A synthetic scale cannot describe a real video.')
-    cfg = dict(configuration, pixel_center_convention='renderer_corner_to_detector_integer')
+    cfg = dict(configuration, **GAUSSIAN_CONFIG,
+               pixel_center_convention='renderer_corner_to_detector_integer')
     rt.save(root / 'config.json', cfg)
     (root / 'data').mkdir(exist_ok=False)
     with gpu_lock():
@@ -50,7 +55,16 @@ def reconstruct(*, video, root, assets, configuration, reference_frame):
             root=root, official_root=options['source_root'], assets=assets,
             camera_length_contract=dict(length), reference_frame=reference_frame,
             shape_policy=options['shape_policy'])
-        progress('gaussian_connection', fitting_complete=True)
-        raise ReconstructionError('GAUSSIAN_NAMED_FRAME_CONNECTION_PENDING',
-            'Official named-frame fitting outputs are complete. The matching named-frame Gaussian training '
-            'and reference-pose export entry are not integrated in this revision; Gaussian training has not started.')
+        progress('gaussian_inputs', fitting_complete=True)
+        train_official(root, cfg)
+        progress('export', training_complete=True)
+        export(root, cfg)
+        result = rt.read(root/'result.json')
+        ply = root/'export/point_cloud.ply'
+        if (result.get('state') != 'completed' or result.get('format_passed') is not True or
+                result.get('reference_frame_id') != reference_frame or
+                not ply.is_file() or result.get('sha256') != rt.sha(ply)):
+            raise ReconstructionError('EXPORT_RESULT_INCOMPLETE', 'No verified named-reference PLY export.')
+        progress('complete', state='completed', format_passed=True, quality_accepted=False,
+                 ply=str(ply), sha256=result['sha256'])
+        return result

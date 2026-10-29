@@ -155,18 +155,28 @@ class NamedFrameTests(unittest.TestCase):
 
     def test_pipeline_reaches_actual_training_boundary(self):
         from shuolee_portrait import sequence_pipeline as pipeline
-        from shuolee_portrait.reconstruction import ReconstructionError
         root = self.base/'pipeline'; root.mkdir(); (root/'logs').mkdir()
         rt.save(root/'status.json', dict(state='running', training_started=False))
         cfg = dict(camera_length_contract=dict(self.contract, basis='model_conditioned'),
                    official_smplifyx=dict(source_root=str(self.base), shape_policy=dict(mode='fit_reference')))
+        stages = []
+        def finish(root, config):
+            stages.append('export')
+            ply = root/'export/point_cloud.ply'; ply.parent.mkdir(); ply.write_bytes(b'mocked PLY')
+            rt.save(root/'result.json', dict(state='completed', format_passed=True,
+                reference_frame_id=self.rows[1]['frame'], sha256=rt.sha(ply), quality_accepted=False))
         with patch.object(api, 'adapted_entry_source'), patch('shuolee_portrait.cli.gpu_lock', return_value=nullcontext()), \
              patch('shuolee_portrait.video119.prepare_video') as prepare, patch.object(rt, 'configure'), \
-             patch.object(rt, 'verify_assets'), patch.object(seq, 'fit_named_sequence') as fit:
-            with self.assertRaises(ReconstructionError) as caught:
-                pipeline.reconstruct(video=self.base/'new.mp4', root=root, assets=self.base,
-                                     configuration=cfg, reference_frame=self.rows[1]['frame'])
-        self.assertEqual(caught.exception.code, 'GAUSSIAN_NAMED_FRAME_CONNECTION_PENDING')
+             patch.object(rt, 'verify_assets'), patch.object(seq, 'fit_named_sequence', side_effect=lambda **kw: stages.append('fit')) as fit, \
+             patch('shuolee_portrait.training.train_official', side_effect=lambda *args: stages.append('train')) as train, \
+             patch('shuolee_portrait.export.export', side_effect=finish):
+            result = pipeline.reconstruct(video=self.base/'new.mp4', root=root, assets=self.base,
+                                          configuration=cfg, reference_frame=self.rows[1]['frame'])
+        self.assertEqual(stages, ['fit', 'train', 'export'])
+        self.assertEqual(result['state'], 'completed')
+        self.assertFalse(result['quality_accepted'])
+        self.assertEqual(train.call_args.args[1]['iterations'], 18000)
+        self.assertEqual(train.call_args.args[1]['training_height'], 899)
         self.assertTrue(rt.read(root/'status.json')['fitting_complete'])
         self.assertEqual(fit.call_args.kwargs['reference_frame'], self.rows[1]['frame'])
         self.assertEqual(prepare.call_args.kwargs['required_assets'], pipeline.OBSERVATION_ASSETS)
