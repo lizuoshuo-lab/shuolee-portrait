@@ -5,7 +5,7 @@ if [[ "${1:-}" == --help ]]; then
   echo 'Usage: bash deploy.sh'
   echo 'Prepares dependencies, models and a deployment profile, then prints the reconstruction command.'
   echo 'Training input: VIDEO --camera-config CONFIG [--reference-frame FRAME] [--output RUN].'
-  echo 'Optional environment paths: SMPLX_ROOT, SMPLX_ENV_DIR, SMPLX_ASSETS.'
+  echo 'Optional environment paths: SMPLX_ROOT, SMPLX_ENV_DIR, SMPLX_ASSETS, SMPLX_OFFICIAL_SOURCE_ROOT.'
   exit 0
 fi
 [[ $# -eq 0 ]] || { echo 'Usage: bash deploy.sh' >&2; exit 1; }
@@ -38,18 +38,23 @@ unset PYTHONPATH SHUOLEE_EXTRA_PYTHONPATH
 export PYTHONNOUSERSITE=1 PYTHONUNBUFFERED=1
 ENV_PYTHON="$SHUOLEE_ENV_DIR/bin/python"
 ASSETS_DIR="${SMPLX_ASSETS:-${SHUOLEE_ASSETS:-}}"
-ASSET_ARGS=(--root "$SHUOLEE_ROOT" --environment "$SHUOLEE_ENV_DIR")
+ASSET_ARGS=(--root "$SHUOLEE_ROOT" --environment "$SHUOLEE_ENV_DIR" --profile official_smplifyx)
 if [[ -n "$ASSETS_DIR" ]]; then
   ASSET_ARGS+=(--assets "$ASSETS_DIR")
 fi
 ASSETS_DIR="$(python3 -s "$PROJECT_ROOT/scripts/prepare_assets.py" "${ASSET_ARGS[@]}")"
+SOURCE_ARGS=(--root "$SHUOLEE_ROOT")
+if [[ -n "${SMPLX_OFFICIAL_SOURCE_ROOT:-}" ]]; then
+  SOURCE_ARGS+=(--source-root "$SMPLX_OFFICIAL_SOURCE_ROOT")
+fi
+OFFICIAL_SOURCE="$(python3 -s "$PROJECT_ROOT/scripts/prepare_official_source.py" "${SOURCE_ARGS[@]}")"
 if [[ -x "$ENV_PYTHON" && -f "$SHUOLEE_ENV_DIR/pyvenv.cfg" ]]; then
   MODE=--verify-existing
 else
   MODE=install
 fi
 DEPLOYMENT_FILE="$SHUOLEE_ROOT/queue/deployment.json"
-bash "$PROJECT_ROOT/scripts/setup_server.sh" "$MODE" --assets "$ASSETS_DIR" --runs "$SHUOLEE_ROOT/runs" --deployment "$DEPLOYMENT_FILE"
+bash "$PROJECT_ROOT/scripts/setup_server.sh" "$MODE" --profile official_smplifyx --official-source "$OFFICIAL_SOURCE" --assets "$ASSETS_DIR" --runs "$SHUOLEE_ROOT/runs" --deployment "$DEPLOYMENT_FILE"
 [[ -f "$DEPLOYMENT_FILE" ]] || { echo "Deployment profile was not created: $DEPLOYMENT_FILE" >&2; exit 2; }
 printf '\nDeployment configuration ready. Run reconstruction with:\n'
 printf '  %q -s %q train /path/to/person.mp4 --camera-config /path/to/camera.json --deployment %q\n' "$ENV_PYTHON" "$PROJECT_ROOT/run_smplx.py" "$DEPLOYMENT_FILE"

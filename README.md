@@ -6,13 +6,15 @@
 
 ## 部署和运行
 
-服务器需要 Linux x86_64、NVIDIA GPU、CUDA 12.8 开发工具、Python 3.10、Git、FFmpeg 和 C++ 构建工具。模型许可与文件来源见 [模型说明](docs/models.md)。官方 SMPLify-X 固定版本源码的自动配置，以及旧部署依赖的清理仍待完成。以下是开发接口；服务器需要另行更新并验证这一版本。
+服务器需要 Linux x86_64、NVIDIA GPU、CUDA 12.8 开发工具、Python 3.10、Git、FFmpeg 和 C++ 构建工具。模型许可与文件来源见 [模型说明](docs/models.md)。以下是开发接口；服务器需要另行更新并验证这一版本。
 
 ```bash
 git clone --branch smplx/reconstruction --single-branch https://github.com/lizuoshuo-lab/shuolee-portrait.git ~/smpl-x/app && bash ~/smpl-x/app/deploy.sh
 ```
 
-部署仅准备环境、模型及服务器配置。视频放在服务器指定目录，使用同一入口运行：
+部署准备环境、当前流程的 7 个模型文件及固定版本官方源码，写入服务器配置。已有且哈希一致的文件直接复用；新流程不要求 GVHMR 权重，也不删除旧模型。官方源码固定在 `vchoutas/smplify-x` 的 `68f8536707f43f4736cdd75a19b18ede886a4d53`，首次通过 Git 获取并核对 7 个使用文件。可通过 `SMPLX_OFFICIAL_SOURCE_ROOT` 指定已有合法源码目录，仍核对同一组哈希。
+
+视频放在服务器指定目录，使用同一入口运行：
 
 ```bash
 bash ~/smpl-x/app/scripts/train.sh ~/smpl-x/videos/person.mp4 --camera-config ~/smpl-x/camera.json
@@ -40,7 +42,7 @@ python run_smplx.py status --run /path/to/run
 
 ## 当前执行范围
 
-相机配置还需包含 `official_smplifyx.source_root` 和显式 `official_smplifyx.shape_policy`。`source_root` 指向固定版本官方源码目录，启动时逐文件核对哈希。`shape_policy` 为 `{"mode":"fit_reference"}` 时，先拟合指定参考帧的体型，再对全段冻结这一组 beta；也可使用 `{"mode":"supplied","path":"/absolute/shape.npz","sha256":"实际文件哈希","key":"shared_betas"}`。每次体型更新必须创建新的完整拟合运行，不能让各帧体型漂移。
+相机配置还需包含显式 `official_smplifyx.shape_policy`。`shape_policy` 为 `{"mode":"fit_reference"}` 时，先拟合指定参考帧的体型，再对全段冻结这一组 beta；也可使用 `{"mode":"supplied","path":"/absolute/shape.npz","sha256":"实际文件哈希","key":"shared_betas"}`。官方源码路径默认从部署记录读取；每段视频无需填写本机路径。显式 `official_smplifyx.source_root` 可覆盖默认路径，仍核对固定哈希。每次体型更新必须创建新的完整拟合运行，不能让各帧体型漂移。
 
 当前主线为视频与 mask、二维关键点和相机 → 官方 SMPLify-X → 现有 SMPL-X 高斯训练适配 → 通用 PLY 和相机。GVHMR 不再作为主流程初始化；相关历史代码与实验结果保留。官方单帧模块已通过一次完整 CUDA 等价回放。逐帧装配保留完整 K、图像与 mask 身份、命名帧顺序、共享体型及一次相机平移，并核对真实完成的官方拟合记录。默认执行无需人工审核文件。
 

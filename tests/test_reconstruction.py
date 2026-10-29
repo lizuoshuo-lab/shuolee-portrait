@@ -100,6 +100,28 @@ class ReconstructionEntryTests(unittest.TestCase):
         self.assertEqual(actual['frame_stride'], 3)
         self.assertEqual(actual['min_frames'], 12)
 
+    def test_saved_deployment_source_reaches_default_fitting_entry(self):
+        profile=rt.read(self.profile)
+        profile['official_smplifyx']=dict(source_root='/deployed/pinned/source')
+        rt.save(self.profile,profile)
+        self.cfg['official_smplifyx']=dict(shape_policy=dict(mode='fit_reference'))
+        rt.save(self.camera,self.cfg)
+        from unittest.mock import Mock
+        implementation=Mock(return_value={'fixture_only':True})
+        with patch.object(entry,'sequence_pipeline',return_value=implementation):
+            self.launch(self.base/'source-default')
+        actual=implementation.call_args.kwargs['configuration']['official_smplifyx']
+        self.assertEqual(actual,dict(source_root='/deployed/pinned/source',shape_policy=dict(mode='fit_reference')))
+
+    def test_configure_cli_uses_official_profile_and_retains_explicit_legacy(self):
+        with patch('shuolee_portrait.official_deployment.configure_deployment') as official, \
+             patch('shuolee_portrait.route119.configure_deployment') as legacy:
+            entry.main(['configure','--assets',str(self.base/'assets'),'--official-source',str(self.base/'source')])
+            official.assert_called_once(); legacy.assert_not_called()
+            self.assertEqual(official.call_args.args[-1],self.base/'source')
+            entry.main(['configure','--assets',str(self.base/'assets'),'--profile','legacy'])
+            legacy.assert_called_once()
+
 
 
 if __name__ == '__main__':

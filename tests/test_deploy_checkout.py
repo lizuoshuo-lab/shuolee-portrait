@@ -10,6 +10,8 @@ import tempfile
 import unittest
 
 PROJECT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT/'src'))
+from shuolee_portrait.official_deployment import ASSET_PATHS
 
 
 @unittest.skipUnless(sys.platform == 'linux' and shutil.which('git'), 'Linux Git deployment required')
@@ -26,7 +28,8 @@ class DeployCheckoutTests(unittest.TestCase):
                         GIT_CONFIG_GLOBAL='/dev/null', SMPLX_ROOT=str(self.root / 'runtime'),
                         SMPLX_ENV_DIR=str(self.root / 'environment'),
                         SMPLX_ASSETS=str(self.root / 'assets'))
-        for name in ('deploy.sh', 'scripts/setup_server.sh', 'scripts/prepare_assets.py', 'constraints-linux-cu128.txt',
+        for name in ('deploy.sh', 'scripts/setup_server.sh', 'scripts/prepare_assets.py', 'scripts/prepare_official_source.py',
+                     'src/shuolee_portrait/__init__.py', 'src/shuolee_portrait/official_deployment.py', 'constraints-linux-cu128.txt',
                      'requirements.txt', 'run_smplx.py', 'watch.py'):
             destination = self.source / name
             destination.parent.mkdir(parents=True, exist_ok=True)
@@ -36,12 +39,18 @@ class DeployCheckoutTests(unittest.TestCase):
             destination = self.source / name
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_text('checkout fixture\n')
-        asset = self.root / 'assets/template'
-        asset.parent.mkdir()
-        asset.write_bytes(b'checkout fixture')
-        manifest = {'files': [{'path': 'template', 'bytes': asset.stat().st_size,
-                               'sha256': hashlib.sha256(asset.read_bytes()).hexdigest()}]}
+        manifest = {'files': []}
+        for name in ASSET_PATHS:
+            asset = self.root / 'assets' / name
+            asset.parent.mkdir(parents=True,exist_ok=True);asset.write_bytes(b'checkout fixture')
+            manifest['files'].append(dict(path=name, bytes=asset.stat().st_size,
+                                          sha256=hashlib.sha256(asset.read_bytes()).hexdigest()))
         (self.source / 'configs/server-assets.json').write_text(json.dumps(manifest))
+        official = self.root/'official source'; official.mkdir()
+        (official/'fixture.py').write_bytes(b'only checkout test input')
+        pins = {'fixture.py':hashlib.sha256((official/'fixture.py').read_bytes()).hexdigest()}
+        (self.source/'src/shuolee_portrait/official_smplifyx.py').write_text("COMMIT="+repr('a'*40)+"\nPINNED="+repr(pins)+"\n")
+        self.env['SMPLX_OFFICIAL_SOURCE_ROOT']=str(official)
         self.command('git', 'init', '--quiet', self.source)
         self.command('git', '-C', self.source, 'add', '.')
         self.command('git', '-C', self.source, '-c', 'user.name=Fixture',

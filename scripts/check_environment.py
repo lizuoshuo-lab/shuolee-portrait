@@ -12,7 +12,7 @@ import traceback
 PROJECT = Path(__file__).resolve().parents[1]
 
 
-def check():
+def check(profile='legacy'):
     env = Path(sys.prefix).resolve()
     assert sys.prefix != sys.base_prefix, 'Use an isolated virtual environment.'
     assert not site.ENABLE_USER_SITE, 'Set PYTHONNOUSERSITE=1 or invoke python -s.'
@@ -32,6 +32,11 @@ def check():
         'hmr4d.model.gvhmr.gvhmr_pl_demo',
         'hmr4d.network.gvhmr.relative_transformer',
     ]
+    if profile == 'official_smplifyx':
+        from shuolee_portrait.official_deployment import official_module_names
+        names = official_module_names()
+    elif profile != 'legacy':
+        raise ValueError('Unknown deployment profile: ' + profile)
     for name in names:
         module = importlib.import_module(name)
         path = Path(module.__file__).resolve()
@@ -81,7 +86,7 @@ def check():
     assert torch.isfinite(centers.grad).all() and torch.isfinite(colors.grad).all()
     assert colors.grad.abs().max() > 0
     torch.cuda.synchronize()
-    return dict(environment=str(env), python=sys.version, gpu=torch.cuda.get_device_name(),
+    return dict(profile=profile, environment=str(env), python=sys.version, gpu=torch.cuda.get_device_name(),
                 torch=torch.__version__, cuda=torch.version.cuda, opencv=cv2.__version__, module_paths=modules,
                 isolated_package_imports=True, knn_cuda=True, mesh_forward_backward=True,
                 gaussian_forward_backward=True, model_weights_loaded=False,
@@ -93,10 +98,11 @@ def check():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--profile', choices=['legacy', 'official_smplifyx'], default='legacy')
     args = parser.parse_args()
     result = {'created': datetime.now(timezone.utc).isoformat(), 'passed': False}
     try:
-        result.update(check(), passed=True)
+        result.update(check(args.profile), passed=True)
     except Exception:
         result['error'] = traceback.format_exc()
     args.output.parent.mkdir(parents=True, exist_ok=True)

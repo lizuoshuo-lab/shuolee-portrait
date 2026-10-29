@@ -44,8 +44,12 @@ class UnifiedEntryScriptTests(unittest.TestCase):
             self.env.pop(key, None)
         (self.app / 'scripts/prepare_assets.py').write_text(
             'import argparse\n'
-            'p=argparse.ArgumentParser();p.add_argument("--root");p.add_argument("--environment");p.add_argument("--assets")\n'
+            'p=argparse.ArgumentParser();p.add_argument("--root");p.add_argument("--environment");p.add_argument("--assets");p.add_argument("--profile",choices=["official_smplifyx"],required=True)\n'
             'a=p.parse_args();print(a.assets)\n', encoding='utf-8')
+        (self.app / 'scripts/prepare_official_source.py').write_text(
+            'import argparse\n'
+            'p=argparse.ArgumentParser();p.add_argument("--root");p.add_argument("--source-root")\n'
+            'a=p.parse_args();print(a.source_root or a.root+"/sources/smplify-x")\n', encoding='utf-8')
         self.setup_stub = '''#!/usr/bin/env bash
 set -euo pipefail
 python3 - "$@" <<'PY'
@@ -95,6 +99,8 @@ Path(os.environ['SHELL_PYTHON_CAPTURE']).write_text(json.dumps(dict(executable=s
         self.assertFalse(self.capture.exists(), 'Deploy must not invoke the old service/watcher entry.')
         setup = json.loads(self.setup_capture.read_text())
         self.assertEqual(setup[0], '--verify-existing')
+        self.assertEqual(setup[setup.index('--profile')+1], 'official_smplifyx')
+        self.assertEqual(setup[setup.index('--official-source')+1], str(self.runtime/'sources/smplify-x'))
         deployment = self.runtime / 'queue/deployment.json'
         profile = json.loads(deployment.read_text())
         self.assertEqual(profile['environment'], str(self.environment))

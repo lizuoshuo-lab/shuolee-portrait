@@ -15,6 +15,8 @@ import zipfile
 
 PROJECT = Path(__file__).resolve().parents[1]
 MANIFEST = PROJECT / 'configs/server-assets.json'
+sys.path.insert(0, str(PROJECT/'src'))
+from shuolee_portrait.official_deployment import selected_manifest
 
 
 def read(path):
@@ -128,8 +130,9 @@ def model_lock(root):
         yield
 
 
-def prepare(root, sources, manifest=None):
+def prepare(root, sources, manifest=None, *, profile='legacy'):
     manifest = read(MANIFEST) if manifest is None else manifest
+    manifest = selected_manifest(manifest, profile)
     rows = manifest['files']
     # Check every entry, not just the licensed template used by the old fitter.
     for source in sources:
@@ -219,9 +222,10 @@ def main():
     parser.add_argument('--root', type=Path, required=True)
     parser.add_argument('--environment', type=Path, required=True)
     parser.add_argument('--assets')
+    parser.add_argument('--profile', choices=['legacy', 'official_smplifyx'], default='legacy')
     args = parser.parse_args()
     try:
-        result = prepare(args.root.resolve(), candidates(args.root, args.environment, args.assets))
+        result = prepare(args.root.resolve(), candidates(args.root, args.environment, args.assets), profile=args.profile)
     except (OSError, ValueError, KeyError, RuntimeError) as exc:
         raise SystemExit(f'ERROR: {exc}') from exc
     print(result)

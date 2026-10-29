@@ -145,6 +145,8 @@ def train_video(video, deployment, camera_config, *, output=None, reference_fram
         stage = 'camera_input'
         camera_digest = rt.sha(camera_config)
         camera, cfg = camera_configuration(camera_config, video_info['source_wh'])
+        from .official_deployment import fitting_options
+        cfg['official_smplifyx'] = fitting_options(cfg['official_smplifyx'], profile)
         if rt.sha(camera_config) != camera_digest or rt.sha(video) != digest:
             raise ValueError('Input changed during validation; use immutable inputs and a fresh run.')
         rt.save(root / 'camera.json', camera)
@@ -186,8 +188,13 @@ def main(argv=None):
     p.add_argument('--assets', type=Path, required=True)
     p.add_argument('--runs', type=Path, default=Path.home() / 'smpl-x/runs')
     p.add_argument('--output', type=Path, default=Path.home() / 'smpl-x/queue/deployment.json')
+    p.add_argument('--official-source', type=Path)
+    p.add_argument('--profile', choices=['official_smplifyx', 'legacy'], default='official_smplifyx')
     p = commands.add_parser('doctor', help='Check model assets and GPU dependencies.')
     p.add_argument('--assets', type=Path, required=True)
+    p.add_argument('--official-source', type=Path)
+    p.add_argument('--deployment', type=Path, default=Path.home() / 'smpl-x/queue/deployment.json')
+    p.add_argument('--profile', choices=['official_smplifyx', 'legacy'], default='official_smplifyx')
     args = parser.parse_args(argv)
     try:
         if args.command == 'train':
@@ -196,11 +203,24 @@ def main(argv=None):
         elif args.command == 'status':
             print(json.dumps(rt.read(args.run / 'status.json'), ensure_ascii=False, indent=2))
         elif args.command == 'configure':
-            from .route119 import configure_deployment
-            configure_deployment(args.assets, args.runs, args.output)
+            if args.profile == 'legacy':
+                from .route119 import configure_deployment
+                configure_deployment(args.assets, args.runs, args.output)
+            else:
+                from .official_deployment import configure_deployment
+                configure_deployment(args.assets, args.runs, args.output, args.official_source)
         else:
-            from .cli import doctor
-            doctor(args.assets)
+            if args.profile == 'legacy':
+                from .cli import doctor
+                doctor(args.assets)
+            else:
+                from .official_deployment import doctor
+                source = args.official_source
+                if source is None and args.deployment.is_file():
+                    source = rt.read(args.deployment).get('official_smplifyx', {}).get('source_root')
+                if not source:
+                    raise ValueError('Run deploy.sh to prepare the official source and deployment profile.')
+                print(json.dumps(doctor(args.assets, source), indent=2))
     except Exception as exc:
         print(f'{getattr(exc, "code", "EXECUTION_ERROR")}: {exc}', file=sys.stderr)
         raise SystemExit(1) from exc

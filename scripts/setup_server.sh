@@ -13,29 +13,36 @@ mode=install
 ASSETS_DIR=""
 RUNS_DIR="${SMPLX_ROOT:-${HOME}/smpl-x}/runs"
 DEPLOYMENT_FILE="${SMPLX_ROOT:-${HOME}/smpl-x}/queue/deployment.json"
+PROFILE=legacy
+OFFICIAL_SOURCE=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     install|--preflight-only|--resume-install|--verify-existing) mode="$1"; shift ;;
-    --assets|--runs|--deployment)
+    --assets|--runs|--deployment|--profile|--official-source)
       [[ $# -ge 2 && -n "$2" && "$2" != --* ]] || fail "Missing path after $1"
       case "$1" in
         --assets) ASSETS_DIR="$2" ;;
         --runs) RUNS_DIR="$2" ;;
         --deployment) DEPLOYMENT_FILE="$2" ;;
+        --profile) PROFILE="$2" ;;
+        --official-source) OFFICIAL_SOURCE="$2" ;;
       esac
       shift 2 ;;
     --help|-h)
-      echo 'Usage: bash scripts/setup_server.sh [--preflight-only|--resume-install|--verify-existing] [--assets PATH] [--runs PATH] [--deployment PATH]'
+      echo 'Usage: bash scripts/setup_server.sh [--preflight-only|--resume-install|--verify-existing] [--assets PATH] [--runs PATH] [--deployment PATH] [--profile legacy|official_smplifyx] [--official-source PATH]'
       echo 'Dependency installation helper. For the reconstruction deployment profile, run bash deploy.sh.'
       exit 0 ;;
     *) fail "Unknown argument: $1" ;;
   esac
 done
+[[ "$PROFILE" == legacy || "$PROFILE" == official_smplifyx ]] || fail 'Unknown deployment profile.'
 [[ -f "$PROJECT_ROOT/constraints-linux-cu128.txt" ]] || fail 'Missing pinned dependency constraints.'
 export PIP_CONSTRAINT="$PROJECT_ROOT/constraints-linux-cu128.txt"
 configure_smplx() {
   if [[ -n "$ASSETS_DIR" ]]; then
-    "$ENV_PYTHON" -s "$PROJECT_ROOT/run_smplx.py" configure --assets "$ASSETS_DIR" --runs "$RUNS_DIR" --output "$DEPLOYMENT_FILE"
+    SOURCE_ARGS=()
+    if [[ -n "$OFFICIAL_SOURCE" ]]; then SOURCE_ARGS=(--official-source "$OFFICIAL_SOURCE"); fi
+    "$ENV_PYTHON" -s "$PROJECT_ROOT/run_smplx.py" configure --profile "$PROFILE" "${SOURCE_ARGS[@]}" --assets "$ASSETS_DIR" --runs "$RUNS_DIR" --output "$DEPLOYMENT_FILE"
     echo 'smpl-x environment and models verified.'
   else
     echo 'Dependencies checked. To bind models: bash scripts/setup_server.sh --verify-existing --assets /path/to/models'
@@ -45,7 +52,7 @@ if [[ "$mode" == --verify-existing ]]; then
   ENV_PYTHON="$SHUOLEE_ENV_DIR/bin/python"
   [[ -x "$ENV_PYTHON" && -f "$SHUOLEE_ENV_DIR/pyvenv.cfg" ]] || fail 'Configured isolated Python environment is missing.'
   "$ENV_PYTHON" -s -m pip check
-  "$ENV_PYTHON" -s "$PROJECT_ROOT/scripts/check_environment.py" --output "$SHUOLEE_ENV_DIR/install/environment-check.json"
+  "$ENV_PYTHON" -s "$PROJECT_ROOT/scripts/check_environment.py" --profile "$PROFILE" --output "$SHUOLEE_ENV_DIR/install/environment-check.json"
   configure_smplx
   exit 0
 fi
@@ -135,7 +142,7 @@ for package in diff-gaussian-rasterization simple-knn nvdiffrast pytorch3d; do
 done
 "$ENV_PYTHON" -s -m pip check
 "$ENV_PYTHON" -s -m pip freeze > "$SHUOLEE_ENV_DIR/install/installed.txt"
-"$ENV_PYTHON" -s "$PROJECT_ROOT/scripts/check_environment.py" --output "$SHUOLEE_ENV_DIR/install/environment-check.json"
+"$ENV_PYTHON" -s "$PROJECT_ROOT/scripts/check_environment.py" --profile "$PROFILE" --output "$SHUOLEE_ENV_DIR/install/environment-check.json"
 echo "Dependency installation passed. Activate: source '$SHUOLEE_ENV_DIR/bin/activate'"
 configure_smplx
 echo 'Dependency checks completed; deploy.sh prepares models and prints the reconstruction command.'
