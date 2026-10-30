@@ -87,7 +87,7 @@ class ReconstructionEntryTests(unittest.TestCase):
                     entry.camera_configuration(self.camera, [32, 24])
 
     def test_sampling_and_camera_units_reach_pipeline_unchanged(self):
-        self.cfg['sampling'] = dict(frame_stride=3, max_image_size=800)
+        self.cfg['sampling'] = dict(sample_fps=3, max_frames=120)
         length = dict(translation_unit='sfm_units', meters_per_camera_unit=.4,
                       basis='model_conditioned', evidence='Explicit synthetic test declaration.')
         self.cfg['camera_length_contract'] = length
@@ -97,8 +97,19 @@ class ReconstructionEntryTests(unittest.TestCase):
         _, actual = entry.camera_configuration(self.camera, [32, 24])
         self.assertEqual(actual['camera_length_contract'], length)
         self.assertEqual(actual['official_smplifyx'], options)
-        self.assertEqual(actual['frame_stride'], 3)
+        self.assertEqual(actual['sample_fps'], 3)
+        self.assertEqual(actual['max_frames'], 120)
+        self.assertNotIn('frame_stride', actual)
+        self.assertNotIn('max_image_size', actual)
         self.assertEqual(actual['min_frames'], 12)
+
+    def test_sampling_rejects_silent_legacy_or_wrong_rate(self):
+        for sampling in ({'frame_stride': 5}, {'max_image_size': 1600},
+                         {'sample_fps': True}, {'sample_fps': 6}, {'sample_fps': 0}):
+            with self.subTest(sampling=sampling):
+                rt.save(self.camera, dict(self.cfg, sampling=sampling))
+                with self.assertRaisesRegex(ValueError, 'sampling|sample_fps'):
+                    entry.camera_configuration(self.camera, [32, 24])
 
     def test_saved_deployment_source_reaches_default_fitting_entry(self):
         profile=rt.read(self.profile)

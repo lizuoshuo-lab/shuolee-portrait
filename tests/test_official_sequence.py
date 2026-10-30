@@ -176,7 +176,7 @@ class NamedFrameTests(unittest.TestCase):
         self.assertEqual(result['state'], 'completed')
         self.assertFalse(result['quality_accepted'])
         self.assertEqual(train.call_args.args[1]['iterations'], 18000)
-        self.assertEqual(train.call_args.args[1]['training_height'], 899)
+        self.assertIsNone(train.call_args.args[1]['training_height'])
         self.assertTrue(rt.read(root/'status.json')['fitting_complete'])
         self.assertEqual(fit.call_args.kwargs['reference_frame'], self.rows[1]['frame'])
         self.assertEqual(prepare.call_args.kwargs['required_assets'], pipeline.OBSERVATION_ASSETS)

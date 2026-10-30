@@ -6,7 +6,7 @@ from .camera_world_units import validate_camera_length_contract
 
 OBSERVATION_ASSETS = ('detection/yolov8n.pt', 'sam2/sam2.1_hiera_tiny.pt',
                       'rtmw/rtmw-l-384x288.onnx', 'rtmw/normalization.json')
-GAUSSIAN_CONFIG = dict(initial_points=200000, iterations=18000, training_height=899,
+GAUSSIAN_CONFIG = dict(initial_points=200000, iterations=18000, training_height=None,
                        seed=6060, image_cache_frames=8, export_frame_mode='scene_up_keep_axis_order')
 
 

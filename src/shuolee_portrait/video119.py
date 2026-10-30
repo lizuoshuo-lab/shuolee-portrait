@@ -244,7 +244,7 @@ def background_masks(root, decoded, out, assets, status):
     directory.mkdir()
     records = []
     for i, row in enumerate(decoded):
-        image = cv2.imread(str(root / 'raw' / row['name']))
+        image = cv2.imread(str(row.get('image', root / 'raw' / row['name'])))
         if image is None:
             raise VideoPreparationNotReady(f'Missing or unreadable new frame {row["name"]}.')
         h, w = image.shape[:2]
@@ -274,7 +274,7 @@ def _fresh_tracks(root, decoded, out, status, masks=None):
     cv2.setNumThreads(6);cv2.setRNGSeed(119)
     sift=cv2.SIFT_create(nfeatures=7000);xy=[];ds=[];offset=[0]
     for i,r in enumerate(decoded):
-        image=cv2.imread(str(root/'raw'/r['name']),cv2.IMREAD_GRAYSCALE)
+        image=cv2.imread(str(r.get('image',root/'raw'/r['name'])),cv2.IMREAD_GRAYSCALE)
         if image is None:raise VideoPreparationNotReady(f'Missing or unreadable new frame {r["name"]}.')
         mask = None if masks is None else cv2.imread(str(masks / r['name']), cv2.IMREAD_GRAYSCALE)
         if masks is not None and (mask is None or mask.shape != image.shape):
@@ -569,7 +569,7 @@ def prepare_video(video, root, cfg, assets, *, camera_only=False, required_asset
     for executable in ['ffprobe', 'ffmpeg']:
         if not shutil.which(executable):
             raise VideoPreparationNotReady(f'Missing {executable}; install FFmpeg and ffprobe on the target machine.')
-    for name in ['raw', 'camera', 'decoded.json', 'preparation.json', 'intrinsic-contract.json', 'data/inputs.json', 'data/training-inputs.json', 'data/observations.npz', 'data/masks', 'fit', 'inference', 'gaussian-run']:
+    for name in ['raw', 'pose', 'camera', 'decoded.json', 'decoded-pose.json', 'pixel-contract.json', 'preparation.json', 'intrinsic-contract.json', 'data/inputs.json', 'data/pose-inputs.json', 'data/pose-observations.npz', 'data/pose-masks', 'data/training-inputs.json', 'data/observations.npz', 'data/masks', 'fit', 'inference', 'gaussian-run']:
         if (root / name).exists():
             raise FileExistsError(f'Fresh video preparation only; preserve existing {root / name}.')
     if not (root / 'data').is_dir() or not (root / 'logs').is_dir():
@@ -597,11 +597,21 @@ def prepare_video(video, root, cfg, assets, *, camera_only=False, required_asset
         stream = streams[0]
         validate_video_stream(stream)
         effective = {**cfg, **{key: settings[key] for key in ['frame_stride', 'max_image_size', 'min_frames', 'max_frames']}}
-        extract(video, root, effective)
+        dual_resolution = 'sample_fps' in cfg
+        if dual_resolution:
+            from .preprocessing import extract_dual_resolution, camera_intrinsics, derive_pose_observations
+            pixel_contract = extract_dual_resolution(video, root, effective)
+        else:
+            extract(video, root, effective)
         decoded_manifest = _read(root / 'decoded.json')
         if decoded_manifest['video_sha256'] != report['video_sha256']:
             raise VideoPreparationNotReady('Source video changed during decoding; preserve the partial run and use a fresh immutable input.')
-        decoded = decoded_manifest['records']
+        gs_decoded = decoded_manifest['records']
+        decoded = _read(root/'decoded-pose.json')['records'] if dual_resolution else gs_decoded
+        if (len({r['frame'] for r in gs_decoded}) != len(gs_decoded) or
+                [(r['frame'], r['source_frame_index'], r['time_seconds']) for r in decoded] !=
+                [(r['frame'], r['source_frame_index'], r['time_seconds']) for r in gs_decoded]):
+            raise VideoPreparationNotReady('Pose and GS streams must share the same real source frames.')
         source_wh = [int(stream['width']), int(stream['height'])]
         wh = decoded[0]['wh']
         out = root / 'camera'
@@ -629,9 +639,16 @@ def prepare_video(video, root, cfg, assets, *, camera_only=False, required_asset
         _save(root / 'intrinsic-contract.json', intrinsic)
         Es, camera_report = solve_camera_geometry(xy, tracks, K, out, settings, status)
         decoded = [decoded[i] for i in camera_report['retained_input_indices']]
+        pose_decoded, pose_K = decoded, K
+        if dual_resolution:
+            pixel_contract = camera_intrinsics(pixel_contract, pose_K)
+            _save(root/'pixel-contract.json', pixel_contract)
+            gs_by_frame = {r['frame']: r for r in gs_decoded}
+            decoded = [gs_by_frame[r['frame']] for r in pose_decoded]
+            K = np.asarray(pixel_contract['GS_K_integer_centers'])
         Kc = K.copy()
         Kc[:2, 2] += .5
-        rows = [dict(**decoded[i], image=str(root / 'raw' / decoded[i]['name']), K=Kc.tolist(),
+        rows = [dict(decoded[i], image=str(root / 'raw' / decoded[i]['name']), K=Kc.tolist(),
             K_integer_centers=K.tolist(), w2c=Es[i].tolist(), mask=None, mask_sha256=None,
             official_prediction_slot=i, camera_kind='fresh_fixed_K_opencv_research',
             camera_registration=dict(interpolation_used=False), observation_weight=1.) for i in range(len(decoded))]
@@ -644,6 +661,16 @@ def prepare_video(video, root, cfg, assets, *, camera_only=False, required_asset
             physical_calibration_accepted=False, formal_training_admitted=False)
         _save(root / 'data/inputs.json', manifest)
         _save(out / 'candidate-cameras.json', manifest)
+        if dual_resolution:
+            pose_corner = pose_K.copy(); pose_corner[:2, 2] += .5
+            pose_rows = [dict(r, K=pose_corner.tolist(), K_integer_centers=pose_K.tolist(),
+                w2c=Es[i].tolist(), mask=None, mask_sha256=None, official_prediction_slot=i,
+                camera_kind='fresh_fixed_K_opencv_research',
+                camera_registration=dict(interpolation_used=False), observation_weight=1.)
+                for i, r in enumerate(pose_decoded)]
+            _save(root/'data/pose-inputs.json', dict(manifest, records=pose_rows, pixel_domain='pose'))
+            report.update(sample_fps=cfg['sample_fps'], pose_wh=pixel_contract['pose_wh'],
+                gaussian_wh=pixel_contract['gaussian_wh'], pixel_contract='pixel-contract.json')
         report.update(state='camera_candidate_complete_observations_pending', frames=len(rows),
             camera_result='camera/result.json', intrinsic_contract='intrinsic-contract.json',
             camera_candidate_complete=True, observations_complete=False)
@@ -657,6 +684,8 @@ def prepare_video(video, root, cfg, assets, *, camera_only=False, required_asset
         rt.verify_assets(required_assets)
         from .observations import observe
         observe(root, cfg)
+        if dual_resolution:
+            derive_pose_observations(root)
         report.update(state='observations_complete', observations_complete=True,
             masks_source='fresh_official_SAM2', observations_source='fresh_official_RTMw_COCO133',
             formal_training_admitted=False)

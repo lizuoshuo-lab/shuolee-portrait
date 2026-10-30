@@ -59,12 +59,16 @@ def camera_configuration(path, source_wh):
     # At this point K is in the SOURCE video domain, before extraction resize.
     fixed_intrinsics(profile, source_wh, source_wh)
     sampling = cfg.get('sampling', {})
-    if not isinstance(sampling, dict) or set(sampling) - {
-            'frame_stride', 'max_image_size', 'min_frames', 'max_frames'}:
-        raise ValueError('sampling accepts frame_stride, max_image_size, min_frames and max_frames only.')
+    if not isinstance(sampling, dict) or set(sampling) - {'sample_fps', 'min_frames', 'max_frames'}:
+        raise ValueError('sampling accepts sample_fps=3, min_frames and max_frames only; '
+                         'frame_stride/max_image_size are legacy settings.')
+    sample_fps = sampling.get('sample_fps', 3)
+    if type(sample_fps) not in (int, float) or sample_fps != 3:
+        raise ValueError('The preprocessing contract requires sample_fps=3.')
     effective = {**sampling, 'intrinsics': profile}
     settings = settings_for(effective)  # Explicit intrinsics prevents the old default K.
-    effective = {**settings, 'intrinsics': profile}
+    effective = {k: v for k, v in settings.items() if k not in ('frame_stride', 'max_image_size')}
+    effective.update(sample_fps=3, intrinsics=profile)
     effective['camera_length_contract'] = cfg.get('camera_length_contract')
     effective['official_smplifyx'] = cfg.get('official_smplifyx')
     return cfg, effective
