@@ -83,7 +83,7 @@ def load_official_config(official_root):
     return config
 
 
-def adapted_entry_source(official_root):
+def adapted_entry_source(official_root, *, refine_body_placement=False):
     """Exact replacements only; keep pristine source and expose the full diff."""
     root = Path(official_root)
     for relative, digest in PINNED.items():
@@ -103,6 +103,19 @@ def adapted_entry_source(official_root):
         ("body_model.reset_params(**new_params)",
          "_reset_body(body_model, kwargs['_shared_betas'], **new_params)"),
     ]
+    if refine_body_placement:
+        edits += [
+            ("final_loss_val = 0\n        for or_idx, orient in enumerate(tqdm(orientations, desc='Orientation')):",
+             "final_loss_val = 0\n        _body_camera_start = camera.translation.detach().clone()\n"
+             "        for or_idx, orient in enumerate(tqdm(orientations, desc='Orientation')):\n"
+             "            with torch.no_grad():\n"
+             "                camera.translation.copy_(_body_camera_start)"),
+            ("body_params = list(body_model.parameters())",
+             "body_params = list(body_model.parameters())\n                body_params.append(camera.translation)"),
+            ("results.append({'loss': final_loss_val,",
+             "result = {key: value.copy() for key, value in result.items()}\n"
+             "            results.append({'loss': final_loss_val,"),
+        ]
     for old, new in edits:
         need(source.count(old) == 1, 'Pinned input hook does not match source.')
         source = source.replace(old, new)
@@ -110,7 +123,10 @@ def adapted_entry_source(official_root):
     need(source.count(marker) == 1, 'Pinned output hook does not match source.')
     # Upstream OBJ flips X and uses the last orientation's live model. Export
     # from the selected result instead; the complete optimization above remains.
-    source = source.split(marker)[0] + "\n    return {'winner': results[min_idx], 'orientation_count': len(results)}\n"
+    placement = ", 'body_placement_start': _body_camera_start.cpu().numpy()" if refine_body_placement else ""
+    source = source.split(marker)[0] + (
+        "\n    return {'winner': results[min_idx], 'orientation_count': len(results)"
+        + placement + "}\n")
     compile(source, 'pinned-fit-single-frame-input-output-adapter', 'exec')
     diff = ''.join(difflib.unified_diff(original.splitlines(True), source.splitlines(True),
                                       fromfile='pinned/fit_single_frame', tofile='adapter/fit_single_frame'))
@@ -167,7 +183,8 @@ def fit_one(*, official_root, image, keypoints, K_integer_centers, body_model,
         shared_body_pose = np.asarray(shared_body_pose, dtype=np.float32)
         need(shared_body_pose.shape in ((63,), (1, 63)) and np.isfinite(shared_body_pose).all(),
              'Expected one finite 63-vector of shared body rotations.')
-    source, diff = adapted_entry_source(official_root)
+    refine_body_placement = shared_body_pose is not None
+    source, diff = adapted_entry_source(official_root, refine_body_placement=refine_body_placement)
     Path(diff_path).write_text(diff, encoding='utf-8')
     utils, prior, fitting, optimizer = load_official(official_root)
     dtype = torch.float32
@@ -278,7 +295,9 @@ def fit_one(*, official_root, image, keypoints, K_integer_centers, body_model,
                       shared_body_weight=SHARED_BODY_WEIGHT, shared_root_weight=0.,
                       shared_body_loss_calls=body_loss_trace['calls'],
                       last_evaluated_body_loss=float(body_loss_trace['last']),
-                      shared_body_target_sha256=hashlib.sha256(shared_body_pose.tobytes()).hexdigest())
+                      shared_body_target_sha256=hashlib.sha256(shared_body_pose.tobytes()).hexdigest(),
+                      body_placement_parameters=3, body_placement_initial_m=result['body_placement_start'].ravel().tolist(),
+                      body_placement_final_m=arrays['camera_translation'].ravel().tolist())
     return arrays, report
 
 
