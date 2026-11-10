@@ -228,7 +228,8 @@ def smpl_sh0_effective_config():
         training_height=None, initial_points=None, initial_points_policy='one_per_triangle',
         image_cache_frames=None, image_cache_policy='all_selected_native_rgb_crops_and_full_soft_masks',
         sh_degree=0, shared_clothing_offset_lr=1e-6, snapshot_steps=[1000, optimization['iterations']],
-        alpha_loss_weight=.1, straight_rgb_alpha_floor=1e-4, optimization=optimization)
+        alpha_loss_weight=.1, straight_rgb_alpha_floor=1e-4,
+        densification_gradient_units='native_raster_area', optimization=optimization)
 
 
 def train_official(root, cfg):
@@ -392,9 +393,11 @@ def _train_smpl_sh0(root, effective):
     indices, values = _uniform_laplacian(fit['faces'], len(clothing))
     laplacian = torch.sparse_coo_tensor(indices, values, (len(clothing), len(clothing)), device='cuda').coalesce()
     targets = []
+    density_weights = []
     for row in rows:
         rgb, alpha, box = _native_foreground_target(row)
         targets.append((rgb.cuda(), alpha.cuda(), box))
+        density_weights.append((alpha > .99).count_nonzero().item()/alpha.numel())
     loader = torch.utils.data.DataLoader(range(len(rows)), batch_size=None, shuffle=True, num_workers=0)
     order = iter(loader)
     pipe = SimpleNamespace(convert_SHs_python=False, compute_cov3D_python=False, debug=False)
@@ -417,6 +420,7 @@ def _train_smpl_sh0(root, effective):
             'foreground-area-normalized L1 at mask >0.99 and complete 11x11 foreground SSIM windows in the tight native pixel box.',
         alpha_supervision='Second stock white-Gaussian pass over black at the same camera and pose. '
             'Full native alpha L1, averaged equally across soft foreground and background regions. Stored mask values are preserved.',
+        densification_gradient_area_weights=density_weights,
         source_training_options='259/269 10k terminal and 18k schedules; stock renderer and model operations'))
     if (root/'status.json').is_file():
         status = rt.read(root/'status.json')
@@ -486,12 +490,15 @@ def _train_smpl_sh0(root, effective):
                     model.select_mesh_by_timestep(slot)
                     del reloaded, native, diff
                 model.max_radii2D[visible] = torch.maximum(model.max_radii2D[visible], pkg['radii'][visible])
+                # Only the stock screen-space statistic uses the old full-raster area units.
+                pkg['viewspace_points'].grad.mul_(density_weights[i])
                 model.add_densification_stats(pkg['viewspace_points'], visible)
                 if step > options.densify_from_iter and step % options.densification_interval == 0:
                     size = 20 if step > options.opacity_reset_interval else None
                     model.densify_and_prune(options.densify_grad_threshold, .005, extent, size)
                     if len(model._xyz) >= 1200000 or int(model.binding_counter.min()) < 1:
-                        raise RuntimeError('Point budget or triangle coverage exceeded the SH0 safety bounds.')
+                        raise RuntimeError(f'SH0 safety bounds at step {step}: {len(model._xyz)} points, '
+                                           f'minimum triangle count {int(model.binding_counter.min())}.')
                 if step % options.opacity_reset_interval == 0:
                     model.reset_opacity()
                 if step < options.iterations:
