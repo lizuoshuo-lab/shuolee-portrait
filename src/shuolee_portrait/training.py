@@ -224,10 +224,14 @@ def smpl_sh0_effective_config():
     optimization = vars(OptimizationParams(parser).extract(parser.parse_args([]))).copy()
     optimization.update(iterations=10000, position_lr_max_steps=18000, densify_until_iter=18000,
         densify_from_iter=300, densification_interval=60, opacity_reset_interval=1800, lambda_laplacian=1e6)
+    interval = optimization['opacity_reset_interval']
+    # Leave one full reset interval for recovery before the terminal render.
+    opacity_reset_steps = list(range(interval, optimization['iterations']-interval+1, interval))
     return dict(gaussian_profile='smpl_sh0', iterations=optimization['iterations'], seed=0,
         training_height=None, initial_points=None, initial_points_policy='one_per_triangle',
         image_cache_frames=None, image_cache_policy='all_selected_native_rgb_crops_and_full_soft_masks',
         sh_degree=0, shared_clothing_offset_lr=1e-6, snapshot_steps=[1000, optimization['iterations']],
+        opacity_reset_steps=opacity_reset_steps,
         alpha_loss_weight=.1, straight_rgb_alpha_floor=1e-4, alpha_loss_normalization='foreground_area',
         densification_gradient_units='native_raster_area',
         sampling_policy='seeded_equal_occupied_source_bin_cycles', optimization=optimization)
@@ -499,7 +503,7 @@ def _train_smpl_sh0(root, effective):
                     if len(model._xyz) >= 1200000 or int(model.binding_counter.min()) < 1:
                         raise RuntimeError(f'SH0 safety bounds at step {step}: {len(model._xyz)} points, '
                                            f'minimum triangle count {int(model.binding_counter.min())}.')
-                if step % options.opacity_reset_interval == 0:
+                if step in effective['opacity_reset_steps']:
                     model.reset_opacity()
                 if step < options.iterations:
                     model.optimizer.step(); model.optimizer.zero_grad(set_to_none=True)

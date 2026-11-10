@@ -6,10 +6,16 @@ import unittest
 import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
-from shuolee_portrait.training import _sh0_foreground_alpha_loss, foreground_loss
+from shuolee_portrait.training import _sh0_foreground_alpha_loss, foreground_loss, smpl_sh0_effective_config
 
 
 class SH0ForegroundAlphaTests(unittest.TestCase):
+    def test_opacity_resets_leave_the_terminal_interval_for_recovery(self):
+        config = smpl_sh0_effective_config()
+        self.assertEqual(config['iterations'], 10_000)
+        self.assertEqual(config['optimization']['opacity_reset_interval'], 1_800)
+        self.assertEqual(config['opacity_reset_steps'], [1_800, 3_600, 5_400, 7_200])
+
     def setUp(self):
         self.mask = torch.zeros(1, 64, 64)
         self.mask[:, 8:56, 8:56] = 1
