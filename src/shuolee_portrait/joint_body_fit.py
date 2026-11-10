@@ -9,10 +9,11 @@ from PIL import Image
 import torch
 
 from .coverage_refinement import _clip
+from .joint_shared_step import project_halfspaces, row_constraints
 from .stable_selection import BODY, FACE, FEET
 
 
-CONFIG = dict(max_sweeps=120, batch_size=8, raster_long_edge=448, reliable_confidence=.15,
+CONFIG = dict(max_sweeps=144, batch_size=8, raster_long_edge=448, reliable_confidence=.15,
               outside_margin_px=1, outside_distance_cap_px=12, reprojection_unit_over_height=.03,
               latent_residual_l2_limit=8., root_update_max_rad=.55, translation_update_max_m=.12,
               shared_latent_lr=.025, residual_latent_lr=.055, root_lr=.013, translation_lr=.0032,
@@ -24,7 +25,10 @@ CONFIG = dict(max_sweeps=120, batch_size=8, raster_long_edge=448, reliable_confi
               neck_head_trust_weight=.012, shared_every=4, stable_sweeps=12,
               objective_relative_stop=1e-5, screen_stop=1e-4,
               trust_min=.0625, replay_margin_px=.02,
-              trial_fractions=(1., .5, .25, .125, .0625), projection_sweeps=4)
+              trial_fractions=(1., .5, .25, .125, .0625), projection_sweeps=4,
+              shared_trust_initial=.20, shared_trust_min=.00390625, shared_trust_max=.50,
+              shared_fd_steps=(.02, .005), shared_projected_stop=1e-5, shared_min_gain_ratio=.05,
+              shared_stationary_checks=3)
 FROZEN_FIELDS = ('left_hand_pose', 'right_hand_pose', 'jaw_pose', 'leye_pose', 'reye_pose', 'expression')
 GROUPS = {'body': BODY, 'feet': FEET, 'face': FACE, 'hands': np.arange(25, 67)}
 # The official adapter maps inner 68-point facial landmarks #17–67 to slots 67–117.
@@ -439,27 +443,231 @@ def _evaluate_joint(*, body, vposer, winners, rows, targets, intrinsics, beta, a
             commit(rows)
         return new, result, chosen
 
-    def shared_trial(state, current):
-        delta = state.new_zeros((1, 32), requires_grad=True)
-        gradient = torch.zeros_like(delta)
+    # The metric gives a common step and the RMS per-frame compensation
+    # comparable scales. A common step leaves centered residuals unchanged.
+    shared_units = initial.new_full((32,), config['shared_latent_lr'])
+    compensation_units = scale[32:]*count**.5
+    units = torch.cat((shared_units, compensation_units))
+    face_columns = len(FACE_REGIONS)*2
+    smooth_terms = [0, 1, 5, 6]  # Reprojection, shared prior, pose trust. The other terms use a max/min or raster.
+    metric_names = [f'{region}_{stat}' for region in FACE_REGIONS for stat in ('rms_px', 'peak_px')]
+    metric_names += ['body_feet_max_over_limit', 'negative_depth_m']
+
+    def constraint_values(part):
+        return torch.cat((part[3].flatten(1), part[4][:, None], -part[1][:, None]), dim=1)
+
+    def shared_linearization(state, supported, audit):
+        common = torch.zeros_like(shared_units)
+        common_smooth = torch.zeros_like(shared_units)
+        local, local_smooth, jacobians = [], [], []
         for slots in chunks:
-            shifted = torch.cat((state[slots, :32]+delta, state[slots, 32:]), dim=-1)
-            objective = energy(shifted, slots, latent_basis(state)+delta)[0].sum()/count
-            gradient += torch.autograd.grad(objective, delta)[0]
-        step = direction(gradient, config['shared_latent_lr'])*config['shared_latent_lr']
+            rows = state[slots].detach().requires_grad_(True)
+            basis = latent_basis(state).detach().requires_grad_(True)
+            part = energy(rows, slots, basis)
+            loss = part[0].sum()/count
+            row_grad, basis_grad = torch.autograd.grad(loss, (rows, basis), retain_graph=True)
+            common += (row_grad[:, :32].sum(0)+basis_grad[0])*shared_units
+            local.append(row_grad[:, 32:]*compensation_units)
+            if audit:
+                smooth = part[0][:, smooth_terms].sum()/count
+                rg, bg = torch.autograd.grad(smooth, (rows, basis), retain_graph=True)
+                common_smooth += (rg[:, :32].sum(0)+bg[0])*shared_units
+                local_smooth.append(rg[:, 32:]*compensation_units)
+            stats = constraint_values(part)
+            columns = []
+            for metric, visible in enumerate(supported[slots].unbind(1)):
+                if bool(visible.any()):
+                    derivative, = torch.autograd.grad(stats[:, metric].masked_fill(~visible, 0.).sum(),
+                                                       rows, retain_graph=True)
+                    columns.append(derivative*units)
+                else:
+                    columns.append(torch.zeros_like(rows))
+            jacobians.append(torch.stack(columns, dim=1))
+        def packed(common, rows):
+            return torch.cat((common, torch.cat(rows).flatten())).double().cpu().numpy()
+        gradient = packed(common, local)
+        smooth_gradient = packed(common_smooth, local_smooth) if audit else None
+        jacobian = torch.cat(jacobians).cpu().numpy()
+        if not np.isfinite(gradient).all() or not np.isfinite(jacobian).all():
+            raise RuntimeError('The shared objective gradient or constraint linearization is nonfinite.')
+        return gradient, smooth_gradient, jacobian
+
+    def apply_shared(state, step):
+        scaled = state.new_tensor(step)
+        return state + torch.cat(((scaled[:32]*shared_units).expand(count, -1),
+                                  scaled[32:].reshape(count, -1)*compensation_units), dim=1)
+
+    def reduction(part):
+        terms = part[0].double().mean(0)
+        full = float(terms.sum())
+        return full, float(terms[smooth_terms].sum())
+
+    @torch.no_grad()
+    def derivative_audit(state, current, gradient, smooth, matrix, owners, metrics, projected):
+        common = gradient.copy()
+        common[32:] = 0.
+        baseline = constraint_values(current).cpu().numpy()[owners, metrics]
+        records = []
+        for name, raw in (('common_only', -common), ('coupled', projected)):
+            size = np.linalg.norm(raw)
+            if size <= 1e-12:
+                records.append(dict(kind=name, direction_norm=float(size), samples=[], nonzero=False))
+                continue
+            probe = raw/size
+            prediction = matrix @ probe
+            analytic, smooth_analytic = float(gradient @ probe), float(smooth @ probe)
+            samples = []
+            for h in config['shared_fd_steps']:
+                plus = evaluate(apply_shared(state, h*probe))
+                minus = evaluate(apply_shared(state, -h*probe))
+                a, ap = reduction(plus)
+                b, bp = reduction(minus)
+                measured = (a-b)/(2*h)
+                smooth_measured = (ap-bp)/(2*h)
+                p = constraint_values(plus).cpu().numpy()[owners, metrics].astype(np.float64)
+                m = constraint_values(minus).cpu().numpy()[owners, metrics].astype(np.float64)
+                slopes = (p-m)/(2*h)
+                error = np.abs(slopes-prediction)
+                detail = {}
+                for label, included in (('face_px', metrics < face_columns),
+                    ('body_fraction_of_screen_limit', metrics == face_columns),
+                    ('depth_m', metrics == face_columns+1)):
+                    if np.any(included):
+                        expected, observed = prediction[included], slopes[included]
+                        delta = error[included]
+                        rms = float(np.linalg.norm(delta)/np.sqrt(len(delta)))
+                        expected_rms = float(np.linalg.norm(expected)/np.sqrt(len(expected)))
+                        noise_floor = {'face_px': .04, 'body_fraction_of_screen_limit': .0002, 'depth_m': .00003}[label]
+                        detail[label] = dict(observations=int(included.sum()), max_abs_error=float(delta.max()),
+                            p90_abs_error=float(np.quantile(delta, .9)), rms_abs_error=rms,
+                            linearization_passed=rms <= max(noise_floor, .15*expected_rms),
+                            relative_l2=float(np.linalg.norm(delta)/max(np.linalg.norm(expected), 1e-5)),
+                            predicted_slope_norm=float(np.linalg.norm(expected)),
+                            actual_slope_norm=float(np.linalg.norm(observed)),
+                            max_forward_prediction_error=float(np.abs(
+                                p[included]-baseline[included]-h*expected).max()))
+                worst = int(error.argmax())
+                samples.append(dict(h=h, finite_difference=measured, smooth_finite_difference=smooth_measured,
+                    smooth_gradient_abs_error=abs(smooth_measured-smooth_analytic),
+                    smooth_gradient_passed=abs(smooth_measured-smooth_analytic) <=
+                        max(5e-5, .08*abs(smooth_analytic)),
+                    linearization=detail, worst_frame=names[owners[worst]], worst_metric=metric_names[metrics[worst]]))
+            records.append(dict(kind=name, direction_norm=float(size), analytic_derivative=analytic,
+                smooth_analytic_derivative=smooth_analytic, samples=samples, nonzero=True))
+        return dict(checked_frames=count, directions=records,
+                    smooth_derivative_passed=all(record['samples'] and any(
+                        sample['smooth_gradient_passed'] for sample in record['samples']) for record in records),
+                    constraint_linearization_passed=all(record['samples'] and any(all(
+                        value['linearization_passed'] for value in sample['linearization'].values())
+                        for sample in record['samples']) for record in records),
+                    smooth_components=['reprojection', 'face_native_reprojection', 'shared_pose', 'pose_trust'],
+                    full_gradient_includes_antialiased_silhouette_and_extrema=True)
+
+    def shared_trial(state, current, radius, audit):
+        # Use paired forwards for small objective differences. Do not let a
+        # recomputation of a boundary row silently remove its body protection.
+        retained_eligible = current[2]
+        current = evaluate(state)
+        if bool((retained_eligible & ~current[2]).any()):
+            raise RuntimeError('Shared pretrial replay lost a protected body screen result.')
+        supported = torch.cat((observed_regions.repeat_interleave(2, dim=1),
+                               current[2][:, None], torch.ones_like(current[2][:, None])), dim=1)
+        limits = torch.cat((face_limit.flatten(1), torch.ones_like(current[4][:, None]),
+                            torch.full_like(current[1][:, None], -.05)), dim=1)
+        slack_full = (limits-constraint_values(current)).clamp_min(0.)
+        gradient, smooth, jacobian = shared_linearization(state, supported, audit)
+        matrix, owners, metrics, norm = row_constraints(jacobian, supported.cpu().numpy(), 32)
+        slack = slack_full.cpu().numpy()[owners, metrics].astype(np.float64)
+        normalized = matrix.multiply(1/np.maximum(norm[:, None], 1e-12)).tocsr()
+        slack_normalized = slack/np.maximum(norm, 1e-12)
+        gradient_norm = float(np.linalg.norm(gradient))
+        target = -gradient/max(gradient_norm, config['shared_projected_stop'])
+        working = (norm > 1e-12) & (slack_normalized <= radius+1e-6)
+        def projected_trial(target):
+            return project_halfspaces(target*radius, normalized[working], slack_normalized[working])
+
+        step, projection = projected_trial(target)
+        common_target = np.zeros_like(gradient)
+        common_target[:32] = -gradient[:32]/max(np.linalg.norm(gradient[:32]), config['shared_projected_stop'])
+        common_step, common_projection = projected_trial(common_target)
+        # Use genuinely near-active rows for the cone check. Positive-slack
+        # constraints still enter the trial projection above.
+        thresholds = np.where(metrics < face_columns, .002, np.where(metrics == face_columns, .0002, .00002))
+        active = (norm > 1e-12) & (slack <= thresholds)
+        tangent, tangent_proof = project_halfspaces(target, normalized[active], np.zeros(int(active.sum())))
+        tangent_norm = float(np.linalg.norm(tangent))*max(gradient_norm, config['shared_projected_stop'])
+        stationarity_rows = (norm > 1e-12) & (slack_normalized <= gradient_norm+1e-6)
+        projected_gradient, stationarity_proof = project_halfspaces(
+            -gradient, normalized[stationarity_rows], slack_normalized[stationarity_rows])
+        projected_norm = float(np.linalg.norm(projected_gradient))
+        active_counts = {label:int(np.count_nonzero(active & (metrics == i)))
+                         for i,label in enumerate(metric_names)}
+        diagnostic = dict(trust_radius_before=radius, gradient_norm=gradient_norm,
+            projected_gradient_norm=projected_norm, tangent_gradient_norm=tangent_norm, step_norm=float(np.linalg.norm(step)),
+            common_gradient_norm=float(np.linalg.norm(gradient[:32])),
+            common_direction_norm=float(np.linalg.norm(step[:32])),
+            compensation_direction_norm=float(np.linalg.norm(step[32:])),
+            common_predicted_decrease=-float(gradient[:32] @ step[:32]),
+            compensation_predicted_decrease=-float(gradient[32:] @ step[32:]),
+            projection=projection, common_guided_projection=common_projection, tangent_projection=tangent_proof,
+            stationarity_projection=stationarity_proof, active_constraints=active_counts)
+        fd = derivative_audit(state, current, gradient, smooth, matrix, owners, metrics, step) if audit else None
         attempts = []
+        accepted = False
+        base, _ = reduction(current)
         with torch.no_grad():
-            for fraction in config['trial_fractions']:
-                candidate = state.clone()
-                candidate[:, :32] += step*fraction
-                part = evaluate(candidate)
-                passes = feasible(part, slice(None), current[2])
-                descent = part[0].sum() < current[0].sum()-1e-7
-                attempts.append(dict(fraction=fraction, checked_frames=count, failed_frames=int((~passes).sum()),
-                                     objective=float(part[0].sum()/count), descent=bool(descent)))
-                if bool(passes.all() & descent & residual_bound(candidate)):
-                    return candidate, part, True, attempts
-        return state, current, False, attempts
+            for kind, step_direction in (('common_guided', common_step), ('objective_guided', step)):
+                parts = (-float(gradient[:32] @ step_direction[:32]), -float(gradient[32:] @ step_direction[32:]))
+                prediction = sum(parts)
+                if kind == 'common_guided' and prediction <= 1e-12:
+                    diagnostic['common_guided_skipped_predicted_decrease'] = prediction
+                    continue
+                for fraction in config['trial_fractions']:
+                    candidate = apply_shared(state, step_direction*fraction)
+                    part = evaluate(candidate)
+                    passes = feasible(part, slice(None), current[2])
+                    stats = constraint_values(part)
+                    failed = (stats > limits) & supported
+                    residual_ok = bool(residual_bound(candidate))
+                    value, _ = reduction(part)
+                    gain = base-value
+                    predicted = prediction*fraction
+                    ratio = gain/predicted if predicted > 1e-12 else None
+                    descent = gain > 1e-9
+                    error = np.abs((stats-constraint_values(current)).cpu().numpy()[owners, metrics]
+                                   - fraction*(matrix @ step_direction))
+                    attempts.append(dict(direction_kind=kind, fraction=fraction, checked_frames=count,
+                        failed_frames=int((~passes).sum()), failed_face_frames=int(failed[:, :face_columns].any(1).sum()),
+                        failed_body_frames=int(failed[:, face_columns].sum()),
+                        failed_depth_frames=int((part[1] <= .05).sum()), residual_bound_passed=residual_ok,
+                        objective=value, descent=descent, predicted_decrease=predicted, actual_decrease=gain, ratio=ratio,
+                        common_predicted_decrease=parts[0]*fraction, compensation_predicted_decrease=parts[1]*fraction,
+                        common_latent_step_l2=float(np.linalg.norm(step_direction[:32])*config['shared_latent_lr']*fraction),
+                        compensation_max_step=float((candidate[:, 32:]-state[:, 32:]).norm(dim=1).max()),
+                        max_face_linearization_error_px=float(error[metrics < face_columns].max(initial=0.)),
+                        max_body_linearization_error=float(error[metrics == face_columns].max(initial=0.)),
+                        max_depth_linearization_error_m=float(error[metrics == face_columns+1].max(initial=0.))))
+                    if (bool(passes.all()) and residual_ok and descent and ratio is not None
+                            and ratio >= config['shared_min_gain_ratio']):
+                        state, current, accepted = candidate, part, True
+                        break
+                if accepted:
+                    break
+        if accepted:
+            outcome = 'accepted_exact_descent'
+            multiplier = 1.35 if fraction == 1. and ratio >= .75 else max(.5, fraction)
+        else:
+            outcome = 'unresolved_no_accepted_trial'
+            multiplier = .5
+        radius = float(np.clip(radius*multiplier, config['shared_trust_min'], config['shared_trust_max']))
+        stationary = (not accepted and tangent_proof['certified'] and projection['certified']
+                      and max(stationarity_proof['primal_residual'], stationarity_proof['dual_residual']) <= 1e-6
+                      and projected_norm <= config['shared_projected_stop']
+                      and all(trial['actual_decrease'] <= 1e-9 for trial in attempts))
+        if stationary:
+            outcome = 'small_projected_gradient_and_no_trial_descent'
+        diagnostic.update(trust_radius_after=radius, outcome=outcome, stationarity_check_passed=stationary)
+        return state, current, accepted, attempts, diagnostic, radius, fd
 
     preflight = replay_check()
     state = initial
@@ -474,7 +682,9 @@ def _evaluate_joint(*, body, vposer, winners, rows, targets, intrinsics, beta, a
     local_counts = torch.zeros((count, 9), dtype=torch.int64, device=device)
     sweep_records = []
     stable = 0
-    stop_reason = 'maximum_sweeps'
+    stop_reason = 'maximum_sweeps_unconverged'
+    shared_radius, shared_preflight = config['shared_trust_initial'], None
+    recent_shared_stationary = 0
     for sweep in range(1, config['max_sweeps']+1):
         previous = current
         repair = sweep % 4 == 3
@@ -483,6 +693,7 @@ def _evaluate_joint(*, body, vposer, winners, rows, targets, intrinsics, beta, a
                               trust[slots], repair) for slots in chunks]
         proposed, metrics, codes, gradients, full_rejections = zip(*trials)
         codes = torch.cat(codes)
+        basis_before = latent_basis(state)
         state, current, accepted = commit_local(state, current, torch.cat(proposed),
             tuple(torch.cat(values) for values in zip(*metrics)), codes > 0, start_objective)
         local_counts[:, 0] += accepted
@@ -493,15 +704,22 @@ def _evaluate_joint(*, body, vposer, winners, rows, targets, intrinsics, beta, a
         local_counts[:, 5] += accepted & repair & ~previous[2]
         local_counts[:, 6:] += torch.cat(full_rejections)
         trust = torch.where(accepted & (codes <= 2), trust*1.2, trust*.7).clamp(config['trust_min'], 1.)
-        shared_accepted, shared_checks = False, []
+        local_basis_shift = float((latent_basis(state)-basis_before).norm())
+        shared_accepted, shared_checks, shared_diagnostics = False, [], None
         if sweep % config['shared_every'] == 0:
-            state, current, shared_accepted, shared_checks = shared_trial(state, current)
+            state, current, shared_accepted, shared_checks, shared_diagnostics, shared_radius, fd = shared_trial(
+                state, current, shared_radius, audit=shared_preflight is None)
+            if fd is not None:
+                shared_preflight = fd
+            recent_shared_stationary = (recent_shared_stationary+1 if
+                shared_diagnostics['stationarity_check_passed'] else 0)
         delta = float((previous[0].sum()-current[0].sum())/previous[0].sum().abs().clamp_min(1.))
         screen_delta = float((previous[4]-current[4]).masked_fill(previous[2], 0.).abs().max())
         new_eligible = int((current[2] & ~previous[2]).sum())
         row = dict(sweep=sweep, repair_direction=repair, local_accepted=int(accepted.sum()),
                    local_projected_accepted=int((accepted & ((codes == 2) | (codes == 4))).sum()),
-                   shared_accepted=shared_accepted, shared_checks=shared_checks, new_eligible=new_eligible,
+                   shared_accepted=shared_accepted, shared_checks=shared_checks, shared_diagnostics=shared_diagnostics,
+                   new_eligible=new_eligible, local_basis_shift_l2=local_basis_shift,
                    objective=float(current[0].sum()/count), objective_relative_change=delta,
                    screen_change=screen_delta, max_local_gradient=float(torch.cat(gradients).max()),
                    max_face_delta_px=float((current[3]-face_baseline).masked_fill(~observed_regions[..., None], 0.).max()))
@@ -510,7 +728,11 @@ def _evaluate_joint(*, body, vposer, winners, rows, targets, intrinsics, beta, a
             stable = 0
         else:
             stable += 1
-        if sweep % 4 == 0 or sweep == config['max_sweeps'] or stable >= config['stable_sweeps']:
+        converged = (stable >= config['stable_sweeps'] and
+                     recent_shared_stationary >= config['shared_stationary_checks'] and
+                     shared_preflight is not None and shared_preflight['smooth_derivative_passed'] and
+                     shared_preflight['constraint_linearization_passed'])
+        if sweep % 4 == 0 or sweep == config['max_sweeps'] or converged:
             record = checkpoint(sweep, current)
             trace.append(record)
             if not record['face_guard_passed']:
@@ -521,14 +743,15 @@ def _evaluate_joint(*, body, vposer, winners, rows, targets, intrinsics, beta, a
                     checkpoint_objective=record['objective'], eligible_frames=record['pose_gate_eligible'],
                     accepted_local=int(local_counts[:, 0].sum()),
                     accepted_shared=sum(value['shared_accepted'] for value in sweep_records)))
-        if stable >= config['stable_sweeps']:
-            stop_reason = ('small_feasible_progress' if any(row['local_accepted'] or row['shared_accepted']
-                           for row in sweep_records[-stable:]) else 'no_feasible_descent')
+        if converged:
+            stop_reason = 'shared_stationary_local_progress'
             break
 
     best_record = trace[-1]
     changed = (state != initial).any(1)
     block_solver = dict(max_sweeps=config['max_sweeps'], completed_sweeps=sweep, stop_reason=stop_reason,
+        converged=stop_reason == 'shared_stationary_local_progress', shared_preflight=shared_preflight,
+        convergence_scope='Shared projected stationarity with sustained small local objective and screen changes.',
         local_accepted=int(local_counts[:, 0].sum()), local_projected_accepted=int(local_counts[:, 1].sum()),
         shared_attempted=sum(bool(row['shared_checks']) for row in sweep_records),
         shared_accepted=sum(row['shared_accepted'] for row in sweep_records), sweeps=sweep_records,
