@@ -63,6 +63,16 @@ class SH0ForegroundAlphaTests(unittest.TestCase):
         self.assertLess(alpha.grad[0, 7, 30].item(), 0.)
         self.assertGreater(alpha.grad[0, 3, 3].item(), 0.)
 
+    def test_spill_penalty_does_not_shrink_with_background_size(self):
+        alpha = self.mask.clone()
+        alpha[:, 3, 3] = .8
+        target = self.black[:, 8:56, 8:56]
+        small = self.loss(self.black, alpha, target)[3]
+        pad = lambda x: torch.nn.functional.pad(x, (0, 64, 0, 64))
+        large = _sh0_foreground_alpha_loss(pad(self.black), pad(alpha), target, pad(self.mask), self.box)[3]
+        torch.testing.assert_close(large, small, rtol=0, atol=0)
+        self.assertAlmostEqual(small.item(), .5*.8/(48*48))
+
 
 if __name__ == '__main__':
     unittest.main()
