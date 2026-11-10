@@ -316,7 +316,7 @@ def fit_named_sequence(*, frames_path, observations_path, root, official_root, a
         body, vposer, meta = official.create_models(official_root=official_root, assets=assets, **model_options)
         basis = pelvis_basis(body)
         pool = None if scope is None else stack.enter_context(ProcessPoolExecutor(
-            max_workers=4, mp_context=get_context('spawn'), initializer=_init_cpu_fit,
+            max_workers=6, mp_context=get_context('spawn'), initializer=_init_cpu_fit,
             initargs=(official_root, assets)))
 
         def fits(frame_ids, destination, beta, freeze, shared_pose=None):
