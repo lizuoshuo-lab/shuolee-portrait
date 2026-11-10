@@ -199,6 +199,87 @@ class WorldScale:
         self.support_prunes.append(dict(step=step, proposed=len(ids), approved=int(allowed.count_nonzero())))
         return allowed
 
+    def guard_size_prune(self, screen, world, constraints, step, screen_limit):
+        """Verify only the additional removals and replacements triggered by size."""
+        model = self.model
+        candidates = screen | world
+        count = int(candidates.count_nonzero())
+        event = dict(size_candidates=count, screen_candidates=int(screen.count_nonzero()),
+                     world_candidates=int(world.count_nonzero()), size_pruned=0, screen_pruned=0,
+                     protected=count, assessed=0, foreground_supported=0, background_conflicted=0,
+                     size_replaced=0, replacement_children=0, removal_trial=None, replacement_trial=None)
+        if not count or constraints is None:
+            event['assessment'] = 'no_candidates' if not count else 'retained_before_fixed_surface'
+            return event
+        options = self.options['render_support']
+        ids = candidates.nonzero(as_tuple=True)[0]
+        # Bound the number of candidate rows evaluated by the same shortlist
+        # limit used for world-size repair. Unassessed rows stay in the scene.
+        priority = torch.maximum(model.max_radii2D[ids]/screen_limit,
+                                 model.get_scaling[ids].amax(1)/(.1*self.extent))
+        ids = ids[priority.argsort(descending=True, stable=True)[:self.options['max_parents']]]
+        weights = source_weights(model, constraints, ids)
+        foreground, _, conflict = classify(weights, constraints.bins, options)
+        event.update(assessment='native_contribution', assessed=len(ids),
+                     foreground_supported=int(foreground.count_nonzero()),
+                     background_conflicted=int(conflict.count_nonzero()))
+        remove = torch.zeros_like(candidates)
+        remove[ids] = conflict & ~foreground
+        model.binding_safe_prune_mask(remove)
+        eligible_removals = remove[ids]
+        if bool(eligible_removals.any()):
+            parents = ids[eligible_removals]
+            with replacement_evaluator(model, constraints, parents, None, None, None,
+                                       weights[:, eligible_removals], options) as evaluate:
+                trial = evaluate(list(range(len(parents))))
+            event['removal_trial'] = trial
+            if trial['accepted']:
+                model.prune_points(remove)
+                event['size_pruned'] = int(remove.count_nonzero())
+                event['screen_pruned'] = int((remove & screen).count_nonzero())
+            else:
+                remove.zero_()
+
+        # Limit size-driven splitting to the existing repair checkpoints.
+        # The selected original rows are remapped through actual removals.
+        if step in self.options['split_steps'] and bool(foreground.any()):
+            eligible = (foreground & screen[ids]).nonzero(as_tuple=True)[0][:options['replacement_budget']]
+            remap = (~remove).long().cumsum(0)-1
+            self._replace_supported_size(remap[ids[eligible]], weights[:, eligible], constraints, event, screen_limit)
+        event['protected'] = count-event['size_pruned']-event['size_replaced']
+        return event
+
+    def _replace_supported_size(self, parents, weights, constraints, event, screen_limit):
+        from utils.general_utils import build_rotation
+
+        if not len(parents):
+            return
+        model = self.model
+        owner = model.binding[parents]
+        parent_scale = model._scaling[parents].exp()
+        width, axis = parent_scale.max(1)
+        rotations = build_rotation(model._rotation[parents])
+        direction = rotations.gather(2, axis[:, None, None].expand(-1, 3, 1)).squeeze(2)
+        sigma, shift, opacity = _children(width, model.get_opacity[parents, 0], self.options)
+        center = model._xyz[parents]
+        delta = direction*shift[:, None]
+        probes = torch.stack((center, center-delta, center+delta), dim=1)
+        fg, bg, _ = self._votes(probes, owner, rotations, parent_scale, axis, constraints)
+        supported = (fg[:, 1:] >= constraints.options['required_source_bins']).all(1) & (bg[:, 1:] == 0).all(1)
+        log_sigma = model._scaling[parents].clone()
+        log_sigma.scatter_(1, axis[:, None], sigma[:, None].log())
+        log_sigma = torch.minimum(log_sigma, torch.minimum(self.limits.cap[parents], self.log_cap[owner, None]))
+        parents, children, opacity, log_sigma, weights = (
+            parents[supported], probes[supported, 1:], opacity[supported], log_sigma[supported], weights[:, supported])
+        chosen, trial = self._verified_subset(constraints, parents, children, log_sigma, opacity, weights,
+                                              screen_limit_px=screen_limit)
+        event['replacement_trial'] = trial
+        if len(chosen):
+            selected = parents[chosen]
+            self.limits.set(selected, log_sigma[chosen])
+            self._replace(selected, children[chosen], log_sigma[chosen], opacity[chosen])
+            event.update(size_replaced=len(chosen), replacement_children=2*len(chosen))
+
     def remeasure(self, constraints, step, phase):
         ids = (self.limits.lineage >= 0).nonzero(as_tuple=True)[0]
         tracks = {}
@@ -217,11 +298,12 @@ class WorldScale:
                 record['max_preprojection_growth_ratio'] = max(record['max_preprojection_growth_ratio'], growth)
         self.support_history.append(dict(step=step, phase=phase, tracks=tracks))
 
-    def _verified_subset(self, constraints, parents, centers, scales, opacity, weights):
+    def _verified_subset(self, constraints, parents, centers, scales, opacity, weights, *, screen_limit_px=None):
         options = self.options['render_support']
         if not len(parents):
             return parents, None
-        with replacement_evaluator(self.model, constraints, parents, centers, scales, opacity, weights, options) as evaluate:
+        with replacement_evaluator(self.model, constraints, parents, centers, scales, opacity, weights, options,
+                                   screen_limit_px=screen_limit_px) as evaluate:
             chosen, trial = select_replacements(evaluate, parents.tolist(), max_trials=options['coverage_max_trials'])
         trial['initial_proposed'] = trial['proposed']
         if chosen:

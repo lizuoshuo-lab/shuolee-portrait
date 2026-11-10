@@ -78,7 +78,8 @@ def split(model_type, *, bound, world_factor=1.):
     model.face_center = FACE_CENTER * world_factor
     captured = SimpleNamespace()
 
-    def postfix(xyz, _dc, _rest, _opacity, scaling, _rotation):
+    def postfix(xyz, _dc, _rest, _opacity, scaling, _rotation, *, constraint_parents):
+        captured.parents = constraint_parents
         captured.local = xyz
         captured.local_std = scaling.exp()
 
@@ -115,6 +116,7 @@ class BoundSplitUnitsTests(unittest.TestCase):
         children = split(self.model, bound=True)
         chosen = BOUND_SELECTED
         self.assertTrue(torch.equal(children.binding, BINDING[chosen].repeat(CHILDREN)))
+        torch.testing.assert_close(children.parents, chosen.repeat(CHILDREN))
         local = children.local.reshape(CHILDREN, len(chosen), 3)
         world = children.world.reshape(CHILDREN, len(chosen), 3)
         face = BINDING[chosen]

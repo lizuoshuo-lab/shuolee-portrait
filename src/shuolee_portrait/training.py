@@ -455,6 +455,7 @@ def _train_smpl_sh0(root, effective, frozen_spec=None):
     schedule = effective['unified_main']
     slots = layout['pose_indices']
     constraints, coverage_events, stock_densifications = None, [], 0
+    densification_events = []
     with torch.no_grad():
         world_scale = WorldScale(model, extent, reference, schedule['world_scale'])
         world_initial = world_scale.checkpoint(0, 'initial')
@@ -527,9 +528,12 @@ def _train_smpl_sh0(root, effective, frozen_spec=None):
                     coverage_events.append(dict(step=step, **constraints.reseed(reference,
                         confirm_prune=lambda mask: world_scale.confirm_prune(mask, constraints, step))))
                     rt.save(out/'coverage-events.json', coverage_events)
+                    model.reset_densification_stats()
                 elif options.densify_from_iter < step <= schedule['stock_densify_through'] and step % options.densification_interval == 0:
                     size = 20 if step > options.opacity_reset_interval else None
-                    model.densify_and_prune(options.densify_grad_threshold, .005, extent, size)
+                    event = model.densify_and_prune(options.densify_grad_threshold, .005, extent, size,
+                        size_guard=lambda screen, world: world_scale.guard_size_prune(screen, world, constraints, step, size))
+                    densification_events.append(dict(step=step, screen_limit_px=size, **event))
                     stock_densifications += 1
                     densification = 'stock_densification'
                 if densification is not None:
@@ -583,12 +587,28 @@ def _train_smpl_sh0(root, effective, frozen_spec=None):
     color_path = out/'color-constraint.json'
     color_report = color_projection.report(model, initial_colors)
     rt.save(color_path, color_report)
+    densification_path = out/'densification-audit.json'
+    local_caps = world_scale.limits.topology_summary(model._scaling.detach())
+    if local_caps['live_rows_over_local_cap']:
+        raise RuntimeError('A terminal Gaussian exceeds its inherited local covariance cap.')
+    counts_by_action = ('screen_candidates_before_stock', 'screen_candidates_after_stock',
+        'screen_parents_replaced_by_gradient_split', 'size_candidates', 'world_candidates', 'assessed',
+        'foreground_supported', 'protected', 'size_pruned', 'screen_pruned', 'size_replaced',
+        'replacement_children', 'opacity_only_pruned')
+    rt.save(densification_path, dict(state='completed', radius_units='native pixels; CUDA ceil(3*sqrt(max eigenvalue))',
+        radius_window='maximum visible radius since the previous stock or coverage decision; new rows start at zero',
+        local_cap_units='log of face-local one-sigma scale, separate from all-pose world cap',
+        stock_events=len(densification_events), events=densification_events,
+        totals={key:sum(event.get(key, 0) for event in densification_events) for key in counts_by_action},
+        terminal=local_caps))
     integrated = dict(init, state='completed', optimizer_updates=options.iterations, schedule=schedule,
                       coverage_events=coverage_events, stock_densifications=stock_densifications,
                       frozen_surface_sha256=rt.sha(frozen_mesh) if frozen_mesh is not None else None,
                       raw_native_rgb_target=True, prior_render_used_as_target=False,
                       sh0_color_constraint=dict(file=color_path.name, sha256=rt.sha(color_path),
                                                terminal=color_report['terminal']),
+                      densification_audit=dict(file=densification_path.name, sha256=rt.sha(densification_path),
+                                               terminal=local_caps),
                       world_scale=dict(file=world_path.name, sha256=rt.sha(world_path), terminal=world_terminal))
     rt.save(out/'integration.json', integrated)
     receipt = dict(state='completed', from_scratch=True, steps=options.iterations,

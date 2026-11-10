@@ -376,7 +376,7 @@ class GaussianModel:
                 optimizable_tensors[group["name"]] = group["params"][0]
         return optimizable_tensors
 
-    def prune_points(self, mask):
+    def binding_safe_prune_mask(self, mask):
         if self.binding is not None:
             # make sure each face is bound to at least one point after pruning
             binding_to_prune = self.binding[mask]
@@ -385,6 +385,12 @@ class GaussianModel:
             mask_redundant = (self.binding_counter - counter_prune) > 0
             mask[mask.clone()] = mask_redundant[binding_to_prune]
 
+        return mask
+
+    def prune_points(self, mask):
+        self.binding_safe_prune_mask(mask)
+        if not bool(mask.any()):
+            return
         valid_points_mask = ~mask
         optimizable_tensors = self._prune_optimizer(valid_points_mask)
         limits = getattr(self, "point_limits", None)
@@ -436,9 +442,12 @@ class GaussianModel:
 
     def densification_postfix(self, new_xyz, new_features_dc, new_features_rest, new_opacities, new_scaling, new_rotation,
                               *, constraint_parents=None):
+        added = len(new_xyz)
+        if not added:
+            return
         limits = getattr(self, "point_limits", None)
         if limits is not None:
-            limits.append(len(new_xyz), constraint_parents)
+            new_scaling = limits.append(added, constraint_parents, new_scaling=new_scaling)
         d = {"xyz": new_xyz,
         "f_dc": new_features_dc,
         "f_rest": new_features_rest,
@@ -456,7 +465,14 @@ class GaussianModel:
 
         self.xyz_gradient_accum = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")
         self.denom = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")
-        self.max_radii2D = torch.zeros((self.get_xyz.shape[0]), device="cuda")
+        # Original rows retain their measured radius through the current
+        # decision. A new row has no measurement until its own rasterization.
+        self.max_radii2D = torch.cat((self.max_radii2D, self.max_radii2D.new_zeros(added)))
+
+    def reset_densification_stats(self):
+        self.xyz_gradient_accum.zero_()
+        self.denom.zero_()
+        self.max_radii2D.zero_()
 
     def densify_and_split(self, grads, grad_threshold, scene_extent, N=2):
         n_init_points = self.get_xyz.shape[0]
@@ -467,6 +483,9 @@ class GaussianModel:
         selected_pts_mask = torch.logical_and(selected_pts_mask,
                                               torch.max(self.get_scaling, dim=1).values > self.percent_dense*scene_extent)
 
+        parents = selected_pts_mask.nonzero(as_tuple=True)[0]
+        if not len(parents):
+            return
         # The offsets are added to local centers before the face transform.
         stds = self.scaling_activation(self._scaling[selected_pts_mask]).repeat(N,1)
         means =torch.zeros((stds.size(0), 3),device="cuda")
@@ -489,9 +508,10 @@ class GaussianModel:
             self.binding = torch.cat((self.binding, new_binding))
             self.binding_counter.scatter_add_(0, new_binding, torch.ones_like(new_binding, dtype=torch.int32, device="cuda"))
 
-        self.densification_postfix(new_xyz, new_features_dc, new_features_rest, new_opacity, new_scaling, new_rotation)
+        self.densification_postfix(new_xyz, new_features_dc, new_features_rest, new_opacity, new_scaling, new_rotation,
+                                   constraint_parents=parents.repeat(N))
 
-        prune_filter = torch.cat((selected_pts_mask, torch.zeros(N * selected_pts_mask.sum(), device="cuda", dtype=bool)))
+        prune_filter = torch.cat((selected_pts_mask, selected_pts_mask.new_zeros(N * len(parents))))
         self.prune_points(prune_filter)
 
     def densify_and_clone(self, grads, grad_threshold, scene_extent):
@@ -500,6 +520,9 @@ class GaussianModel:
         selected_pts_mask = torch.logical_and(selected_pts_mask,
                                               torch.max(self.get_scaling, dim=1).values <= self.percent_dense*scene_extent)
         
+        parents = selected_pts_mask.nonzero(as_tuple=True)[0]
+        if not len(parents):
+            return
         new_xyz = self._xyz[selected_pts_mask]
         new_features_dc = self._features_dc[selected_pts_mask]
         new_features_rest = self._features_rest[selected_pts_mask]
@@ -512,27 +535,50 @@ class GaussianModel:
             self.binding = torch.cat((self.binding, new_binding))
             self.binding_counter.scatter_add_(0, new_binding, torch.ones_like(new_binding, dtype=torch.int32, device="cuda"))
         
-        lineage = {}
-        if getattr(self, "point_limits", None) is not None:
-            lineage["constraint_parents"] = selected_pts_mask.nonzero(as_tuple=True)[0]
         self.densification_postfix(new_xyz, new_features_dc, new_features_rest, new_opacities, new_scaling, new_rotation,
-                                   **lineage)
+                                   constraint_parents=parents)
 
-    def densify_and_prune(self, max_grad, min_opacity, extent, max_screen_size):
+    def densify_and_prune(self, max_grad, min_opacity, extent, max_screen_size, *, size_guard=None):
         grads = self.xyz_gradient_accum / self.denom
         grads[grads.isnan()] = 0.0
+        before_screen = int((self.max_radii2D > max_screen_size).count_nonzero()) if max_screen_size else 0
+        peak_radius = float(self.max_radii2D.max()) if max_screen_size and len(self.max_radii2D) else None
 
         self.densify_and_clone(grads, max_grad, extent)
         self.densify_and_split(grads, max_grad, extent)
 
-        prune_mask = (self.get_opacity < min_opacity).squeeze()
+        low_opacity = (self.get_opacity < min_opacity).reshape(-1)
+        evidence = {}
         if max_screen_size:
-            big_points_vs = self.max_radii2D > max_screen_size
-            big_points_ws = self.get_scaling.max(dim=1).values > 0.1 * extent
-            prune_mask = torch.logical_or(torch.logical_or(prune_mask, big_points_vs), big_points_ws)
-        self.prune_points(prune_mask)
-
+            screen = self.max_radii2D > max_screen_size
+            world = self.get_scaling.max(dim=1).values > 0.1 * extent
+            surviving_screen = int(screen.count_nonzero())
+            if size_guard is None:
+                prune = low_opacity | screen | world
+                self.prune_points(prune)
+                evidence = dict(size_pruned=int((prune & (screen | world)).count_nonzero()),
+                                screen_pruned=int((prune & screen).count_nonzero()))
+            else:
+                # Check size-triggered removals against the scene that will
+                # actually remain after the ordinary opacity-only pruning.
+                prune = low_opacity & ~(screen | world)
+                if bool(prune.any()):
+                    self.prune_points(prune)
+                keep = ~prune
+                evidence = size_guard(screen[keep], world[keep])
+                evidence['opacity_only_pruned'] = int(prune.count_nonzero())
+            evidence.update(screen_candidates_before_stock=before_screen,
+                            screen_candidates_after_stock=surviving_screen,
+                            max_observed_radius_px=peak_radius,
+                            screen_parents_replaced_by_gradient_split=before_screen-surviving_screen)
+        else:
+            self.prune_points(low_opacity)
+            evidence = dict(screen_candidates_before_stock=0, screen_candidates_after_stock=0,
+                            screen_parents_replaced_by_gradient_split=0, size_pruned=0, screen_pruned=0,
+                            opacity_only_pruned=int(low_opacity.count_nonzero()))
+        self.reset_densification_stats()
         torch.cuda.empty_cache()
+        return evidence
 
     def add_densification_stats(self, viewspace_point_tensor, update_filter):
         self.xyz_gradient_accum[update_filter] += torch.norm(viewspace_point_tensor.grad[update_filter,:2], dim=-1, keepdim=True)

@@ -206,8 +206,9 @@ def _coverage_metrics(baseline_alpha, proposed_alpha, baseline_error, proposed_e
 
 
 @contextmanager
-def replacement_evaluator(model, constraints, parents, centers, log_sigma, opacity, weights, options):
-    """Yield an exact posed subset evaluator; cache baseline images on the host."""
+def replacement_evaluator(model, constraints, parents, centers, log_sigma, opacity, weights, options,
+                          *, screen_limit_px=None):
+    """Yield a native subset evaluator for removal or two-child replacement."""
     from gaussian_renderer import render
 
     previous = model.timestep
@@ -224,21 +225,27 @@ def replacement_evaluator(model, constraints, parents, centers, log_sigma, opaci
             return dict(proposed=0, accepted=False, frames=[])
         keep = torch.ones(len(model.binding), dtype=torch.bool, device=parents.device)
         keep[selected] = False
-        owners = model.binding[selected].repeat(2)
-        local = centers[subset].transpose(0, 1).reshape(-1, 3)
-        scales = log_sigma[subset].exp().repeat(2, 1)
-        alpha = opacity[subset, None].repeat(2, 1)
         features = model.get_features
-        child_features = features[selected].repeat(2, 1, 1)
-        alternative_features = torch.cat((features[keep], child_features))
+        replacing = centers is not None
+        if replacing:
+            owners = model.binding[selected].repeat(2)
+            local = centers[subset].transpose(0, 1).reshape(-1, 3)
+            scales = log_sigma[subset].exp().repeat(2, 1)
+            alpha = opacity[subset, None].repeat(2, 1)
+            alternative_features = torch.cat((features[keep], features[selected].repeat(2, 1, 1)))
+        else:
+            alternative_features = features[keep]
         view_masses = weights[:, subset, :2].sum(1).tolist()
         frames = []
+        parent_peaks = torch.zeros_like(selected)
+        child_peaks = torch.zeros_like(selected)
 
         def draw(camera, item, view):
-            rgb = render(camera, item, constraints.pipe, constraints.black)['render']
+            package = render(camera, item, constraints.pipe, constraints.black)
+            rgb = package['render']
             alpha_image = render(camera, item, constraints.pipe, constraints.black,
                                  override_color=torch.ones_like(item.get_xyz))['render'][0]
-            return alpha_image, _rgb_error(rgb, alpha_image, view)
+            return alpha_image, _rgb_error(rgb, alpha_image, view), package['radii']
 
         try:
             for i, (camera, slot, view, row) in enumerate(zip(
@@ -247,19 +254,27 @@ def replacement_evaluator(model, constraints, parents, centers, log_sigma, opaci
                 scene = _scene(model)
                 scene.get_features = features
                 scene.max_sh_degree = model.max_sh_degree
-                face_scale = model.face_scaling[owners]
-                xyz = (model.face_orien_mat[owners] @ local[..., None]).squeeze(-1)*face_scale+model.face_center[owners]
-                alternative = SimpleNamespace(get_xyz=torch.cat((scene.get_xyz[keep], xyz)),
-                    get_scaling=torch.cat((scene.get_scaling[keep], scales*face_scale)),
-                    get_rotation=torch.cat((scene.get_rotation[keep], scene.get_rotation[selected].repeat(2, 1))),
-                    get_opacity=torch.cat((scene.get_opacity[keep], alpha)), active_sh_degree=scene.active_sh_degree,
-                    max_sh_degree=scene.max_sh_degree, get_features=alternative_features)
+                alternative = SimpleNamespace(get_xyz=scene.get_xyz[keep], get_scaling=scene.get_scaling[keep],
+                    get_rotation=scene.get_rotation[keep], get_opacity=scene.get_opacity[keep],
+                    active_sh_degree=scene.active_sh_degree, max_sh_degree=scene.max_sh_degree,
+                    get_features=alternative_features)
+                if replacing:
+                    face_scale = model.face_scaling[owners]
+                    xyz = (model.face_orien_mat[owners] @ local[..., None]).squeeze(-1)*face_scale+model.face_center[owners]
+                    alternative.get_xyz = torch.cat((alternative.get_xyz, xyz))
+                    alternative.get_scaling = torch.cat((alternative.get_scaling, scales*face_scale))
+                    alternative.get_rotation = torch.cat((alternative.get_rotation, scene.get_rotation[selected].repeat(2, 1)))
+                    alternative.get_opacity = torch.cat((alternative.get_opacity, alpha))
                 if i not in baseline:
-                    old_alpha, old_error = draw(camera, scene, view)
-                    baseline[i] = old_alpha.cpu(), old_error.cpu()
+                    old_alpha, old_error, old_radii = draw(camera, scene, view)
+                    baseline[i] = old_alpha.cpu(), old_error.cpu(), old_radii[parents].cpu()
+                    old_radii = old_radii[parents]
                 else:
-                    old_alpha, old_error = (value.to(parents.device) for value in baseline[i])
-                new_alpha, new_error = draw(camera, alternative, view)
+                    old_alpha, old_error, old_radii = (value.to(parents.device) for value in baseline[i])
+                new_alpha, new_error, new_radii = draw(camera, alternative, view)
+                if screen_limit_px is not None:
+                    parent_peaks = torch.maximum(parent_peaks, old_radii[subset])
+                    child_peaks = torch.maximum(child_peaks, new_radii[-2*len(selected):].reshape(2, -1).amax(0))
                 protected = {} if regions is None else dict(regions[i])
                 if 'face' not in protected and view.face is not None:
                     x0, y0, _, _ = view.box
@@ -271,8 +286,14 @@ def replacement_evaluator(model, constraints, parents, centers, log_sigma, opaci
                 frames.append(dict(frame=row['frame'], **metrics))
         finally:
             model.select_mesh_by_timestep(previous)
-        return dict(proposed=len(selected), accepted=not any(frame['failures'] for frame in frames),
-                    max_foreground_loss_px=max(frame.get('foreground_target_deficit_px', 0.) for frame in frames),
+        radius_check = None
+        if screen_limit_px is not None:
+            decreased = (parent_peaks > screen_limit_px) & (child_peaks < parent_peaks)
+            radius_check = dict(limit_px=screen_limit_px, before_px=parent_peaks.tolist(),
+                                child_max_px=child_peaks.tolist(), all_decreased=bool(decreased.all()))
+        return dict(proposed=len(selected), accepted=(not any(frame['failures'] for frame in frames)
+                        and (radius_check is None or radius_check['all_decreased'])),
+                    native_radius_check=radius_check, max_foreground_loss_px=max(frame.get('foreground_target_deficit_px', 0.) for frame in frames),
                     max_background_gain_px=max(frame.get('background_gain_px', 0.) for frame in frames),
                     frames=frames)
 
@@ -291,8 +312,9 @@ class FootprintLimits:
         self.counts = scaling.new_zeros(3, dtype=torch.long)
         self.peak_overshoot = scaling.new_zeros(())
         self.next_lineage = 0
+        self.child_counts = scaling.new_zeros(3, dtype=torch.long)
 
-    def append(self, count, parents):
+    def append(self, count, parents, *, new_scaling=None):
         if parents is None:
             cap = self.cap.new_full((count, 3), torch.inf)
             lineage = self.lineage.new_full((count,), -1)
@@ -305,6 +327,17 @@ class FootprintLimits:
         self.cap = torch.cat((self.cap, cap))
         self.lineage = torch.cat((self.lineage, lineage))
         self.overshoot = torch.cat((self.overshoot, overshoot))
+        if new_scaling is not None:
+            hit = new_scaling > cap
+            self.child_counts += torch.stack((hit.count_nonzero(), hit.any(1).count_nonzero(),
+                                               torch.isfinite(cap).any(1).count_nonzero()))
+            return torch.minimum(new_scaling, cap)
+
+    def topology_summary(self, scaling):
+        axes, points, inherited = self.child_counts.tolist()
+        return dict(inherited_cap_children=inherited, child_axes_projected_at_birth=axes,
+                    children_projected_at_birth=points, live_finite_cap_rows=int(torch.isfinite(self.cap).any(1).count_nonzero()),
+                    live_rows_over_local_cap=int((scaling > self.cap).any(1).count_nonzero()))
 
     def prune(self, keep):
         self.counts[2] += ((~keep) & (self.lineage >= 0)).count_nonzero()

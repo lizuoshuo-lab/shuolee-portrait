@@ -81,6 +81,9 @@ class SMPLXGaussianModel(GaussianModel):
         n = len(self._xyz)
         padded = torch.zeros(n, device='cuda'); padded[:len(grads)] = grads.reshape(-1)
         chosen = (padded >= grad_threshold) & (self.get_scaling.max(1).values > self.percent_dense*scene_extent)
+        parents = chosen.nonzero(as_tuple=True)[0]
+        if not len(parents):
+            return
         local_std = self._scaling[chosen].exp().repeat(N,1)
         sample = torch.normal(torch.zeros_like(local_std), local_std)
         rotation = build_rotation(self._rotation[chosen]).repeat(N,1,1)
@@ -91,11 +94,11 @@ class SMPLXGaussianModel(GaussianModel):
         self.binding_counter.scatter_add_(0,binding,torch.ones_like(binding,dtype=torch.int32))
         lineage = {}
         if getattr(self, "point_limits", None) is not None:
-            lineage["constraint_parents"] = chosen.nonzero(as_tuple=True)[0].repeat(N)
+            lineage["constraint_parents"] = parents.repeat(N)
         self.densification_postfix(xyz,self._features_dc[chosen].repeat(N,1,1),
             self._features_rest[chosen].repeat(N,1,1),self._opacity[chosen].repeat(N,1),
             scaling,self._rotation[chosen].repeat(N,1), **lineage)
-        prune = torch.cat((chosen,torch.zeros(N*int(chosen.sum()),device='cuda',dtype=torch.bool)))
+        prune = torch.cat((chosen, chosen.new_zeros(N*len(parents))))
         self.prune_points(prune)
 
     @torch.no_grad()
