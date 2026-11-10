@@ -2,6 +2,7 @@
 
 import torch
 
+from .render_support import FootprintLimits, classify, coverage_trial, source_weights
 from .shape_refinement import _projection, _screen_visibility, _tangent_distance
 
 
@@ -11,7 +12,9 @@ def scale_config():
                 axis_ratio_min=2., max_parents=128, child_sigma_ratio=.82, child_opacity_max=.995,
                 unsupported_cap_ratio=.80, small_projected_sigma_px=5., split_steps=[3000, 4800, 6600, 8400],
                 needle=dict(width_over_extent=.008, width_over_face=.65, gap_over_extent=.010, gap_over_face=.75,
-                            max_parents=128, center_move_fraction=.50, max_move_over_extent=.010, width_trim_ratio=.75))
+                            max_parents=128, center_move_fraction=.50, max_move_over_extent=.010, width_trim_ratio=.75),
+                render_support=dict(min_equivalent_pixels=1., min_background_bins=2, background_to_foreground=.20,
+                                    coverage_slack_px=2., coverage_loss_fraction=.025, replacement_budget=16))
 
 
 def _limits(face_scale, extent, options):
@@ -75,6 +78,9 @@ class WorldScale:
         self.model, self.extent, self.reference, self.options = model, extent, reference, options
         self.projections = model._xyz.new_zeros(3, dtype=torch.int64)
         self.checkpoints, self.splits = [], []
+        self.support_history, self.support_prunes = [], []
+        self.limits = FootprintLimits(model._scaling)
+        model.point_limits = self.limits
         self.refresh()
 
     def refresh(self):
@@ -93,6 +99,9 @@ class WorldScale:
         limit = self.log_cap[self.model.binding, None]
         hit = param > limit
         self.projections += torch.stack((hit.count_nonzero(), hit.any(1).count_nonzero(), hit.any().long()))
+        point_limits = getattr(self.model, 'point_limits', None)
+        if point_limits is not None and point_limits.next_lineage:
+            point_limits.apply(param, self.model.optimizer)
         param.copy_(torch.minimum(param, limit))
         state = self.model.optimizer.state.get(param)
         if state is not None:
@@ -118,6 +127,8 @@ class WorldScale:
             row['needle'] = dict(active_ratio_max=float(ratio.max()) if len(ratio) else None,
                                  active_ratio_over_20=int((ratio > 20).count_nonzero()),
                                  active_ratio_over_40=int((ratio > 40).count_nonzero()))
+        if stage == 'terminal':
+            row['render_support'] = self.limits.summary()
         if stage != 'initial' and row['all_poses_max']['all']['over_limit']:
             raise RuntimeError('World covariance limit did not hold in all registered poses.')
         if stage not in ('initial', 'terminal'):
@@ -167,13 +178,42 @@ class WorldScale:
         model.binding_counter.scatter_add_(0, binding, torch.ones_like(binding, dtype=torch.int32))
         model.densification_postfix(centers.transpose(0, 1).reshape(-1, 3),
             model._features_dc[parents].repeat(2, 1, 1), model._features_rest[parents].repeat(2, 1, 1),
-            opacity[:, None].repeat(2, 1).logit(), log_sigma.repeat(2, 1), model._rotation[parents].repeat(2, 1))
+            opacity[:, None].repeat(2, 1).logit(), log_sigma.repeat(2, 1), model._rotation[parents].repeat(2, 1),
+            constraint_parents=parents.repeat(2))
         model.prune_points(prune)
         if len(model.binding) != len(prune)-len(parents) or int(model.binding_counter.min()) < 1:
             raise RuntimeError('Principal-axis replacement lost a bound parent or child.')
 
+    def confirm_prune(self, mask, constraints, step):
+        ids = mask.nonzero(as_tuple=True)[0]
+        allowed = torch.zeros_like(mask)
+        if len(ids):
+            weights = source_weights(self.model, constraints, ids)
+            fg, _, conflict = classify(weights, constraints.bins, self.options['render_support'])
+            allowed[ids] = conflict & ~fg
+        self.support_prunes.append(dict(step=step, proposed=len(ids), approved=int(allowed.count_nonzero())))
+        return allowed
+
+    def remeasure(self, constraints, step, phase):
+        ids = (self.limits.lineage >= 0).nonzero(as_tuple=True)[0]
+        tracks = {}
+        if len(ids):
+            model = self.model
+            weights = source_weights(model, constraints, ids).sum(0).tolist()
+            sigma = (model._scaling[ids].amax(1).exp()*self.maximum_scale[model.binding[ids]]).tolist()
+            overshoot = self.limits.overshoot[ids].exp().tolist()
+            for lineage, mass, width, growth in zip(self.limits.lineage[ids].tolist(), weights, sigma, overshoot, strict=True):
+                record = tracks.setdefault(lineage, dict(points=0, foreground=0., background=0., total=0.,
+                                                         max_sigma_m=0., max_preprojection_growth_ratio=1.))
+                record['points'] += 1
+                for key, value in zip(('foreground', 'background', 'total'), mass, strict=True):
+                    record[key] += value
+                record['max_sigma_m'] = max(record['max_sigma_m'], width)
+                record['max_preprojection_growth_ratio'] = max(record['max_preprojection_growth_ratio'], growth)
+        self.support_history.append(dict(step=step, phase=phase, tracks=tracks))
+
     def _repair_displaced(self, constraints):
-        """Only adjust broad off-surface rows with contradictory or absent native support."""
+        """Measure raster support before adjusting broad off-surface rows."""
         from utils.general_utils import build_rotation
 
         model, options = self.model, self.options
@@ -193,8 +233,11 @@ class WorldScale:
             ids = ids[priority.argsort(descending=True, stable=True)[:cfg['max_parents']]]
         event = dict(displaced_candidates=count, assessed=len(ids), conflicted=0, unobserved=0,
                      support_replaced=0, children=0, width_trimmed=0, preserved=len(ids))
+        audit = dict(foreground_supported=0, center_conflicted=0, center_unobserved_with_foreground=0, ambiguous=0,
+                     interventions=[], foreground_equivalent_pixels=0., background_equivalent_pixels=0.,
+                     total_equivalent_pixels=0., coverage_trial=None)
         if not len(ids):
-            return event
+            return event, audit
 
         log_sigma = model._scaling[ids]
         wide_logs, wide_axes = log_sigma.topk(2, dim=1)
@@ -209,32 +252,57 @@ class WorldScale:
         displacement = direction*shift[:, None]
         proposals = torch.stack((original, anchor-displacement, anchor+displacement), 1)
         fg, bg, _ = self._votes(proposals, owner[ids], rotation, log_sigma.exp(), axis, constraints)
-        conflicted, unobserved = _source_conflict(fg[:, 0], bg[:, 0], constraints.options['prune_bg_bins'])
-        supported = (fg[:, 1:] >= constraints.options['required_source_bins']).all(1) & (bg[:, 1:] == 0).all(1)
-        replace = conflicted & supported
-        trim = (conflicted | unobserved) & ~replace
+        support = options['render_support']
+        weights = source_weights(model, constraints, ids)
+        has_fg, unobserved, conflicted = classify(weights, constraints.bins, support)
+        geometry = (fg[:, 1:] >= constraints.options['required_source_bins']).all(1) & (bg[:, 1:] == 0).all(1)
+        shortlist = (has_fg & conflicted & geometry).nonzero(as_tuple=True)[0][:support['replacement_budget']]
+        children = log_sigma[shortlist].clone()
+        children.scatter_(1, axis[shortlist, None], child_sigma[shortlist, None].log())
+        trial = coverage_trial(model, constraints, ids[shortlist], proposals[shortlist, 1:],
+                               children, child_opacity[shortlist], weights[:, shortlist], support)
+        replace = shortlist if trial['accepted'] else shortlist[:0]
+        trim = (~has_fg) & (conflicted | unobserved)
 
-        # Without reliable child observations, retain the center, opacity and thin axis.
+        # Retain the center, opacity and smallest width; cap all axes against regrowth.
         trim_ids, trim_axes = ids[trim], wide_axes[trim]
-        model._scaling[trim_ids[:, None], trim_axes] = wide_logs[trim]+wide_logs.new_tensor(cfg['width_trim_ratio']).log()
-        state = model.optimizer.state.get(model._scaling)
-        if state is not None:
-            state['exp_avg'][trim_ids[:, None], trim_axes] = 0
+        limit = log_sigma[trim].clone()
+        trimmed = wide_logs[trim]+wide_logs.new_tensor(cfg['width_trim_ratio']).log()
+        widest_trimmed = trimmed.amax(1, keepdim=True)
+        limit = torch.maximum(limit, widest_trimmed)
+        limit.scatter_(1, trim_axes, trimmed)
         parents = ids[replace]
+        lineage = torch.cat((self.limits.set(trim_ids, limit), self.limits.set(parents, children[:len(parents)])))
+        rows = torch.cat((trim.nonzero(as_tuple=True)[0], replace))
+        original_sigma = log_sigma[rows].amax(1).exp()*self.maximum_scale[owner[ids[rows]]]
+        mass = weights[:, rows].sum(0)
+        audit['interventions'] = [
+            dict(lineage=key, action='trim' if i < len(trim_ids) else 'replace',
+                 foreground=values[0], background=values[1], total=values[2], max_sigma_m=width)
+            for i, (key, values, width) in enumerate(zip(lineage.tolist(), mass.tolist(), original_sigma.tolist(), strict=True))]
         if len(parents):
-            children = log_sigma[replace].clone()
-            children.scatter_(1, axis[replace, None], child_sigma[replace, None].log())
             self._replace(parents, proposals[replace, 1:], children, child_opacity[replace])
+        self.limits.apply(model._scaling, model.optimizer, measure=False)
         event.update(conflicted=int(conflicted.count_nonzero()), unobserved=int(unobserved.count_nonzero()),
                      support_replaced=len(parents), children=2*len(parents), width_trimmed=len(trim_ids),
                      preserved=len(ids)-len(parents)-len(trim_ids))
-        return event
+        totals = weights.sum((0, 1)).tolist()
+        center_conflict, center_unobserved = _source_conflict(fg[:, 0], bg[:, 0], constraints.options['prune_bg_bins'])
+        audit.update(foreground_supported=int(has_fg.count_nonzero()),
+                     center_conflicted=int(center_conflict.count_nonzero()),
+                     center_unobserved_with_foreground=int((has_fg & center_unobserved).count_nonzero()),
+                     ambiguous=int((~has_fg & ~conflicted & ~unobserved).count_nonzero()),
+                     foreground_equivalent_pixels=totals[0], background_equivalent_pixels=totals[1],
+                     total_equivalent_pixels=totals[2], coverage_trial=trial)
+        return event, audit
 
     def repair(self, step, constraints):
         """Split only near-cap long axes whose two centers have multi-view foreground support."""
         from utils.general_utils import build_rotation
 
         model, options = self.model, self.options
+        support = options['render_support']
+        self.remeasure(constraints, step, 'before_repair')
         high, axes = model._scaling.max(1)
         relative = high-self.log_cap[model.binding]
         eligible = (relative >= high.new_tensor(options['near_limit_ratio']).log()) & (
@@ -247,6 +315,7 @@ class WorldScale:
         event = dict(step=step, near_limit_candidates=int(eligible.count_nonzero()), assessed=len(ids),
                      split_parents=0, children=0, exterior_trimmed=0, retained_without_child_support=0,
                      visible_parent_view_pairs=0, small_projected_world_axis_pairs=0, small_projected_ellipse_pairs=0)
+        near_trial = None
         if len(ids):
             axis = axes[ids]
             local_sigma = model._scaling[ids].exp()
@@ -258,23 +327,24 @@ class WorldScale:
             probes = torch.stack((center, center-displacement, center+displacement), 1)
             fg, bg, observation = self._votes(probes, model.binding[ids], rotations, local_sigma, axis, constraints)
             supported = (fg[:, 1:] >= constraints.options['required_source_bins']).all(1) & (bg[:, 1:] == 0).all(1)
-            # Strong exterior evidence warrants tightening only the offending axis.
-            trim = (~supported) & (fg[:, 0] == 0) & (bg[:, 0] >= constraints.options['prune_bg_bins'])
-            trim_ids, trim_axis = ids[trim], axis[trim]
-            trimmed_limit = self.log_cap[model.binding[trim_ids]]+high.new_tensor(options['unsupported_cap_ratio']).log()
-            model._scaling[trim_ids, trim_axis] = torch.minimum(model._scaling[trim_ids, trim_axis], trimmed_limit)
-            state = model.optimizer.state.get(model._scaling)
-            if state is not None:
-                state['exp_avg'][trim_ids, trim_axis] = 0
-            parents = ids[supported]
-            count = len(parents)
-            if count:
+            shortlist = supported.nonzero(as_tuple=True)[0][:support['replacement_budget']]
+            if len(shortlist):
+                weights = source_weights(model, constraints, ids[shortlist])
+                has_fg, _, _ = classify(weights, constraints.bins, support)
+                shortlist, weights = shortlist[has_fg], weights[:, has_fg]
+                parents = ids[shortlist]
                 log_sigma = model._scaling[parents].clone()
-                log_sigma.scatter_(1, axis[supported, None], child_sigma[supported, None].log())
-                self._replace(parents, probes[supported, 1:], log_sigma, opacity[supported])
-            event.update(observation, split_parents=count, children=2*count, exterior_trimmed=len(trim_ids),
-                         retained_without_child_support=len(ids)-count-len(trim_ids))
-        event['needle'] = self._repair_displaced(constraints)
+                log_sigma.scatter_(1, axis[shortlist, None], child_sigma[shortlist, None].log())
+                near_trial = coverage_trial(model, constraints, parents, probes[shortlist, 1:],
+                                            log_sigma, opacity[shortlist], weights, support)
+                if near_trial['accepted']:
+                    self._replace(parents, probes[shortlist, 1:], log_sigma, opacity[shortlist])
+                    event.update(split_parents=len(parents), children=2*len(parents))
+            event.update(observation, retained_without_child_support=len(ids)-event['split_parents'])
+        event['needle'], event['render_support'] = self._repair_displaced(constraints)
+        event['render_support']['near_limit_trial'] = near_trial
+        self.project()
+        self.remeasure(constraints, step, 'after_repair')
         self.splits.append(event)
 
     def report(self, initial, terminal=None):
@@ -282,5 +352,6 @@ class WorldScale:
                     units='model-world meters, principal-axis one-sigma; not radius or diameter',
                     reference_pose_index=self.reference, pose_count=self.model.num_timesteps, extent_m=self.extent,
                     limits_m=dict(min=float(self.cap.min()), max=float(self.cap.max())),
-                    initial=initial, checkpoints=self.checkpoints, splits=self.splits, terminal=terminal)
+                    initial=initial, checkpoints=self.checkpoints, splits=self.splits, terminal=terminal,
+                    support_history=self.support_history, support_prunes=self.support_prunes)
 

@@ -185,7 +185,8 @@ def _prepare_views(model, rows, slots, cameras, fit, pipe, black, options, *, na
     return views, matrices
 
 
-def _reseed(model, rows, cameras, views, slots, bins, matrices, pipe, black, options, reference, *, preserve_optimizer=False):
+def _reseed(model, rows, cameras, views, slots, bins, matrices, pipe, black, options, reference, *,
+            preserve_optimizer=False, confirm_prune=None):
     import torch
 
     foreground, background = _support(model, views, slots, bins, matrices, options)
@@ -197,7 +198,8 @@ def _reseed(model, rows, cameras, views, slots, bins, matrices, pipe, black, opt
     isolated = (foreground == 0) & (background >= options['prune_bg_bins'])
     off_surface = (normal > options['normal_allowance_m']+.20*face_scale) | (tangent > .028+.40*face_scale)
     before = len(model.binding)
-    model.prune_points(isolated & off_surface)
+    prune = isolated & off_surface
+    model.prune_points(prune if confirm_prune is None else confirm_prune(prune))
     pruned = before-len(model.binding)
     targets = [(v.rgb, v.mask, v.box, v.inside, v.outside, v.face) for v in views]
     owners, bary, color, evidence = _surface_sites(model, rows, cameras, targets, slots, bins, pipe, black, options)

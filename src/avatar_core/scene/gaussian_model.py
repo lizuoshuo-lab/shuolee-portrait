@@ -387,6 +387,9 @@ class GaussianModel:
 
         valid_points_mask = ~mask
         optimizable_tensors = self._prune_optimizer(valid_points_mask)
+        limits = getattr(self, "point_limits", None)
+        if limits is not None:
+            limits.prune(valid_points_mask)
 
         self._xyz = optimizable_tensors["xyz"]
         self._features_dc = optimizable_tensors["f_dc"]
@@ -431,7 +434,11 @@ class GaussianModel:
 
         return optimizable_tensors
 
-    def densification_postfix(self, new_xyz, new_features_dc, new_features_rest, new_opacities, new_scaling, new_rotation):
+    def densification_postfix(self, new_xyz, new_features_dc, new_features_rest, new_opacities, new_scaling, new_rotation,
+                              *, constraint_parents=None):
+        limits = getattr(self, "point_limits", None)
+        if limits is not None:
+            limits.append(len(new_xyz), constraint_parents)
         d = {"xyz": new_xyz,
         "f_dc": new_features_dc,
         "f_rest": new_features_rest,
@@ -505,7 +512,11 @@ class GaussianModel:
             self.binding = torch.cat((self.binding, new_binding))
             self.binding_counter.scatter_add_(0, new_binding, torch.ones_like(new_binding, dtype=torch.int32, device="cuda"))
         
-        self.densification_postfix(new_xyz, new_features_dc, new_features_rest, new_opacities, new_scaling, new_rotation)
+        lineage = {}
+        if getattr(self, "point_limits", None) is not None:
+            lineage["constraint_parents"] = selected_pts_mask.nonzero(as_tuple=True)[0]
+        self.densification_postfix(new_xyz, new_features_dc, new_features_rest, new_opacities, new_scaling, new_rotation,
+                                   **lineage)
 
     def densify_and_prune(self, max_grad, min_opacity, extent, max_screen_size):
         grads = self.xyz_gradient_accum / self.denom

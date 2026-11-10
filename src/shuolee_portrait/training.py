@@ -520,7 +520,8 @@ def _train_smpl_sh0(root, effective, frozen_spec=None):
                 densification = None
                 if step in schedule['coverage_steps']:
                     densification = 'coverage_densification'
-                    coverage_events.append(dict(step=step, **constraints.reseed(reference)))
+                    coverage_events.append(dict(step=step, **constraints.reseed(reference,
+                        confirm_prune=lambda mask: world_scale.confirm_prune(mask, constraints, step))))
                     rt.save(out/'coverage-events.json', coverage_events)
                 elif options.densify_from_iter < step <= schedule['stock_densify_through'] and step % options.densification_interval == 0:
                     size = 20 if step > options.opacity_reset_interval else None
@@ -540,6 +541,7 @@ def _train_smpl_sh0(root, effective, frozen_spec=None):
                     model.reset_opacity()
                 if step in effective['snapshot_steps']:
                     if step == options.iterations:
+                        world_scale.remeasure(constraints, step, 'terminal')
                         world_terminal = world_scale.checkpoint(step, 'terminal')
                         rt.save(world_path, world_scale.report(world_initial, world_terminal))
                     else:

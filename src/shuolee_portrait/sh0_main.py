@@ -83,6 +83,6 @@ class Constraints:
         ramp = min(1., (step-self.schedule['warmup_steps'])/self.schedule['constraint_ramp_steps'])
         return (1-ramp)*old_alpha + ramp*total
 
-    def reseed(self, reference):
+    def reseed(self, reference, *, confirm_prune=None):
         return _reseed(self.model, self.rows, self.cameras, self.views, self.slots, self.bins, self.matrices,
-                       self.pipe, self.black, self.options, reference, preserve_optimizer=True)
+                       self.pipe, self.black, self.options, reference, preserve_optimizer=True, confirm_prune=confirm_prune)

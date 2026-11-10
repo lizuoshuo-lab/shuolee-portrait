@@ -89,9 +89,12 @@ class SMPLXGaussianModel(GaussianModel):
         binding = self.binding[chosen].repeat(N)
         self.binding = torch.cat((self.binding, binding))
         self.binding_counter.scatter_add_(0,binding,torch.ones_like(binding,dtype=torch.int32))
+        lineage = {}
+        if getattr(self, "point_limits", None) is not None:
+            lineage["constraint_parents"] = chosen.nonzero(as_tuple=True)[0].repeat(N)
         self.densification_postfix(xyz,self._features_dc[chosen].repeat(N,1,1),
             self._features_rest[chosen].repeat(N,1,1),self._opacity[chosen].repeat(N,1),
-            scaling,self._rotation[chosen].repeat(N,1))
+            scaling,self._rotation[chosen].repeat(N,1), **lineage)
         prune = torch.cat((chosen,torch.zeros(N*int(chosen.sum()),device='cuda',dtype=torch.bool)))
         self.prune_points(prune)
 
