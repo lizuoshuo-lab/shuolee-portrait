@@ -267,7 +267,8 @@ def source_bin_training_order(rows, selection, *, seed):
     return row_bins, order()
 
 
-def select_frames(inputs, winners, *, scope, reports=None, shared_betas=None, screen_pose=True):
+def select_frames(inputs, winners, *, scope, reports=None, shared_betas=None, screen_pose=True,
+                  allow_empty=False):
     """Rank official technical winners using the original automatic pose screen."""
     rows = {row["frame"]: (index, row) for index, row in enumerate(inputs["rows"])}
     _require(list(rows) == list(inputs["ids"]), "Official inputs and observation order differ.")
@@ -332,12 +333,12 @@ def select_frames(inputs, winners, *, scope, reports=None, shared_betas=None, sc
                                   (end-start+1 for start, end in runs), default=0),
                               quota_fill_spacing_axis=spacing_axis, shortfall=target-count)
         offset += target
-    _require(bool(selected), "No technically valid non-holdout poses for automatic training.")
+    _require(allow_empty or bool(selected), "No technically valid non-holdout poses for automatic training.")
     for frame in holdouts:
         reasons.setdefault(frame, dict(status="protected_holdout"))
     ordered = sorted(selected, key=lambda frame: (reasons[frame]["source_index"], frame))
     visible = [frame for frame in ordered if reasons[frame]["visible_face"]]
-    reference = min(visible or ordered, key=lambda frame: (
+    reference = min(visible or ordered, default=None, key=lambda frame: (
         reasons[frame]["scores"]["face"]["rms_over_height"] if visible else math.inf,
         -(reasons[frame]["scores"]["face"]["mean_confidence"] or 0.) if visible else 0.,
         _body_rank(reasons[frame]), frame))

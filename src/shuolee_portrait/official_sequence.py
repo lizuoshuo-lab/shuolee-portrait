@@ -3,8 +3,10 @@ from concurrent.futures import ProcessPoolExecutor
 from contextlib import ExitStack, redirect_stderr, redirect_stdout
 from multiprocessing import get_context
 from pathlib import Path
+import hashlib
 import io
 import json
+import math
 import re
 import time
 
@@ -244,11 +246,13 @@ def write_results(root, inputs, winners, shared, basis, descriptors, *, executio
 
 
 def _frame_fit(job, official_root, body, vposer, device):
-    row, destination, keypoints, K, beta, freeze, shared_pose = job
+    row, destination, keypoints, K, beta, freeze, shared_pose, *seed = job
     destination.mkdir()
     kwargs = {'static_topology': False} if device == 'cpu' else {}
     if shared_pose is not None:
         kwargs['shared_body_pose'] = shared_pose
+    if seed:
+        kwargs['initial_body_latent'], = seed
     with (destination/'fit.log').open('x', encoding='utf-8', buffering=1) as log:
         with redirect_stdout(log), redirect_stderr(log):
             arrays, report = official.fit_frame(official_root=official_root, image=checked_image(row),
@@ -279,6 +283,140 @@ def _fit_cpu_job(job):
         return _frame_fit(job, *_CPU_FIT)
     except Exception as exc:
         raise RuntimeError(f'Official fit failed on {job[0]["frame"]}: {exc}') from exc
+
+
+def _usable_latent(pose):
+    latent = pose.get('pose_embedding')
+    return (isinstance(latent, np.ndarray) and latent.shape == (1, 32) and
+            latent.dtype == np.float32 and np.isfinite(latent).all() and np.any(latent))
+
+
+def _missing_bin_seeds(inputs, selection, winners, shape_anchors):
+    from . import stable_selection as stable
+
+    reasons = selection['reasons']
+    holdouts = set(selection['retained_holdouts'])
+    rows = {row['frame']: row for row in inputs['rows']}
+    admitted = [frame for frame, reason in reasons.items() if frame not in holdouts and
+                reason['status'] in ('technically_valid', 'selected_bin_leader', 'selected_quota_fill')
+                and _usable_latent(winners[frame])]
+    for side, coverage in selection['coverage'].items():
+        for bin_id in coverage['missing_source_bins']:
+            candidates = [frame for frame, reason in reasons.items() if frame not in holdouts and
+                          reason['status'] == 'pose_screen_rejection' and reason['side'] == side and
+                          reason['source_bin'] == bin_id]
+            item = dict(side=side, source_bin=bin_id)
+            if not candidates:
+                yield dict(item, status='no_pose_rejected_candidate')
+                continue
+            frame = min(candidates, key=lambda frame: (stable._body_rank(reasons[frame]), frame))
+            item.update(frame_id=frame, source_frame_index=rows[frame]['source_frame_index'])
+            if frame in shape_anchors:
+                yield dict(item, seed_kind='same_frame_shape_anchor', seed_frame=frame)
+                continue
+            donors = [name for name in admitted if reasons[name]['side'] == side and
+                      abs(reasons[name]['source_bin'] - bin_id) <= 2]
+            if not donors:
+                yield dict(item, status='no_nearby_admitted_seed')
+                continue
+            times = {name: rows[name].get('time_seconds') for name in [frame, *donors]}
+            use_pts = all(type(value) in (int, float) and math.isfinite(value) for value in times.values())
+            positions = times if use_pts else {name: rows[name]['source_frame_index'] for name in times}
+            donor = min(donors, key=lambda name: (abs(positions[name]-positions[frame]),
+                        rows[name]['source_frame_index'], name))
+            yield dict(item, seed_kind='nearby_baseline_admitted', seed_frame=donor,
+                       seed_distance_axis='native_pts_seconds' if use_pts else 'original_source_index')
+
+
+_RECOVERY_MAX_GROWTH_PX = dict(head=.5, nonhead=1.)
+
+
+def _recovery_protection(observed, before, after):
+    from . import stable_selection as stable
+
+    head_body = [0, 15, 16, 17, 18]
+    regions = dict(head=np.r_[head_body, stable.FACE],
+                   nonhead=np.r_[np.setdiff1d(stable.BODY, head_body), stable.FEET, 25:67])
+    before_error, after_error = (np.linalg.norm(
+        pose['joints_projected_native'][0].astype(np.float64) - observed[:, :2], axis=1)
+        for pose in (before, after))
+    result = {}
+    for name, indices in regions.items():
+        supported = indices[observed[indices, 2] > 0]
+        growth = float(np.max(after_error[supported] - before_error[supported])) if len(supported) else None
+        result[name] = dict(points=len(supported), max_growth_px=growth,
+                            limit_px=_RECOVERY_MAX_GROWTH_PX[name],
+                            passed=growth is None or growth <= _RECOVERY_MAX_GROWTH_PX[name])
+    return result
+
+
+def _recover_missing_bins(root, inputs, scope, selection, winners, descriptors, reports,
+                          shared, shared_pose, shape_anchors, pool):
+    from . import stable_selection as stable
+
+    destination = root/'fit/recovery'
+    destination.mkdir()
+    rt.save(destination/'baseline-selection.json', selection)
+    check_bound(inputs['bound'])
+    planned = list(_missing_bin_seeds(inputs, selection, winners, shape_anchors))
+    jobs = {}
+    for item in planned:
+        if 'seed_kind' not in item:
+            continue
+        frame, donor = item['frame_id'], item['seed_frame']
+        anchor = item['seed_kind'] == 'same_frame_shape_anchor'
+        seed, seed_receipt = shape_anchors[donor] if anchor else (winners[donor]['pose_embedding'], descriptors[donor])
+        item.update(seed_receipt=seed_receipt, baseline_receipt=descriptors[frame],
+                    seed_sha256=hashlib.sha256(seed.tobytes()).hexdigest())
+        index = inputs['ids'].index(frame)
+        jobs[frame] = (inputs['rows'][index], destination/frame, inputs['targets'][index:index+1],
+                       inputs['K'][index], shared, True, shared_pose, seed)
+    rt.save(destination/'plan.json', dict(one_attempt_per_missing_bin=True, protected_holdouts=scope['retained_holdouts'],
+            supported_point_growth_limits_native_px=_RECOVERY_MAX_GROWTH_PX, bins=planned))
+
+    futures = {frame: pool.submit(_fit_cpu_job, job) for frame, job in jobs.items()}
+    promoted = []
+    for item in planned:
+        if 'seed_kind' not in item:
+            continue
+        frame = item['frame_id']
+        row, _, keypoints, K, *_ = jobs[frame]
+        try:
+            candidate, descriptor = futures[frame].result()
+            item['recovery_receipt'] = descriptor
+            report = rt.read(descriptor['path'])
+            check_result(report, row)
+            stock = reports[frame]
+            frozen_fields = ('shared_body_target_sha256', 'body_placement_initial_m', 'orientation_count')
+            if (report.get('initial_body_latent_sha256') != item['seed_sha256'] or
+                    any(report.get(field) != stock.get(field) for field in frozen_fields)):
+                raise ValueError('Recovery seed or frozen fit initialization differs.')
+            before = winners[frame]
+            topology = before['vertices_camera'].shape, before['faces']
+            scores, flags, _, _ = stable._candidate(row, candidate, keypoints[0], K, shared, topology, report, True)
+            protection = _recovery_protection(keypoints[0], before, candidate)
+            item.update(scores=scores, screen_flags=flags, protection=protection)
+            if not flags and all(region['passed'] for region in protection.values()):
+                winners[frame], descriptors[frame], reports[frame] = candidate, descriptor, report
+                item['status'] = 'promoted'
+                promoted.append(frame)
+            else:
+                item['status'] = 'rejected'
+        except (RuntimeError, OSError, KeyError, TypeError, ValueError) as error:
+            item.update(status='recovery_error', detail=str(error))
+    check_bound(inputs['bound'])
+    if promoted:
+        selection = stable.select_frames(inputs, winners, scope=scope, reports=reports, shared_betas=shared,
+                                         allow_empty=True)
+    receipt = dict(attempted=len(jobs), promoted_frames=promoted, bins=planned,
+                   remaining_missing_bins={side: details['missing_source_bins']
+                                           for side, details in selection['coverage'].items()},
+                   protected_holdouts=scope['retained_holdouts'], quality_accepted=False,
+                   plan_sha256=rt.sha(destination/'plan.json'),
+                   baseline_selection_sha256=rt.sha(destination/'baseline-selection.json'))
+    path = destination/'result.json'
+    rt.save(path, receipt)
+    return selection, dict(path=str(path), sha256=rt.sha(path), attempted=len(jobs), promoted_frames=promoted)
 
 
 def _selection_inputs(inputs, ordered, reference):
@@ -343,11 +481,13 @@ def fit_named_sequence(*, frames_path, observations_path, root, official_root, a
             anchors = list(samples['front']) + list(samples['rear'])
             anchor_root = root/'fit/shape-anchors'
             anchor_root.mkdir()
-            accepted, anchor_receipts = [], []
+            accepted, anchor_receipts, shape_anchor_seeds = [], [], {}
             for frame, arrays, desc in fits(anchors, anchor_root, shared, shared is not None):
                 anchor_receipts.append(desc)
                 if np.isfinite(arrays['vertices_camera']).all() and (arrays['vertices_camera'][..., 2] > .05).all():
                     accepted.append(arrays)
+                    if _usable_latent(arrays):
+                        shape_anchor_seeds[frame] = (arrays['pose_embedding'], desc)
             if not accepted:
                 raise ValueError('No positive-depth official shape anchor.')
             if shared is None:
@@ -378,8 +518,15 @@ def fit_named_sequence(*, frames_path, observations_path, root, official_root, a
             hashes = {report.get('shared_body_target_sha256') for report in reports.values()}
             if len(hashes) != 1 or None in hashes:
                 raise ValueError('Final fits did not use one shared body target.')
-            selection = stable_selection.select_frames(inputs, winners, scope=scope, reports=reports, shared_betas=shared)
+            selection = stable_selection.select_frames(inputs, winners, scope=scope, reports=reports,
+                                                        shared_betas=shared, allow_empty=True)
+            if not selection['full_bin_coverage']:
+                selection, extra['pose_recovery'] = _recover_missing_bins(
+                    root, inputs, scope, selection, winners, descriptors, reports,
+                    shared, shared_pose, shape_anchor_seeds, pool)
             selected = selection['selected_frames']
+            if not selected:
+                raise ValueError('No technically valid non-holdout poses for automatic training.')
             reference = reference_frame or selection['reference_frame']
             if reference not in selected:
                 raise ValueError('Requested reference did not pass the automatic training selection.')
