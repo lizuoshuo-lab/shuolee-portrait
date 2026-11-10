@@ -1,6 +1,7 @@
 """Fresh mesh-local Gaussian training. This is a local SMPL-X adapter."""
 import argparse
 from collections import OrderedDict
+import json
 from pathlib import Path
 from types import SimpleNamespace
 import time
@@ -199,7 +200,6 @@ def verify_official_fit(root):
         check_result(result, row)
         checked_image(row)
         if (result.get('state') != 'complete' or result.get('frame_id') != item['frame_id'] or
-                result.get('upstream_loss_monitor_optimizer_unchanged') is not True or
                 result.get('five_stages') is not True or not result.get('official_commit')):
             raise ValueError('Official frame fitting is not complete: ' + item['frame_id'])
         if (result.get('source_frame_index') != row['source_frame_index'] or
@@ -217,8 +217,240 @@ def verify_official_fit(root):
 
 
 def train_official(root, cfg):
-    """Use the existing numerical loop on hash-bound official named fits."""
+    """Train on hash-bound official named fits using the requested profile."""
+    if cfg.get('gaussian_profile') == 'smpl_sh0':
+        return _train_smpl_sh0(Path(root))
     return _train_static(Path(root), cfg, execution_kind='official_smplifyx')
+
+
+def _uniform_laplacian(faces, vertex_count):
+    """Uniform degree-normalized edge Laplacian of the fixed mesh topology."""
+    edges = np.concatenate([faces[:, [0, 1]], faces[:, [1, 2]], faces[:, [2, 0]]])
+    edges = np.unique(np.concatenate([edges, edges[:, ::-1]]), axis=0)
+    edges = edges[edges[:, 0] != edges[:, 1]]
+    degrees = np.bincount(edges[:, 0], minlength=vertex_count)
+    diag = np.flatnonzero(degrees)
+    indices = np.concatenate([edges, np.column_stack([diag, diag])]).T
+    values = np.concatenate([1. / degrees[edges[:, 0]], -np.ones(len(diag))]).astype(np.float32)
+    return indices, values
+
+
+def _frozen_smpl_surface(fit, model_path):
+    """Replay official LBS and capture its fixed per-vertex linear transform."""
+    from unittest.mock import patch
+    import smplx
+    import smplx.lbs as lbs
+    import torch
+
+    body = smplx.SMPLX(str(model_path), batch_size=1, num_betas=10, num_expression_coeffs=10,
+        use_pca=True, num_pca_comps=12, flat_hand_mean=False, use_face_contour=False,
+        create_body_pose=False, create_transl=False, dtype=torch.float32).eval().requires_grad_(False)
+    faces = fit['faces']
+    if not np.array_equal(body.faces, faces):
+        raise ValueError('Official SMPL-X fit and training asset topology differ.')
+    dominant = body.lbs_weights.argmax(-1).numpy()
+    protected = np.isin(dominant, [12, 15, 22, 23, 24])
+    with np.load(model_path, allow_pickle=False) as archive:
+        landmarks = np.concatenate([body.lmk_faces_idx.flatten().numpy(), archive['dynamic_lmk_faces_idx'].flatten()])
+    if not len(landmarks) or landmarks.min() < 0 or landmarks.max() >= len(faces):
+        raise ValueError('SMPL-X facial landmark faces differ from the fitted topology.')
+    protected[faces[landmarks].reshape(-1)] = True
+    clothing = np.isin(dominant, [0, 1, 2, 3, 4, 5, 6, 9, 13, 14, 16, 17, 18, 19]) & ~protected
+    base, linear = [], []
+    original = lbs.batch_rigid_transform
+    fields = ('global_orient', 'expression', 'jaw_pose', 'leye_pose', 'reye_pose', 'left_hand_pose', 'right_hand_pose')
+    tensor = lambda x: torch.as_tensor(x, dtype=torch.float32)
+    with torch.no_grad():
+        for i in range(len(fit['frame_ids'])):
+            captured = []
+
+            def capture(*args, **kwargs):
+                result = original(*args, **kwargs)
+                captured.append(result[1])
+                return result
+
+            params = {key: tensor(fit[key][i:i+1]) for key in fields}
+            with patch.object(lbs, 'batch_rigid_transform', capture):
+                output = body(**params, body_pose=tensor(fit['body_pose_axis_angle'][i:i+1]),
+                              betas=tensor(fit['shared_betas']), return_verts=True)
+            [transforms] = captured
+            transforms = (body.lbs_weights @ transforms[0].reshape(-1, 16)).reshape(-1, 4, 4)
+            E = tensor(fit['w2c'][i])
+            base.append((output.vertices[0] + tensor(fit['camera_translation'][i]) - E[:3, 3]) @ E[:3, :3])
+            linear.append(E[:3, :3].T @ transforms[:, :3, :3])
+    base, linear = torch.stack(base), torch.stack(linear)
+    error = float((base - tensor(fit['vertices_world'])).abs().max())
+    if not np.isfinite(error) or error >= 2e-6 or not torch.isfinite(linear).all():
+        raise RuntimeError(f'Frozen official SMPL-X mesh replay differs by {error} m.')
+    return base, linear, clothing, protected, error
+
+
+def _masked_native_target(row):
+    import torch
+    with Image.open(row['image']) as source, Image.open(row['mask']) as mask:
+        if source.size != tuple(row['wh']) or mask.size != source.size:
+            raise ValueError('Native RGB or mask size differs: ' + row['frame'])
+        rgb = torch.from_numpy(np.array(source.convert('RGB'))).permute(2, 0, 1)
+        alpha = torch.from_numpy(np.array(mask.convert('L')))[None]
+    # Match the audited CPU composition before caching the float32 target.
+    return rgb.float().div(255) * alpha.float().div(255)
+
+
+def _train_smpl_sh0(root):
+    import random
+    import torch
+    from arguments import OptimizationParams
+    from gaussian_renderer import render
+    from roma import quat_xyzw_to_wxyz, rotmat_to_unitquat
+    from scene.gaussian_model import GaussianModel
+    from scene.smplx_gaussian_model import SMPLXGaussianModel
+    from utils.graphics_utils import compute_face_orientation
+    from utils.loss_utils import l1_loss, ssim
+
+    official = verify_official_fit(root)
+    with np.load(root/'fit/fitted.npz', allow_pickle=False) as archive:
+        fit = dict(archive)
+    rows = rt.read(root/'data/training-inputs.json')['records']
+    layout = named_pose_layout(fit, rows)
+    reference = layout['reference_pose_index']
+    reference_row = next(i for i, row in enumerate(rows) if row['frame'] == layout['reference_frame_id'])
+    cameras, records = zip(*(camera(row, i, pose_index=layout['pose_indices'][i]) for i, row in enumerate(rows)))
+    torch.set_num_threads(4)
+    base, linear, clothing, protected, replay_error = _frozen_smpl_surface(fit, rt.ASSETS/'smplx/SMPLX_NEUTRAL.npz')
+    torch.backends.cuda.matmul.allow_tf32 = False
+    random.seed(0); torch.manual_seed(0); torch.cuda.manual_seed_all(0); np.random.seed(0)
+    parser = argparse.ArgumentParser()
+    options = OptimizationParams(parser).extract(parser.parse_args([]))
+    options.iterations = 10000
+    options.position_lr_max_steps = options.densify_until_iter = 18000
+    options.densify_from_iter, options.densification_interval, options.opacity_reset_interval = 300, 60, 1800
+    options.lambda_laplacian = 1e6
+
+    class SharedSurface(SMPLXGaussianModel):
+        def posed_vertices(self, slot):
+            delta = self.static_offset * self.clothing[:, None]
+            return self.base[slot] + (self.linear[slot] @ delta[..., None]).squeeze(-1)
+
+        def select_mesh_by_timestep(self, timestep, original=False):
+            self.timestep = int(timestep)
+            verts = self.posed_vertices(self.timestep)
+            self.face_center = verts[self.faces].mean(1)
+            self.face_orien_mat, scaling = compute_face_orientation(verts, self.faces, return_scale=True)
+            self.face_scaling = scaling.clamp_min(1e-8)
+            self.face_orien_quat = quat_xyzw_to_wxyz(rotmat_to_unitquat(self.face_orien_mat))
+
+    model = SharedSurface(0)
+    model.base, model.linear = base.cuda(), linear.cuda()
+    del linear
+    model.clothing = torch.as_tensor(clothing, device='cuda')
+    model.static_offset = torch.nn.Parameter(torch.zeros_like(model.base[0]))
+    model.faces = torch.as_tensor(fit['faces'], dtype=torch.long, device='cuda')
+    model.num_timesteps = len(base)
+    model.binding = torch.arange(len(model.faces), device='cuda')
+    model.binding_counter = torch.ones(len(model.faces), dtype=torch.int32, device='cuda')
+    with torch.no_grad():
+        model.select_mesh_by_timestep(reference)
+        model.create_from_pcd(None, 1.)
+    model.training_setup(options)
+    model.optimizer.add_param_group(dict(params=[model.static_offset], lr=1e-6, name='static_offset'))
+    indices, values = _uniform_laplacian(fit['faces'], len(clothing))
+    laplacian = torch.sparse_coo_tensor(indices, values, (len(clothing), len(clothing)), device='cuda').coalesce()
+    targets = [_masked_native_target(row).cuda() for row in rows]
+    loader = torch.utils.data.DataLoader(range(len(rows)), batch_size=None, shuffle=True, num_workers=0)
+    order = iter(loader)
+    pipe = SimpleNamespace(convert_SHs_python=False, compute_cov3D_python=False, debug=False)
+    bg = torch.zeros(3, device='cuda')
+    extent = float(np.linalg.norm(np.ptp(fit['vertices_world'][reference], axis=0)))
+    if not 0 < extent < 10:
+        raise ValueError('Invalid reference mesh extent in meters.')
+    out = root/'gaussian-run'; out.mkdir()
+    rt.save(out/'training-cameras.json', dict(records=records, source_sha256=official['training_inputs_sha256'], interpolated_cameras=0))
+    rt.save(out/'config.json', dict(gaussian_profile='smpl_sh0', execution_kind='official_smplifyx',
+        official_fit_provenance=official, optimization=vars(options), seed=0, native_resolution=True,
+        sh_degree=0, initial_points=len(model.faces), optimizer_initial_state_entries=len(model.optimizer.state),
+        cached_target_bytes=sum(t.numel()*t.element_size() for t in targets), fit_replay_max_abs_m=replay_error,
+        shared_clothing_offset_lr=1e-6, active_clothing_vertices=int(clothing.sum()), protected_head_vertices=int(protected.sum()),
+        target_composition='Native RGB times soft mask over black; original full-image L1 and DSSIM',
+        source_training_options='259/269 10k terminal and 18k schedules; stock renderer and model operations'))
+    if (root/'status.json').is_file():
+        status = rt.read(root/'status.json')
+        status.update(stage='training', training_started=True, updated=rt.now())
+        rt.save(root/'status.json', status)
+    counts = np.zeros(len(rows), dtype=int)
+    start = time.monotonic()
+    with (out/'loss.jsonl').open('x') as log:
+        for step in range(1, options.iterations+1):
+            model.update_learning_rate(step)
+            try:
+                i = next(order)
+            except StopIteration:
+                order = iter(loader)
+                i = next(order)
+            counts[i] += 1
+            slot = layout['pose_indices'][i]
+            pkg = render_pose(render, cameras[i], model, pipe, bg, slot)
+            rgb, visible = pkg['render'], pkg['visibility_filter']
+            delta = model.static_offset * model.clothing[:, None]
+            photo = ((1-options.lambda_dssim)*l1_loss(rgb, targets[i]) +
+                     options.lambda_dssim*(1-ssim(rgb, targets[i])))
+            xyz = (model._xyz[visible].norm(dim=1)-options.threshold_xyz).relu().mean()*options.lambda_xyz
+            scale = (model._scaling[visible].exp()-options.threshold_scale).relu().norm(dim=1).mean()*options.lambda_scale
+            lap = torch.sparse.mm(laplacian, delta).square().sum(-1).mean()*options.lambda_laplacian
+            loss = photo+xyz+scale+lap
+            loss.backward()
+            with torch.no_grad():
+                if step == 1:
+                    grads = [p.grad for g in model.optimizer.param_groups for p in g['params']]
+                    if (model.optimizer.state or any(g is None or not torch.isfinite(g).all() for g in grads)
+                            or not model.static_offset.grad.norm() > 0):
+                        raise RuntimeError('Fresh SH0 preflight did not produce finite gradients and a shared surface update.')
+                    rt.save(out/'preflight.json', dict(finite_backward=True, optimizer_updates=0,
+                        static_offset_gradient_norm=float(model.static_offset.grad.norm()),
+                        fit_replay_max_abs_m=replay_error))
+                if step == 1 or step % 100 == 0 or step == options.iterations:
+                    if not torch.isfinite(loss) or torch.count_nonzero(model.static_offset.grad[~model.clothing]):
+                        raise RuntimeError(f'Invalid SH0 loss or protected-vertex gradient at step {step}.')
+                    progress = dict(updated=rt.now(), stage='training', step=step, target_steps=options.iterations,
+                        points=len(model._xyz), loss=float(loss), rgb_loss=float(photo), laplacian_loss=float(lap),
+                        seconds=time.monotonic()-start, views_seen=int((counts>0).sum()), quality_accepted=False)
+                    rt.save(root/'progress.json', progress); log.write(json.dumps(progress)+'\n'); log.flush()
+                if step in (1000, options.iterations):
+                    snapshot = out/f'step-{step:06d}'; snapshot.mkdir()
+                    model.export_world_ply(snapshot/'world.ply', reference)
+                    reloaded = GaussianModel(0); reloaded.load_ply(str(snapshot/'world.ply'))
+                    native, diff = reference_ply_comparison(render, cameras[reference_row], model, reloaded, pipe, bg, reference)
+                    parity = dict(mean_abs=float(diff.mean()), max_abs=float(diff.max()))
+                    passed = parity['mean_abs'] < 2e-6 and parity['max_abs'] < .005
+                    mesh = model.posed_vertices(reference).cpu().numpy()
+                    if not np.isfinite(mesh).all() or not np.array_equal(mesh[protected], base[reference].numpy()[protected]):
+                        raise RuntimeError('Nonfinite or displaced protected reference geometry.')
+                    np.savez_compressed(snapshot/'reference-mesh.npz', vertices_world=mesh, faces=fit['faces'],
+                        reference_frame_id=layout['reference_frame_id'], reference_pose_index=reference,
+                        static_offset=delta.cpu().numpy())
+                    image(native).save(snapshot/'reference-render.png')
+                    rt.save(snapshot/'native-ply-parity.json', dict(passed=passed, checks=[parity],
+                        sha256=rt.sha(snapshot/'world.ply'), mesh_sha256=rt.sha(snapshot/'reference-mesh.npz'),
+                        reference_frame_id=layout['reference_frame_id'], reference_pose_index=reference))
+                    if not passed:
+                        raise RuntimeError('SH0 PLY does not reproduce native reference geometry.')
+                    model.select_mesh_by_timestep(slot)
+                    del reloaded, native, diff
+                model.max_radii2D[visible] = torch.maximum(model.max_radii2D[visible], pkg['radii'][visible])
+                model.add_densification_stats(pkg['viewspace_points'], visible)
+                if step > options.densify_from_iter and step % options.densification_interval == 0:
+                    size = 20 if step > options.opacity_reset_interval else None
+                    model.densify_and_prune(options.densify_grad_threshold, .005, extent, size)
+                    if len(model._xyz) >= 1200000 or int(model.binding_counter.min()) < 1:
+                        raise RuntimeError('Point budget or triangle coverage exceeded the SH0 safety bounds.')
+                if step % options.opacity_reset_interval == 0:
+                    model.reset_opacity()
+                if step < options.iterations:
+                    model.optimizer.step(); model.optimizer.zero_grad(set_to_none=True)
+    rt.save(out/'result.json', dict(state='completed', from_scratch=True, steps=options.iterations,
+        execution_kind='official_smplifyx', gaussian_profile='smpl_sh0', sh_degree=0, points=len(model._xyz),
+        schedule_steps=options.position_lr_max_steps, formal_training_admitted=False, quality_accepted=False,
+        per_frame_updates=counts.tolist(), pose_layout=layout, reference_frame_id=layout['reference_frame_id'],
+        final_snapshot=f'step-{options.iterations:06d}'))
 
 
 def _train_static(root, cfg, *, execution_kind='formal_training'):

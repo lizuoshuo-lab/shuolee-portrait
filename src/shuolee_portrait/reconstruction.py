@@ -71,6 +71,11 @@ def camera_configuration(path, source_wh):
     effective.update(sample_fps=3, intrinsics=profile)
     effective['camera_length_contract'] = cfg.get('camera_length_contract')
     effective['official_smplifyx'] = cfg.get('official_smplifyx')
+    if 'capture_layout' in cfg:
+        layout = cfg['capture_layout']
+        if not isinstance(layout, dict) or layout.get('arc') not in ('half', 'full'):
+            raise ValueError('capture_layout requires arc half or full.')
+        effective['capture_layout'] = layout
     return cfg, effective
 
 
@@ -116,7 +121,7 @@ def sequence_pipeline():
     return implementation.reconstruct
 
 
-def train_video(video, deployment, camera_config, *, output=None, reference_frame='frame_000001'):
+def train_video(video, deployment, camera_config, *, output=None, reference_frame=None):
     profile = rt.read(deployment)
     if profile.get('schema') not in ('shuolee-deployment119-v1', 'smplx-deployment-v1'):
         raise ValueError('Run bash deploy.sh to create the deployment configuration.')
@@ -141,7 +146,7 @@ def train_video(video, deployment, camera_config, *, output=None, reference_fram
                 'Use scripts/train.sh with the Python environment recorded by deployment.')
         if not video.is_file():
             raise FileNotFoundError(video)
-        if re.fullmatch(r'frame_[0-9]{6}', reference_frame) is None:
+        if reference_frame is not None and re.fullmatch(r'frame_[0-9]{6}', reference_frame) is None:
             raise ValueError('reference-frame must be an extracted frame ID, for example frame_000001.')
         digest = rt.sha(video)
         video_info = inspect_video(video)
@@ -149,6 +154,12 @@ def train_video(video, deployment, camera_config, *, output=None, reference_fram
         stage = 'camera_input'
         camera_digest = rt.sha(camera_config)
         camera, cfg = camera_configuration(camera_config, video_info['source_wh'])
+        if 'capture_layout' in cfg:
+            layout_sha = cfg['capture_layout'].get('video_sha256')
+            if not isinstance(layout_sha, str) or layout_sha.lower() != digest:
+                raise ValueError('capture_layout video_sha256 does not match the supplied video.')
+        else:
+            reference_frame = reference_frame or 'frame_000001'
         from .official_deployment import fitting_options
         cfg['official_smplifyx'] = fitting_options(cfg['official_smplifyx'], profile)
         if rt.sha(camera_config) != camera_digest or rt.sha(video) != digest:
@@ -183,7 +194,7 @@ def main(argv=None):
     p = commands.add_parser('train', help='Reconstruct one video using its camera configuration.')
     p.add_argument('video', type=Path)
     p.add_argument('--camera-config', type=Path, required=True)
-    p.add_argument('--reference-frame', default='frame_000001')
+    p.add_argument('--reference-frame', help='Optional selected frame. Defaults to automatic for capture_layout, first frame for legacy configuration.')
     p.add_argument('--deployment', type=Path, default=Path.home() / 'smpl-x/queue/deployment.json')
     p.add_argument('--output', type=Path)
     p = commands.add_parser('status', help='Read the recorded result or first failure.')

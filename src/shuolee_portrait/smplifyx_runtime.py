@@ -26,3 +26,34 @@ def cache_static_topology(body):
     return dict(optimization='invariant55_node_parent_indices_on_CPU',
                 all_float_model_parameters_on_CUDA=True, topology_values=ids,
                 objective_optimizer_precision_unchanged=True)
+
+
+SHARED_BODY_WEIGHT = 30.
+
+
+def install_shared_body_loss(fitting, target, trace):
+    """Add the validated body-only rotation term to a freshly loaded loss factory."""
+    from smplx.lbs import batch_rodrigues
+
+    original_factory = fitting.create_loss
+    original_loss = fitting.SMPLifyLoss
+    target_rotations = batch_rodrigues(target.reshape(-1, 3)).reshape(1, 21, 3, 3).detach()
+
+    class SharedBodyLoss(original_loss):
+        def forward(self, body_model_output, *args, **kwargs):
+            loss = super().forward(body_model_output, *args, **kwargs)
+            pose = body_model_output.full_pose
+            rotations = batch_rodrigues(pose[:, :66].reshape(-1, 3)).reshape(-1, 22, 3, 3)
+            difference = rotations[:, 1:] - target_rotations
+            penalty = SHARED_BODY_WEIGHT * (.5 * difference.square().sum(dim=(-2, -1))).sum()
+            trace['calls'] += 1
+            trace['last'] = penalty.detach()
+            return loss + penalty
+
+    def create_loss(loss_type='smplify', **kwargs):
+        if loss_type == 'smplify':
+            return SharedBodyLoss(**kwargs)
+        return original_factory(loss_type=loss_type, **kwargs)
+
+    # Upstream SMPLifyLoss uses explicit super(SMPLifyLoss, self); keep its global name.
+    fitting.create_loss = create_loss

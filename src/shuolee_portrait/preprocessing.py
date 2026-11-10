@@ -54,7 +54,7 @@ def sampling_indices(times, sample_fps=SAMPLE_FPS):
     return grids, ids
 
 
-def extract_dual_resolution(video, root, cfg):
+def extract_dual_resolution(video, root, cfg, *, native_only=False):
     """Decode each selected source frame once, then derive both image sizes."""
     import cv2
     from .video119 import validate_video_stream
@@ -73,13 +73,22 @@ def extract_dual_resolution(video, root, cfg):
         raise ValueError('Expected exactly one selected video stream.')
     stream = info['streams'][0]
     validate_video_stream(stream)
-    contract = resolution_contract([int(stream['width']), int(stream['height'])])
+    source_wh = [int(stream['width']), int(stream['height'])]
+    if native_only:
+        identity = np.eye(3).tolist()
+        contract = dict(schema='smplx-native-preprocessing-v1', sample_fps=SAMPLE_FPS, source_wh=source_wh,
+            gaussian_wh=source_wh, source_to_GS_integer=identity, gaussian_divisor=1,
+            second_undistortion=False, physical_calibration_accepted=False)
+    else:
+        contract = resolution_contract(source_wh)
     times = np.asarray([float(f['best_effort_timestamp_time']) for f in info['frames']])
     grids, ids = sampling_indices(times, cfg['sample_fps'])
     if not cfg['min_frames'] <= len(ids) <= cfg['max_frames']:
         raise ValueError(f'{len(ids)} samples at 3 fps exceed the declared '
                          f'{cfg["min_frames"]}..{cfg["max_frames"]} frame budget; no silent truncation.')
-    (root/'raw').mkdir(); (root/'pose').mkdir()
+    (root/'raw').mkdir()
+    if not native_only:
+        (root/'pose').mkdir()
     vf = 'select=' + '+'.join(f'eq(n\\,{int(i)})' for i in ids)
     with (root/'logs/decode.log').open('w') as log:
         subprocess.run(['ffmpeg', '-nostdin', '-hide_banner', '-v', 'warning', '-n',
@@ -93,25 +102,30 @@ def extract_dual_resolution(video, root, cfg):
         with Image.open(path) as im:
             if list(im.size) != contract['source_wh']:
                 raise ValueError('Decoded source dimensions changed; no implicit rotation or crop.')
-            rgb = np.array(im.convert('RGB'))
-        small = root/'pose'/path.name
-        Image.fromarray(cv2.resize(rgb, contract['pose_wh'], interpolation=cv2.INTER_AREA)).save(small)
-        if contract['gaussian_wh'] != contract['source_wh']:
-            # This is our newly decoded copy. The source video is never modified.
-            Image.fromarray(cv2.resize(rgb, contract['gaussian_wh'], interpolation=cv2.INTER_AREA)).save(path)
+            if not native_only:
+                rgb = np.array(im.convert('RGB'))
+        if not native_only:
+            small = root/'pose'/path.name
+            Image.fromarray(cv2.resize(rgb, contract['pose_wh'], interpolation=cv2.INTER_AREA)).save(small)
+            if contract['gaussian_wh'] != contract['source_wh']:
+                # This is our newly decoded copy. The source video is never modified.
+                Image.fromarray(cv2.resize(rgb, contract['gaussian_wh'], interpolation=cv2.INTER_AREA)).save(path)
         identity = dict(frame=path.stem, name=path.name, source_frame_index=int(idx),
             time_seconds=float(times[idx]), target_time_seconds=float(grid),
             sampling_error_seconds=float(times[idx]-grid))
         gs_rows.append(dict(identity, image=str(path), source_sha256=rt.sha(path), wh=contract['gaussian_wh']))
-        pose_rows.append(dict(identity, image=str(small), source_sha256=rt.sha(small), wh=contract['pose_wh']))
+        if not native_only:
+            pose_rows.append(dict(identity, image=str(small), source_sha256=rt.sha(small), wh=contract['pose_wh']))
     if rt.sha(video) != digest:
         raise ValueError('Source video changed during preprocessing.')
     metadata = dict(video_sha256=digest, decoded_total=len(times), sample_fps=SAMPLE_FPS,
         source_indices=ids.tolist(), preprocessing=contract,
         sampling='Nearest real source PTS to t0+n/3; earlier frame on ties; no interpolation',
-        decoder='FFmpeg noautorotate; shared source frames; explicit INTER_AREA resizing')
+        decoder=('FFmpeg noautorotate, native pixels' if native_only else
+                 'FFmpeg noautorotate; shared source frames; explicit INTER_AREA resizing'))
     rt.save(root/'decoded.json', dict(metadata, records=gs_rows, pixel_domain='GS'))
-    rt.save(root/'decoded-pose.json', dict(metadata, records=pose_rows, pixel_domain='pose'))
+    if not native_only:
+        rt.save(root/'decoded-pose.json', dict(metadata, records=pose_rows, pixel_domain='pose'))
     rt.save(root/'pixel-contract.json', contract)
     return contract
 

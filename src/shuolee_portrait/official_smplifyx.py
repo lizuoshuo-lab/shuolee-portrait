@@ -1,6 +1,7 @@
 """Single-frame upstream SMPLify-X entry with explicit input/output adapters.
 
-The pinned five-stage loop, loss, FittingMonitor and vendored LBFGS are executed.
+The pinned five-stage loop, base loss, FittingMonitor and vendored LBFGS are executed.
+An optional shared pose adds a single body rotation term to the base loss.
 No sequence optimizer or cross-frame shape policy is implemented here. The
 caller may provide one shared beta vector and explicitly freeze it for this fit.
 """
@@ -135,10 +136,25 @@ def load_official(root):
     return utils, prior, fitting, optimizer
 
 
+def decode_shared_body_pose(vposer2, latent, *, device):
+    """Decode one frozen 32D shared VPoser latent into 21 body joint rotations."""
+    import torch
+
+    latent = np.asarray(latent, dtype=np.float32)
+    need(latent.shape in ((32,), (1, 32)) and np.isfinite(latent).all(),
+         'Expected one finite 32-vector shared body latent.')
+    with torch.no_grad():
+        encoded = torch.as_tensor(latent, dtype=torch.float32, device=device).reshape(1, 32)
+        decoded = vposer2.decode(encoded)['pose_body']
+        need(decoded.numel() == 63 and torch.isfinite(decoded).all().item(),
+             'Shared body latent must decode to 21 finite axis-angle rotations.')
+        return decoded.reshape(1, 63).cpu().numpy().copy()
+
+
 def fit_one(*, official_root, image, keypoints, K_integer_centers, body_model,
             vposer2, result_path, shared_betas, freeze_betas,
-            device, diff_path):
-    """One frame only. Caller explicitly decides shared_betas/freeze_betas."""
+            device, diff_path, shared_body_pose=None):
+    """One frame only, optionally with the supplied frozen shared body rotations."""
     import cv2
     import torch
     import torch.nn as nn
@@ -146,11 +162,22 @@ def fit_one(*, official_root, image, keypoints, K_integer_centers, body_model,
 
     need(isinstance(freeze_betas, bool), 'freeze_betas must be explicit bool.')
     need(not freeze_betas or shared_betas is not None, 'Frozen betas require an explicit shared vector.')
+    if shared_body_pose is not None:
+        need(freeze_betas, 'Shared body rotations require frozen shared betas.')
+        shared_body_pose = np.asarray(shared_body_pose, dtype=np.float32)
+        need(shared_body_pose.shape in ((63,), (1, 63)) and np.isfinite(shared_body_pose).all(),
+             'Expected one finite 63-vector of shared body rotations.')
     source, diff = adapted_entry_source(official_root)
     Path(diff_path).write_text(diff, encoding='utf-8')
     utils, prior, fitting, optimizer = load_official(official_root)
     dtype = torch.float32
     dev = torch.device(device)
+    if shared_body_pose is not None:
+        from .smplifyx_runtime import SHARED_BODY_WEIGHT, install_shared_body_loss
+
+        body_loss_trace = {'calls': 0}
+        target = torch.as_tensor(shared_body_pose, dtype=dtype, device=dev)
+        install_shared_body_loss(fitting, target, body_loss_trace)
     K = torch.as_tensor(np.asarray(K_integer_centers), dtype=dtype, device=dev).clone()
     need(tuple(K.shape) == (3,3) and torch.isfinite(K).all().item(), 'Expected finite complete 3x3 K.')
     need(torch.equal(K[2], K.new_tensor([0,0,1])) and K[1,0].item() == 0 and
@@ -234,8 +261,8 @@ def fit_one(*, official_root, image, keypoints, K_integer_centers, body_model,
                   joints_projected_native=projected.cpu().numpy(), faces=np.asarray(body_model.faces),
                   K_integer_centers=np.asarray(K_integer_centers).copy(), K_compute_float32=K.cpu().numpy())
     need(all(np.isfinite(a).all() for a in arrays.values()), 'Winner export contains nonfinite values.')
-    return arrays, dict(official_commit=COMMIT, source_hashes=PINNED,
-        upstream_loss_monitor_optimizer_unchanged=True, five_stages=True,
+    report = dict(official_commit=COMMIT, source_hashes=PINNED,
+        upstream_loss_monitor_optimizer_unchanged=shared_body_pose is None, five_stages=True,
         initialization='Official zero VPoser latent / mean pose / zero shape unless explicit shared SMPLify-X beta supplied',
         gvhmr_used=False, camera_initialization='Upstream guess_init on K-inverse normalized native 2D, focal=1; unchanged camera loss/monitor',
         interpenetration=False, collision_status='Existing local configuration; no collision assets downloaded.',
@@ -244,6 +271,15 @@ def fit_one(*, official_root, image, keypoints, K_integer_centers, body_model,
         winning_loss=float(result['winner']['loss']), coordinate_system='opencv_camera_model_meters',
         translation_applied_once=True, full_K_integer_centers=True,
         external_world_camera_used=False, physical_camera_calibration_accepted=False)
+    if shared_body_pose is not None:
+        need(body_loss_trace['calls'] > 0 and torch.isfinite(body_loss_trace['last']).item(),
+             'Shared body loss did not produce a finite evaluation.')
+        report.update(original_optimizer_and_monitor=True, shared_body_pose_soft=True,
+                      shared_body_weight=SHARED_BODY_WEIGHT, shared_root_weight=0.,
+                      shared_body_loss_calls=body_loss_trace['calls'],
+                      last_evaluated_body_loss=float(body_loss_trace['last']),
+                      shared_body_target_sha256=hashlib.sha256(shared_body_pose.tobytes()).hexdigest())
+    return arrays, report
 
 
 def relative_confidence(scores,boxes,flip_disagreement):
@@ -292,7 +328,9 @@ def create_models(*, official_root, assets, device='cuda', static_topology=True)
     import torch
     from .smplifyx_runtime import cache_static_topology
 
-    need(torch.device(device).type == 'cuda', 'The validated fitting runtime requires CUDA.')
+    dev = torch.device(device).type
+    need(dev == 'cuda' or (dev == 'cpu' and static_topology is False),
+         'CPU fitting requires the original uncached topology path.')
     need(type(static_topology) is bool, 'static_topology must be an explicit bool.')
     adapted_entry_source(official_root)  # Verify pinned code before loading it.
     utils, _, _, _ = load_official(official_root)
@@ -316,12 +354,14 @@ def create_models(*, official_root, assets, device='cuda', static_topology=True)
 
 def fit_frame(*, official_root, image, keypoints, K_integer_centers, body_model,
               vposer2, result_path, shared_betas, freeze_betas, device, diff_path,
-              static_topology=True):
-    """Validated single-frame entry; shared-shape decisions stay with the caller."""
+              static_topology=True, shared_body_pose=None):
+    """Validated single-frame entry; shared-shape and pose decisions stay with the caller."""
     import torch
     from .smplifyx_runtime import cache_static_topology
 
-    need(torch.device(device).type == 'cuda', 'The validated fitting runtime requires CUDA.')
+    dev = torch.device(device).type
+    need(dev == 'cuda' or (dev == 'cpu' and static_topology is False),
+         'CPU fitting requires the original uncached topology path.')
     need(type(static_topology) is bool, 'static_topology must be an explicit bool.')
     image = np.asarray(image)
     need(image.dtype == np.float32 and image.ndim == 3 and image.shape[2] == 3
@@ -333,12 +373,14 @@ def fit_frame(*, official_root, image, keypoints, K_integer_centers, body_model,
          'Expected 1x118x3 native keypoints with explicitly adapted relative confidence.')
     need(type(freeze_betas) is bool and (not freeze_betas or shared_betas is not None),
          'freeze_betas must be explicit; frozen shape requires shared_betas.')
+    need(shared_body_pose is None or freeze_betas, 'Shared body rotations require frozen shared betas.')
     for path in (Path(result_path), Path(diff_path)):
         need(not path.exists(), 'Use fresh result and diff paths; preserve previous fits.')
     topology = cache_static_topology(body_model) if static_topology else None
     arrays, report = fit_one(official_root=official_root, image=image, keypoints=keypoints,
         K_integer_centers=K_integer_centers, body_model=body_model, vposer2=vposer2,
         result_path=result_path, shared_betas=shared_betas, freeze_betas=freeze_betas,
-        device=device, diff_path=diff_path)
+        device=device, diff_path=diff_path,
+        **({'shared_body_pose': shared_body_pose} if shared_body_pose is not None else {}))
     report['runtime_optimization'] = topology
     return arrays, report

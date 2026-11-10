@@ -1,6 +1,8 @@
 """Fresh video to official named fits, existing Gaussian training and generic PLY."""
 from pathlib import Path
 
+import numpy as np
+
 from . import runtime as rt
 from .camera_world_units import validate_camera_length_contract
 
@@ -8,6 +10,34 @@ OBSERVATION_ASSETS = ('detection/yolov8n.pt', 'sam2/sam2.1_hiera_tiny.pt',
                       'rtmw/rtmw-l-384x288.onnx', 'rtmw/normalization.json')
 GAUSSIAN_CONFIG = dict(initial_points=200000, iterations=18000, training_height=None,
                        seed=6060, image_cache_frames=8, export_frame_mode='scene_up_keep_axis_order')
+
+
+def prepare_native(video, root, cfg, assets):
+    """Stable camera-relative route, using explicit native K and stock observations."""
+    from .observations import observe
+    from .preprocessing import extract_dual_resolution
+    from .video119 import fixed_intrinsics
+
+    contract = extract_dual_resolution(video, root, cfg, native_only=True)
+    decoded = rt.read(root/'decoded.json')
+    wh = contract['source_wh']
+    Ki, _ = fixed_intrinsics(cfg['intrinsics'], wh, wh)
+    K = Ki.copy()
+    K[:2, 2] += .5
+    identity = np.eye(4).tolist()
+    rows = [dict(row, K=K.tolist(), K_integer_centers=Ki.tolist(), w2c=identity,
+                 mask=None, mask_sha256=None, official_prediction_slot=i, observation_weight=1.,
+                 camera_kind='camera_relative_fixedK_body_motion',
+                 camera_registration=dict(static_trajectory_claim=False, interpolation_used=False))
+            for i, row in enumerate(decoded['records'])]
+    manifest = dict(records=rows, video_sha256=decoded['video_sha256'], from_scratch=True,
+        pixel_domain='Already rectified native MP4 pixels', sample_fps=3, conditional_K=True,
+        camera_source='Identity per-view camera in native SMPLify-X coordinates, no static trajectory claim',
+        formal_calibration_accepted=False, physical_calibration_accepted=False)
+    rt.save(root/'data/inputs.json', manifest)
+    rt.configure(assets, root)
+    rt.verify_assets(OBSERVATION_ASSETS)
+    observe(root, cfg)
 
 
 def reconstruct(*, video, root, assets, configuration, reference_frame):
@@ -35,27 +65,40 @@ def reconstruct(*, video, root, assets, configuration, reference_frame):
             'official_smplifyx requires source_root and shape_policy only.')
     read_shape_policy(options['shape_policy'])
     adapted_entry_source(options['source_root'])
-    length = validate_camera_length_contract(configuration.get('camera_length_contract'))
-    if length['basis'] == 'synthetic_known':
-        raise ReconstructionError('CAMERA_SCALE_UNRESOLVED', 'A synthetic scale cannot describe a real video.')
     cfg = dict(configuration, **GAUSSIAN_CONFIG,
                pixel_center_convention='renderer_corner_to_detector_integer')
+    stable = 'capture_layout' in cfg
+    if stable:
+        cfg['gaussian_profile'] = 'smpl_sh0'
+        length = dict(translation_unit='meters', meters_per_camera_unit=1., basis='model_conditioned',
+                      evidence='Per-frame camera identity; SMPLify-X body translation is in model metres.')
+        cfg['camera_length_contract'] = length
+    else:
+        length = validate_camera_length_contract(configuration.get('camera_length_contract'))
+        if length['basis'] == 'synthetic_known':
+            raise ReconstructionError('CAMERA_SCALE_UNRESOLVED', 'A synthetic scale cannot describe a real video.')
     rt.save(root / 'config.json', cfg)
     (root / 'data').mkdir(exist_ok=False)
     with gpu_lock():
         progress('prepare')
         # Only segmentation/detection/keypoint assets are required here; no image-to-3D prior.
-        prepare_video(video, root, cfg, assets, required_assets=OBSERVATION_ASSETS)
+        if stable:
+            prepare_native(video, root, cfg, assets)
+        else:
+            prepare_video(video, root, cfg, assets, required_assets=OBSERVATION_ASSETS)
         rt.configure(assets, root)
         model_assets = [r['path'] for r in rt.read(rt.PROJECT/'configs/server-assets.json')['files']
                         if r['path'].startswith(('smplx/', 'vposer/'))]
         rt.verify_assets(model_assets)
         progress('official_fit', full_preprocessing_complete=True)
-        fit_named_sequence(frames_path=root/'data/inputs.json', observations_path=root/'data/observations.npz',
+        stable_options = {'capture_layout': cfg['capture_layout']} if stable else {}
+        fit_result = fit_named_sequence(frames_path=root/'data/inputs.json', observations_path=root/'data/observations.npz',
             root=root, official_root=options['source_root'], assets=assets,
             camera_length_contract=dict(length), reference_frame=reference_frame,
-            shape_policy=options['shape_policy'])
-        progress('gaussian_inputs', fitting_complete=True)
+            shape_policy=options['shape_policy'], **stable_options)
+        if stable:
+            reference_frame = fit_result['selection']['reference_frame']
+        progress('gaussian_inputs', fitting_complete=True, reference_frame=reference_frame)
         train_official(root, cfg)
         progress('export', training_complete=True)
         export(root, cfg)
