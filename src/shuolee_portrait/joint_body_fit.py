@@ -12,7 +12,7 @@ from .coverage_refinement import _clip
 from .stable_selection import BODY, FACE, FEET
 
 
-CONFIG = dict(steps=80, batch_size=8, raster_long_edge=448, reliable_confidence=.15,
+CONFIG = dict(max_sweeps=120, batch_size=8, raster_long_edge=448, reliable_confidence=.15,
               outside_margin_px=1, outside_distance_cap_px=12, reprojection_unit_over_height=.03,
               latent_residual_l2_limit=8., root_update_max_rad=.55, translation_update_max_m=.12,
               shared_latent_lr=.025, residual_latent_lr=.055, root_lr=.013, translation_lr=.0032,
@@ -21,8 +21,10 @@ CONFIG = dict(steps=80, batch_size=8, raster_long_edge=448, reliable_confidence=
               anchor_weight=.015, root_trust_weight=.012, translation_trust_weight=.018,
               face_unit_px=2., face_guard_confidence=.5, face_guard_tolerance_px=.25,
               face_guard_weight=1., neck_head_update_max_rad=.25, neck_head_lr=.0075,
-              neck_head_trust_weight=.012, checkpoints=[0, 20, 40, 60, 80],
-              face_guard_backtracking=[.5, .25, .125, .0625, .03125])
+              neck_head_trust_weight=.012, shared_every=4, stable_sweeps=12,
+              objective_relative_stop=1e-5, screen_stop=1e-4,
+              trust_min=.0625, replay_margin_px=.02,
+              trial_fractions=(1., .5, .25, .125, .0625), projection_sweeps=4)
 FROZEN_FIELDS = ('left_hand_pose', 'right_hand_pose', 'jaw_pose', 'leye_pose', 'reye_pose', 'expression')
 GROUPS = {'body': BODY, 'feet': FEET, 'face': FACE, 'hands': np.arange(25, 67)}
 # The official adapter maps inner 68-point facial landmarks #17–67 to slots 67–117.
@@ -83,11 +85,13 @@ def _mean_joint_angle_degrees(first, second):
     return torch.rad2deg(torch.acos(((delta-1.)*.5).clamp(-1., 1.))).mean(1)
 
 
-def _centered_residual(values, limit):
-    centered = values - values.mean(dim=0, keepdim=True)
-    clipped = _bounded_rows(centered, limit)
-    clipped = clipped - clipped.mean(dim=0, keepdim=True)
-    return clipped * (limit / clipped.norm(dim=-1).max().clamp_min(limit))
+def _project_feasible_step(direction, normals, slack, sweeps):
+    """Project scaled row updates against the linearized supported inequalities."""
+    for _ in range(sweeps):
+        for normal, limit in zip(normals.unbind(1), slack.unbind(1)):
+            excess = ((direction*normal).sum(-1) - limit).clamp_min(0.)
+            direction = direction - normal*(excess/normal.square().sum(-1).clamp_min(1e-12))[:, None]
+    return direction
 
 
 def _project(points, K):
@@ -220,37 +224,35 @@ def _evaluate_joint(*, body, vposer, winners, rows, targets, intrinsics, beta, a
     face_points = face_support.sum(-1)
     neck_head_ids = torch.as_tensor(NECK_HEAD, device=device)
 
-    shared = torch.nn.Parameter(original_latent.mean(0, keepdim=True))
-    residual = torch.nn.Parameter(original_latent-shared.detach())
-    root_update = torch.nn.Parameter(torch.zeros_like(original_root))
-    translation_update = torch.nn.Parameter(torch.zeros_like(original_translation))
-    neck_head_update = torch.nn.Parameter(original_root.new_zeros((count, len(NECK_HEAD), 3)))
-    variables = [shared, residual, root_update, translation_update, neck_head_update]
-    learning_rates = [config[key] for key in
-                      ('shared_latent_lr', 'residual_latent_lr', 'root_lr', 'translation_lr', 'neck_head_lr')]
-    optimizer = torch.optim.Adam([{'params': [param], 'lr': lr} for param, lr in zip(variables, learning_rates)])
+    # Store the actual per-frame decode inputs. Recomputing the mean is only
+    # a gauge change: it never clips or moves an unedited frame's latent.
+    initial = torch.cat((original_latent, original_root.new_zeros(count, 12)), dim=1)
+    scale = initial.new_tensor([config['residual_latent_lr']]*32 + [config['root_lr']]*3
+                               + [config['translation_lr']]*3 + [config['neck_head_lr']]*6)
+    observed_regions = face_points > 0
+    face_limit = face_baseline + config['face_guard_tolerance_px'] - config['replay_margin_px']
 
-    def roots(slots):
-        rotation = _bounded_rows(root_update[slots], config['root_update_max_rad'])
+    def unpack(state, slots):
+        latent, root_delta, trans_delta, neck_delta = state.split((32, 3, 3, 6), dim=-1)
+        rotation = _bounded_rows(root_delta, config['root_update_max_rad'])
         root = matrix_to_axis_angle(axis_angle_to_matrix(rotation) @ original_root_matrix[slots])
-        displacement = _bounded_rows(translation_update[slots], config['translation_update_max_m'])
-        return root, original_translation[slots]+displacement, rotation, displacement
-
-    def pose_with_neck_head(decoded, slots):
-        matrices = decoded['pose_body_matrot'].reshape(-1, 21, 3, 3)
-        compensation = _bounded_rows(neck_head_update[slots], config['neck_head_update_max_rad'])
-        corrections = axis_angle_to_matrix(compensation) @ matrices[:, neck_head_ids]
-        angles = decoded['pose_body'].reshape(-1, 21, 3)
-        corrected = angles.index_copy(1, neck_head_ids, matrix_to_axis_angle(corrections))
-        return corrected.reshape(-1, 63), matrices, compensation
-
-    def energy(slots):
-        residual_used = _centered_residual(residual, config['latent_residual_l2_limit'])[slots]
-        latent = shared+residual_used
+        displacement = _bounded_rows(trans_delta, config['translation_update_max_m'])
         decoded = vposer.decode(latent)
-        body_pose, body_matrices, compensation = pose_with_neck_head(decoded, slots)
-        shared_matrix = vposer.decode(shared)['pose_body_matrot'].reshape(1, 21, 3, 3)
-        root, translation, rotation, displacement = roots(slots)
+        angles = decoded['pose_body'].reshape(-1, 21, 3)
+        matrices = decoded['pose_body_matrot'].reshape(-1, 21, 3, 3)
+        compensation = _bounded_rows(neck_delta.reshape(-1, 2, 3), config['neck_head_update_max_rad'])
+        corrections = axis_angle_to_matrix(compensation) @ matrices[:, neck_head_ids]
+        pose = angles.index_copy(1, neck_head_ids, matrix_to_axis_angle(corrections)).reshape(-1, 63)
+        return root, original_translation[slots]+displacement, pose, matrices, rotation, displacement, compensation
+
+    def pose_penalty(state, matrices, basis):
+        shared_matrix = vposer.decode(basis)['pose_body_matrot'].reshape(1, 21, 3, 3)
+        return (config['local_rotation_weight']*(matrices-shared_matrix).square().mean((1, 2, 3))
+                + config['latent_residual_weight']*(state[:, :32]-basis).square().mean(1)
+                + config['anchor_weight']*(shared_matrix-anchor_matrix).square().mean())
+
+    def energy(state, slots, basis):
+        root, translation, body_pose, body_matrices, rotation, displacement, compensation = unpack(state, slots)
         vertices, joints = _shape_output(body, beta, {k: v[slots] for k, v in fixed.items()},
                                        root, translation, body_pose)
         projected = _project(joints, K[slots])
@@ -271,10 +273,9 @@ def _evaluate_joint(*, body, vposer, winners, rows, targets, intrinsics, beta, a
         region_weights = face_weights[slots]
         face_robust = (torch.sqrt(1.+(pixel_error/unit).square())-1.)[:, None, :]
         face_region_loss = (face_robust*region_weights).sum(-1)/region_weights.sum(-1).clamp_min(1e-12)
-        observed_regions = face_points[slots] > 0
-        face_loss = face_region_loss.sum(-1)/observed_regions.sum(-1).clamp_min(1)
+        face_loss = face_region_loss.sum(-1)/observed_regions[slots].sum(-1).clamp_min(1)
         face_stats = _face_stats(pixel_error, region_weights, face_support[slots])
-        face_excess = (face_stats-face_baseline[slots]).masked_fill(~observed_regions[..., None], 0.)
+        face_excess = (face_stats-face_baseline[slots]).masked_fill(~observed_regions[slots, :, None], 0.)
         # The worst protected region per frame contributes a gradient as soon as
         # it starts to regress, before reaching the hard checkpoint tolerance.
         face_barrier = (face_excess.clamp_min(0.)/unit).amax((1, 2)).square()
@@ -285,21 +286,19 @@ def _evaluate_joint(*, body, vposer, winners, rows, targets, intrinsics, beta, a
         alpha = _raster_silhouette(dr, context, vertices, K[slots], faces, dimensions, raster_scale, antialias=True)
         silhouette = (alpha*exterior[slots]).sum((1, 2))/masks[slots].sum((1, 2))
         # One-sided silhouette allows clothing to extend beyond the bare mesh.
-        local_rotation = (body_matrices-shared_matrix).square().mean((1, 2, 3))
         trust = (config['root_trust_weight']*(rotation/config['root_update_max_rad']).square().sum(1)
                  +config['translation_trust_weight']*(displacement/config['translation_update_max_m']).square().sum(1)
                  +config['neck_head_trust_weight']*(compensation/config['neck_head_update_max_rad']).square().sum((1, 2)))
-        penalty = (config['local_rotation_weight']*local_rotation
-                   +config['latent_residual_weight']*residual_used.square().mean(1)
-                   +config['anchor_weight']*(shared_matrix-anchor_matrix).square().mean())
-        depth_penalty = 40.*(.10-vertices[..., 2].amin(1)).clamp_min(0.).square()
+        penalty = pose_penalty(state, body_matrices, basis)
+        depth = vertices[..., 2].amin(1)
+        depth_penalty = 40.*(.10-depth).clamp_min(0.).square()
         screened_positive = confidence[:, screened] > 0
-        eligible = (screened_positive[:, :len(BODY)].any(1) &
-                    (distance2[:, screened].masked_fill(~screened_positive, 0.).amax(1) <= 1.))
+        max_screen = (distance2[:, screened].masked_fill(~screened_positive, 0.).amax(1)+1e-12).sqrt()
+        eligible = screened_positive[:, :len(BODY)].any(1) & (max_screen <= 1.)
         terms = torch.stack([reprojection, config['face_weight']*face_loss, config['face_guard_weight']*face_barrier,
                              config['screen_tail_weight']*tail, config['silhouette_weight']*silhouette,
-                             penalty, trust, depth_penalty]).sum(1)/count
-        return terms, vertices[..., 2].amin(), eligible, face_stats
+                             penalty, trust, depth_penalty], dim=1)
+        return terms, depth, eligible, face_stats, max_screen
 
     @torch.no_grad()
     def replay_check():
@@ -316,99 +315,240 @@ def _evaluate_joint(*, body, vposer, winners, rows, targets, intrinsics, beta, a
         return dict(winner_vertices_max_abs_m=geometry_error, winner_joints_max_abs_m=joint_error,
                     winner_projection_max_abs_px=projection_error, mapped_keypoints=original_pixels.shape[1])
 
-    def snapshot():
-        return [param.detach().clone() for param in variables]
+    def latent_basis(state):
+        return state[:, :32].mean(0, keepdim=True)
+
+    def residual_bound(state):
+        return (state[:, :32]-latent_basis(state)).norm(dim=-1).max() <= config['latent_residual_l2_limit']
+
+    def feasible(part, slots, eligible):
+        _, depth, passes_body, face, _ = part
+        return ((depth > .05) & torch.isfinite(part[0]).all(1) & torch.isfinite(face).all((1, 2))
+                & ((face <= face_limit[slots]) | ~observed_regions[slots, :, None]).all((1, 2))
+                & (~eligible | passes_body))
 
     @torch.no_grad()
-    def restore(parameters):
-        for variable, value in zip(variables, parameters):
-            variable.copy_(value)
+    def evaluate(state):
+        basis = latent_basis(state)
+        parts = [energy(state[slots], slots, basis) for slots in chunks]
+        return tuple(torch.cat(values) for values in zip(*parts))
 
-    def checkpoint(step, parts, *, fraction=1.):
-        values, depths, eligible, face = zip(*parts)
-        terms = torch.stack(values).sum(0)
-        coverage = _checkpoint_coverage(names, torch.cat(eligible).cpu().tolist(), scope)
-        _, failures = _guard_details(names, face_baseline.cpu(), torch.cat(face).cpu(), face_points.cpu())
+    def checkpoint(step, part):
+        terms, depth, eligible, face, _ = part
+        values = terms.mean(0)
+        coverage = _checkpoint_coverage(names, eligible.cpu().tolist(), scope)
+        _, failures = _guard_details(names, face_baseline.cpu(), face.cpu(), face_points.cpu())
         components = dict(zip(('reprojection', 'face_native_reprojection', 'face_guard_barrier', 'pose_screen_tail',
-                               'silhouette_exterior', 'shared_pose', 'pose_trust', 'minimum_depth'), terms.tolist()))
-        return dict(step=step, fraction=fraction, objective=float(terms.sum()), components=components,
-                    minimum_depth_m=float(torch.stack(depths).min()), face_guard_passed=not failures,
+                               'silhouette_exterior', 'shared_pose', 'pose_trust', 'minimum_depth'), values.tolist()))
+        return dict(step=step, fraction=1., objective=float(values.sum()), components=components,
+                    minimum_depth_m=float(depth.min()), face_guard_passed=not failures,
                     face_guard_failures=failures, **coverage)
 
-    def quality_rank(record):
-        return (-record['pose_gate_roster_capacity'], -record['source_bins_with_pose_gate_eligible'],
-                record['objective'])
+    def direction(gradient, units):
+        scaled = gradient*units
+        if not torch.isfinite(scaled).all():
+            raise RuntimeError('Nonfinite block gradient in joint SMPL-X fitting.')
+        return -scaled/scaled.norm(dim=-1, keepdim=True).clamp_min(1e-8)
 
-    def valid_candidate(record, baseline):
-        return (record['minimum_depth_m'] > .05 and record['objective'] <= baseline['objective']
-                and record['pose_gate_roster_capacity'] >= baseline['pose_gate_roster_capacity'])
+    def local_trial(old, slots, basis, eligible, objective_limit, radius, repair):
+        parameter = old.detach().requires_grad_(True)
+        current = energy(parameter, slots, basis)
+        base_score = current[0].sum(1).detach()
+        base_screen = current[4].detach()
+        body_priority = repair & ~eligible & (base_screen > 1.)
+        loss = torch.where(body_priority, current[4], current[0].sum(1))
+        gradient, = torch.autograd.grad(loss.sum(), parameter, retain_graph=True)
+        step = direction(gradient, scale)*radius[:, None]
+        take = torch.zeros_like(eligible, dtype=torch.int64)
+        chosen = old.clone()
+        metrics = [value.detach().clone() for value in current]
+
+        @torch.no_grad()
+        def try_step(update, fraction, code):
+            proposal = old + update*scale*fraction
+            part = energy(proposal, slots, basis)
+            improvement = torch.where(body_priority,
+                (part[4] < base_screen-1e-6) & (part[0].sum(1) <= objective_limit+1e-6),
+                part[0].sum(1) < base_score-1e-7)
+            accept = (take == 0) & feasible(part, slots, eligible) & improvement
+            take[accept] = code
+            chosen[accept] = proposal[accept]
+            for result, value in zip(metrics, part):
+                result[accept] = value[accept]
+            return part
+
+        full = try_step(step, 1., 1)
+        active = ((full[3] > face_limit[slots]) | (current[3].detach() >= face_limit[slots]-.08))
+        active &= observed_regions[slots, :, None] & (take == 0)[:, None, None]
+        constraints = torch.nonzero(active.flatten(1).any(0), as_tuple=False).flatten().tolist()
+        if constraints:
+            stats = current[3].flatten(1)
+            threatened = active.flatten(1)
+            normals = []
+            for metric in constraints:
+                normal, = torch.autograd.grad(stats[:, metric].masked_fill(~threatened[:, metric], 0.).sum(),
+                                               parameter, retain_graph=True)
+                normals.append(normal*scale)
+            slack = (face_limit[slots].flatten(1)[:, constraints]-stats[:, constraints].detach()).clamp_min(0.)
+            step_projected = _project_feasible_step(step, torch.stack(normals, 1), slack, config['projection_sweeps'])
+            try_step(step_projected, 1., 2)
+        for fraction in config['trial_fractions'][1:]:
+            if not bool((take == 0).any()):
+                break
+            if constraints:
+                try_step(step_projected, fraction, 4)
+            if bool((take == 0).any()):
+                try_step(step, fraction, 3)
+        full_rejections = torch.stack((
+            ((full[3] > face_limit[slots]) & observed_regions[slots, :, None]).any((1, 2)),
+            eligible & ~full[2], full[1] <= .05), dim=1)
+        return chosen, tuple(metrics), take, gradient.detach().norm(dim=-1), full_rejections
+
+    @torch.no_grad()
+    def commit_local(state, current, proposed, metrics, accepted, start_objective):
+        # Local candidates were scored against a fixed basis. Refresh exactly
+        # the only cross-frame term without re-rendering any silhouette.
+        new = state.clone()
+        chosen = torch.zeros_like(accepted)
+        result = tuple(value.clone() for value in current)
+
+        def commit(rows):
+            new[rows] = proposed[rows]
+            if bool(residual_bound(new)):
+                terms = result[0].clone()
+                terms[rows] = metrics[0][rows]
+                matrices = vposer.decode(new[:, :32])['pose_body_matrot'].reshape(count, 21, 3, 3)
+                terms[:, 5] = pose_penalty(new, matrices, latent_basis(new))
+                objective = terms.sum()/count
+                screen_gain = ((~result[2][rows]) & (metrics[4][rows] < result[4][rows]-1e-6)).any()
+                if bool((objective <= result[0].sum()/count+1e-7) |
+                        (screen_gain & (objective <= start_objective+1e-7))):
+                    result[0].copy_(terms)
+                    for before, candidate in zip(result[1:], metrics[1:]):
+                        before[rows] = candidate[rows]
+                    chosen[rows] = True
+                    return
+            new[rows] = state[rows]
+            if len(rows) > 1:
+                half = len(rows)//2
+                commit(rows[:half])
+                commit(rows[half:])
+
+        rows = torch.nonzero(accepted, as_tuple=False).flatten()
+        if len(rows):
+            commit(rows)
+        return new, result, chosen
+
+    def shared_trial(state, current):
+        delta = state.new_zeros((1, 32), requires_grad=True)
+        gradient = torch.zeros_like(delta)
+        for slots in chunks:
+            shifted = torch.cat((state[slots, :32]+delta, state[slots, 32:]), dim=-1)
+            objective = energy(shifted, slots, latent_basis(state)+delta)[0].sum()/count
+            gradient += torch.autograd.grad(objective, delta)[0]
+        step = direction(gradient, config['shared_latent_lr'])*config['shared_latent_lr']
+        attempts = []
+        with torch.no_grad():
+            for fraction in config['trial_fractions']:
+                candidate = state.clone()
+                candidate[:, :32] += step*fraction
+                part = evaluate(candidate)
+                passes = feasible(part, slice(None), current[2])
+                descent = part[0].sum() < current[0].sum()-1e-7
+                attempts.append(dict(fraction=fraction, checked_frames=count, failed_frames=int((~passes).sum()),
+                                     objective=float(part[0].sum()/count), descent=bool(descent)))
+                if bool(passes.all() & descent & residual_bound(candidate)):
+                    return candidate, part, True, attempts
+        return state, current, False, attempts
 
     preflight = replay_check()
-    trace, best, best_record = [], None, None
-    initial = snapshot()
-    backtrack_target, backtrack_record = None, None
-    for step in range(config['steps']+1):
-        assess = step in config['checkpoints']
-        train = step < config['steps']
-        optimizer.zero_grad(set_to_none=True)
-        parts = []
-        for slots in chunks:
-            with torch.set_grad_enabled(train):
-                part = energy(slots)
-                if train:
-                    part[0].sum().backward()
-            if assess:
-                parts.append(tuple(value.detach() for value in part))
-        if assess:
-            record = checkpoint(step, parts)
+    state = initial
+    current = evaluate(state)
+    trace = [checkpoint(0, current)]
+    initial_eligible = current[2].tolist()
+    if not trace[0]['face_guard_passed'] or not bool(residual_bound(state)) or trace[0]['minimum_depth_m'] <= .05:
+        raise RuntimeError('The named official initializers are outside the joint block domain.')
+    start_objective = current[0].sum()/count
+    start_scores = current[0].sum(1)
+    trust = state.new_ones(count)
+    local_counts = torch.zeros((count, 9), dtype=torch.int64, device=device)
+    sweep_records = []
+    stable = 0
+    stop_reason = 'maximum_sweeps'
+    for sweep in range(1, config['max_sweeps']+1):
+        previous = current
+        repair = sweep % 4 == 3
+        basis = latent_basis(state)
+        trials = [local_trial(state[slots], slots, basis, current[2][slots], start_scores[slots],
+                              trust[slots], repair) for slots in chunks]
+        proposed, metrics, codes, gradients, full_rejections = zip(*trials)
+        codes = torch.cat(codes)
+        state, current, accepted = commit_local(state, current, torch.cat(proposed),
+            tuple(torch.cat(values) for values in zip(*metrics)), codes > 0, start_objective)
+        local_counts[:, 0] += accepted
+        local_counts[:, 1] += accepted & ((codes == 2) | (codes == 4))
+        local_counts[:, 2] += accepted & (codes >= 3)
+        local_counts[:, 3] += codes == 0
+        local_counts[:, 4] += ~accepted & (codes > 0)
+        local_counts[:, 5] += accepted & repair & ~previous[2]
+        local_counts[:, 6:] += torch.cat(full_rejections)
+        trust = torch.where(accepted & (codes <= 2), trust*1.2, trust*.7).clamp(config['trust_min'], 1.)
+        shared_accepted, shared_checks = False, []
+        if sweep % config['shared_every'] == 0:
+            state, current, shared_accepted, shared_checks = shared_trial(state, current)
+        delta = float((previous[0].sum()-current[0].sum())/previous[0].sum().abs().clamp_min(1.))
+        screen_delta = float((previous[4]-current[4]).masked_fill(previous[2], 0.).abs().max())
+        new_eligible = int((current[2] & ~previous[2]).sum())
+        row = dict(sweep=sweep, repair_direction=repair, local_accepted=int(accepted.sum()),
+                   local_projected_accepted=int((accepted & ((codes == 2) | (codes == 4))).sum()),
+                   shared_accepted=shared_accepted, shared_checks=shared_checks, new_eligible=new_eligible,
+                   objective=float(current[0].sum()/count), objective_relative_change=delta,
+                   screen_change=screen_delta, max_local_gradient=float(torch.cat(gradients).max()),
+                   max_face_delta_px=float((current[3]-face_baseline).masked_fill(~observed_regions[..., None], 0.).max()))
+        sweep_records.append(row)
+        if new_eligible or abs(delta) > config['objective_relative_stop'] or screen_delta > config['screen_stop']:
+            stable = 0
+        else:
+            stable += 1
+        if sweep % 4 == 0 or sweep == config['max_sweeps'] or stable >= config['stable_sweeps']:
+            record = checkpoint(sweep, current)
             trace.append(record)
-            if step and valid_candidate(record, trace[0]):
-                if record['face_guard_passed'] and (best is None or quality_rank(record) < quality_rank(best_record)):
-                    best, best_record = snapshot(), record
-                if backtrack_target is None or quality_rank(record) < quality_rank(backtrack_record):
-                    backtrack_target, backtrack_record = snapshot(), record
+            if not record['face_guard_passed']:
+                raise RuntimeError('Accepted joint block crossed the protected native face limit.')
             if progress_path is not None:
-                rt.save(Path(progress_path), dict(state='joint_fit', phase='face_guarded_joint_smplx',
-                        completed_steps=step, total=config['steps'], candidate_frames=count,
-                        checkpoint_objective=record['objective'], face_guard_passed=record['face_guard_passed'],
-                        failed_face_checks=len(record['face_guard_failures'])))
-        if train:
-            norm = torch.nn.utils.clip_grad_norm_(variables, max_norm=3., error_if_nonfinite=True)
-            if not torch.isfinite(norm):
-                raise RuntimeError(f'Nonfinite gradient in joint fitting at update {step+1}.')
-            if step == 0:
-                preflight['first_update_gradient_norm'] = float(norm)
-                preflight['first_update_parameter_grad_norms'] = dict(
-                    zip(('shared_latent', 'residual_latent', 'root_rotation', 'translation', 'neck_head_rotation'),
-                        (float(param.grad.norm()) for param in variables)))
-            for group, lr in zip(optimizer.param_groups, learning_rates):
-                group['lr'] = lr*(1. if step < 48 else .5 if step < 68 else .25)
-            optimizer.step()
-    if not all(np.isfinite(item['objective']) for item in trace):
-        raise RuntimeError('Joint fitting has nonfinite objective values.')
-    backtracking = []
-    if best is None and backtrack_target is not None:
-        # All frames share one interpolation factor and retain the same guard.
-        with torch.no_grad():
-            for fraction in config['face_guard_backtracking']:
-                restore([a.lerp(b, fraction) for a,b in zip(initial, backtrack_target)])
-                record = checkpoint(backtrack_record['step'], [energy(slots) for slots in chunks], fraction=fraction)
-                backtracking.append(record)
-                if record['face_guard_passed'] and valid_candidate(record, trace[0]):
-                    best, best_record = snapshot(), record
-                    break
-    fallback = best is None
-    if fallback:
-        best, best_record = initial, trace[0]
+                rt.save(Path(progress_path), dict(state='joint_fit', phase='block_feasible_joint_smplx',
+                    completed_steps=sweep, total=config['max_sweeps'], candidate_frames=count,
+                    checkpoint_objective=record['objective'], eligible_frames=record['pose_gate_eligible'],
+                    accepted_local=int(local_counts[:, 0].sum()),
+                    accepted_shared=sum(value['shared_accepted'] for value in sweep_records)))
+        if stable >= config['stable_sweeps']:
+            stop_reason = ('small_feasible_progress' if any(row['local_accepted'] or row['shared_accepted']
+                           for row in sweep_records[-stable:]) else 'no_feasible_descent')
+            break
+
+    best_record = trace[-1]
+    changed = (state != initial).any(1)
+    block_solver = dict(max_sweeps=config['max_sweeps'], completed_sweeps=sweep, stop_reason=stop_reason,
+        local_accepted=int(local_counts[:, 0].sum()), local_projected_accepted=int(local_counts[:, 1].sum()),
+        shared_attempted=sum(bool(row['shared_checks']) for row in sweep_records),
+        shared_accepted=sum(row['shared_accepted'] for row in sweep_records), sweeps=sweep_records,
+        per_frame={name: dict(zip(('local_accepted', 'projected_accepted', 'backtracked_accepted', 'no_feasible_descent',
+                                 'joint_objective_or_bound_rejection', 'body_repair_accepted',
+                                 'full_trial_face_violation', 'full_trial_body_violation', 'full_trial_depth_violation'),
+                                values), changed=bool(flag), initial_body_eligible=initial_ok, final_body_eligible=final_ok)
+                   for name, values, flag, initial_ok, final_ok in zip(
+                       names, local_counts.tolist(), changed.tolist(), initial_eligible, current[2].tolist())})
 
     @torch.no_grad()
     def summarize():
-        restore(best)
-        pose_residual = _centered_residual(residual, config['latent_residual_l2_limit'])
-        latent = shared+pose_residual
+        latent = state[:, :32]
+        shared = latent_basis(state)
+        pose_residual = latent-shared
         shared_pose = vposer.decode(shared)
-        pose, _, compensation = pose_with_neck_head(vposer.decode(latent), slice(None))
-        root, translation, rotation, displacement = roots(slice(None))
+        root, translation, pose, _, rotation, displacement, compensation = unpack(state, slice(None))
+        root = torch.where(changed[:, None], root, original_root)
+        translation = torch.where(changed[:, None], translation, original_translation)
+        pose = torch.where(changed[:, None], pose, independent_pose)
         previous_rotation = axis_angle_to_matrix(independent_pose.reshape(count, 21, 3))
         final_rotation = axis_angle_to_matrix(pose.reshape(count, 21, 3))
         anchor_rotation = shared_pose['pose_body_matrot'].reshape(1, 21, 3, 3)
@@ -428,12 +568,12 @@ def _evaluate_joint(*, body, vposer, winners, rows, targets, intrinsics, beta, a
                     for i, o in zip(iou.tolist(), outside.tolist())]
 
         for slots in chunks:
-            mesh = original_geometry[slots] if fallback else _shape_output(
-                body, beta, {k: v[slots] for k, v in fixed.items()}, root[slots], translation[slots], pose[slots])[0]
+            mesh = _shape_output(body, beta, {k: v[slots] for k, v in fixed.items()},
+                                 root[slots], translation[slots], pose[slots])[0]
             before_silhouette += silhouette_metrics(original_geometry[slots], slots)
             after_silhouette += silhouette_metrics(mesh, slots)
         summary = dict(state='complete', config=config.copy(), candidate_frames=names,
-            optimizer_updates=config['steps'],
+            optimizer_updates=sweep, block_solver=block_solver,
             shared_betas=beta.cpu().tolist(), shared_latent_anchor=anchor.cpu().tolist(),
             shared_latent_final=shared.cpu().tolist(), shared_body_pose_axis_angle_final=shared_pose['pose_body'].reshape(1, 63).cpu().tolist(),
             pose_residual_mean_abs_max=float(pose_residual.mean(0).abs().max()),
@@ -441,15 +581,14 @@ def _evaluate_joint(*, body, vposer, winners, rows, targets, intrinsics, beta, a
             objective_initial=trace[0]['objective'], objective_final=best_record['objective'],
             objective_min=min(record['objective'] for record in trace),
             objective_final_step=best_record['step'], objective_trace=trace, preflight=preflight,
-            chosen_checkpoint=best_record, face_guard_backtracking_trace=backtracking,
+            chosen_checkpoint=best_record,
             face_guard=dict(reference='official_initializer', threshold_px=config['face_guard_tolerance_px'],
                 confidence_threshold=config['face_guard_confidence'], metric='confidence-squared native RMS and peak',
                 regions={name:indices.tolist() for name,indices in FACE_REGIONS.items()},
-                fallback='no_feasible_joint_checkpoint' if fallback else None),
-            pose_embedding_semantics='VPoser base. body_pose_axis_angle includes bounded neck/head composition.',
-            checkpoint_choice='positive depth, no protected native face regression beyond tolerance, objective no worse '
-                              'than start and at least baseline roster capacity. Rank by original pose-screen capacity, '
-                              'chronological bins and objective.',
+                fallback=None),
+            pose_embedding_semantics='Effective VPoser latent. body_pose_axis_angle includes bounded neck/head composition.',
+            checkpoint_choice='Final feasible state. Local exact face/depth, preserve eligible rows, exact shared-basis prior. '
+                              'Body repair can trade objective only within the original budget. Shared moves check all frames.',
             silhouette_supervision='one-sided exterior of observed mask; reduced aspect-aware corner raster',
             silhouette_raster_wh=list(dimensions), silhouette_native_to_raster_scale_xy=list(raster_scale),
             frames={frame:dict(before=dict(silhouette=before_silhouette[i]),
@@ -460,7 +599,7 @@ def _evaluate_joint(*, body, vposer, winners, rows, targets, intrinsics, beta, a
                 root_change_deg=float(torch.rad2deg(rotation[i].norm())),
                 neck_head_compensation_deg=torch.rad2deg(compensation[i].norm(dim=1)).tolist(),
                 translation_change_m=float(displacement[i].norm())) for i, frame in enumerate(names)})
-        values = (original_root, original_translation, independent_pose, original_latent) if fallback else (root, translation, pose, latent)
+        values = (root, translation, pose, latent)
         return [a.detach().cpu().numpy() for a in values], summary, height
 
     return summarize()
@@ -517,6 +656,9 @@ def refine_joint_body(*, inputs, winners, body, vposer, shared_betas, shared_lat
                 refined[name] = dict(source, global_orient=root, camera_translation=translation,
                     body_pose_axis_angle=pose, pose_embedding=latents[i:i+1], vertices_camera=mesh.cpu().numpy(),
                     joints_camera=joints.cpu().numpy(), joints_projected_native=pixels)
+                if not report['block_solver']['per_frame'][name]['changed']:
+                    refined[name] = source
+                    pixels = source['joints_projected_native']
                 frame = report['frames'][name]
                 frame['before']['projection'] = _projection_metrics(targets[i], source['joints_projected_native'][0], heights[i])
                 frame['after']['projection'] = _projection_metrics(targets[i], pixels[0], heights[i])
@@ -530,38 +672,33 @@ def refine_joint_body(*, inputs, winners, body, vposer, shared_betas, shared_lat
         original_face = measured(winners)
         final_face, failures = _guard_details(names, original_face, measured(refined), face_support.sum(-1))
         report['face_guard']['exact_reprojection_rejected_failures'] = failures
-        if failures or report['face_guard']['fallback']:
-            # The exact original-device replay is also subject to the guard.
-            if failures and not report['face_guard']['fallback']:
-                report['face_guard']['fallback'] = 'exact_reprojection_guard'
-            refined = dict(winners)
-            final_face, _ = _guard_details(names, original_face, original_face, face_support.sum(-1))
-            report['objective_final_step'] = 0
-            report['objective_final'] = report['objective_initial']
-            report['chosen_checkpoint'] = report['objective_trace'][0]
-            latent = _packed_parameters(winners, names, 'pose_embedding', 'cpu')
-            shared = latent.mean(0, keepdim=True)
-            centered = latent-shared
-            with torch.no_grad():
-                decoded = vposer.decode(shared.to(next(vposer.parameters()).device))
-            from pytorch3d.transforms import axis_angle_to_matrix
-            original_pose = _packed_parameters(winners, names, 'body_pose_axis_angle', 'cpu').reshape(-1, 21, 3)
-            local_distance = _mean_joint_angle_degrees(
-                axis_angle_to_matrix(original_pose), decoded['pose_body_matrot'].reshape(1, 21, 3, 3).cpu())
-            report['shared_latent_final'] = shared.tolist()
-            report['shared_body_pose_axis_angle_final'] = decoded['pose_body'].reshape(1, 63).cpu().tolist()
-            report['pose_residual_mean_abs_max'] = float(centered.mean(0).abs().max())
-            report['pose_residual_l2_max'] = float(centered.norm(dim=1).max())
-            for i, frame in enumerate(report['frames'].values()):
-                frame['after'] = frame['before']
-                frame['body_mean_joint_change_deg'] = 0.
-                frame['local_pose_mean_distance_to_final_shared_before_deg'] = float(local_distance[i])
-                frame['local_pose_mean_distance_to_final_shared_after_deg'] = float(local_distance[i])
-                frame['latent_residual_l2'] = float(centered[i].norm())
-                frame['root_change_deg'] = frame['translation_change_m'] = 0.
-                frame['neck_head_compensation_deg'] = [0., 0.]
+        if failures:
+            first = failures[0]
+            raise RuntimeError(f"Exact original-device replay failed {len(failures)} native face checks; first: {first}")
         for name, frame in report['frames'].items():
             frame['face_guard'] = final_face[name]
+        # Use the same native body/feet test as the actual frame selector on
+        # the original-device results, and expose numerical boundary changes.
+        def screen(poses):
+            slots = np.concatenate((BODY, FEET))
+            observed_slots = targets[:, slots]
+            supported = observed_slots[..., 2] > 0
+            projected = np.concatenate([poses[name]['joints_projected_native'] for name in names], axis=0)[:, slots]
+            error = np.linalg.norm(projected-observed_slots[..., :2], axis=-1)
+            return (supported[:, :len(BODY)].any(1) &
+                    (np.where(supported, error, 0.).max(1)/heights <= CONFIG['reprojection_unit_over_height']))
+
+        before_body, final_body = screen(winners), screen(refined)
+        exact = report['block_solver']['exact_body_screen'] = dict(
+            initial_eligible=[name for name, passed in zip(names, before_body) if passed],
+            final_eligible=[name for name, passed in zip(names, final_body) if passed],
+            gpu_cpu_disagreements=[name for name, passed in zip(names, final_body)
+                if passed != report['block_solver']['per_frame'][name]['final_body_eligible']])
+        if np.any(before_body & ~final_body):
+            raise RuntimeError('Original-device replay lost initially eligible body poses: '
+                               + ', '.join(name for name, lost in zip(names, before_body & ~final_body) if lost))
+        exact['initial_coverage'] = _checkpoint_coverage(names, before_body, scope)
+        exact['final_coverage'] = _checkpoint_coverage(names, final_body, scope)
         report['face_guard']['exact_reprojection_passed'] = True
         report['face_guard']['supported_frame_count'] = int(face_support.any((1, 2)).sum())
         report['retained_holdouts'] = list(held)
