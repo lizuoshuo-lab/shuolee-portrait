@@ -64,7 +64,7 @@ def extract_dual_resolution(video, root, cfg, *, native_only=False):
         if (root/name).exists():
             raise FileExistsError(f'Fresh preprocessing only; preserve {root/name}.')
     digest = rt.sha(video)
-    probe = subprocess.run(['ffprobe', '-v', 'error', '-select_streams', 'v:0',
+    probe = subprocess.run(['ffprobe', '-threads', '4', '-v', 'error', '-select_streams', 'v:0',
         '-show_frames', '-show_streams', '-show_entries',
         'frame=best_effort_timestamp_time:stream', '-of', 'json', str(video)],
         capture_output=True, text=True, check=True)
