@@ -140,6 +140,9 @@ def refine(root, baseline_snapshot, model, effective):
     fields = ('_xyz', '_features_dc', '_features_rest', '_opacity', '_scaling', '_rotation')
     for name in fields:
         getattr(model, name).requires_grad_(True)
+    # The PLY loader retains int32 IDs. The stock split/scatter path uses
+    # int64 triangle indices, as it does for fresh bound initialization.
+    model.binding = model.binding.long()
     model.spatial_lr_scale = 1.
     model.max_radii2D = torch.zeros(len(model.binding), device='cuda')
     model.training_setup(SimpleNamespace(**args))
