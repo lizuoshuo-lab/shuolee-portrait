@@ -228,7 +228,7 @@ def smpl_sh0_effective_config():
         training_height=None, initial_points=None, initial_points_policy='one_per_triangle',
         image_cache_frames=None, image_cache_policy='all_selected_native_rgb_crops_and_full_soft_masks',
         sh_degree=0, shared_clothing_offset_lr=1e-6, snapshot_steps=[1000, optimization['iterations']],
-        alpha_loss_weight=.1, straight_rgb_alpha_floor=1e-4,
+        alpha_loss_weight=.1, straight_rgb_alpha_floor=1e-4, alpha_loss_normalization='foreground_area',
         densification_gradient_units='native_raster_area', optimization=optimization)
 
 
@@ -331,11 +331,9 @@ def _sh0_foreground_alpha_loss(rgb, accumulated_alpha, target_rgb, target_alpha,
     straight = rgb[region] / accumulated_alpha[region].clamp_min(alpha_floor)
     photo, l1, ssim = foreground_loss(straight, target_rgb, target_alpha[region])
     error = (accumulated_alpha-target_alpha).abs()
-    background = 1-target_alpha
     floor = torch.finfo(target_alpha.dtype).tiny
-    foreground_error = (error*target_alpha).sum()/target_alpha.sum().clamp_min(floor)
-    background_error = (error*background).sum()/background.sum().clamp_min(floor)
-    return photo, l1, ssim, .5*(foreground_error+background_error)
+    # Keep the foreground coefficient and put spill in the same pixel-area units.
+    return photo, l1, ssim, .5*error.sum()/target_alpha.sum().clamp_min(floor)
 
 
 def _train_smpl_sh0(root, effective):
@@ -419,7 +417,7 @@ def _train_smpl_sh0(root, effective):
         target_composition='Raw native RGB and full soft mask. Black-background premultiplied RGB divided by live alpha; '
             'foreground-area-normalized L1 at mask >0.99 and complete 11x11 foreground SSIM windows in the tight native pixel box.',
         alpha_supervision='Second stock white-Gaussian pass over black at the same camera and pose. '
-            'Full native alpha L1, averaged equally across soft foreground and background regions. Stored mask values are preserved.',
+            'Full native alpha L1 divided by twice the soft foreground area. Stored mask values are preserved.',
         densification_gradient_area_weights=density_weights,
         source_training_options='259/269 10k terminal and 18k schedules; stock renderer and model operations'))
     if (root/'status.json').is_file():
