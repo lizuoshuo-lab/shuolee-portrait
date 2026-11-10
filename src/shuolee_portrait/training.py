@@ -232,7 +232,7 @@ def smpl_sh0_effective_config():
     return dict(gaussian_profile='smpl_sh0', iterations=optimization['iterations'], seed=0,
         training_height=None, initial_points=None, initial_points_policy='one_per_triangle',
         image_cache_frames=None, image_cache_policy='all_selected_native_rgb_crops_and_full_soft_masks',
-        sh_degree=0, shared_clothing_offset_lr=1e-6, snapshot_steps=[1000, optimization['iterations']],
+        sh_degree=0, sh0_color_constraint='projected_ldr_dc', shared_clothing_offset_lr=1e-6, snapshot_steps=[1000, optimization['iterations']],
         opacity_reset_steps=opacity_reset_steps,
         alpha_loss_weight=.1, straight_rgb_alpha_floor=1e-4, alpha_loss_normalization='foreground_area',
         head_appearance_steps=0, head_appearance_weight=0., unified_main=schedule,
@@ -353,7 +353,8 @@ def _train_smpl_sh0(root, effective, frozen_spec=None):
     from scene.gaussian_model import GaussianModel
     from scene.smplx_gaussian_model import SMPLXGaussianModel
     from utils.graphics_utils import compute_face_orientation
-    from .sh0_main import Constraints, frozen_surface, initialization
+    from utils.sh_utils import C0
+    from .sh0_main import Constraints, DCColorProjection, frozen_surface, initialization
     from .world_scale import WorldScale
     from .stable_selection import SOURCE_BIN_COVERAGE_BASIS, source_bin_training_order
 
@@ -408,6 +409,8 @@ def _train_smpl_sh0(root, effective, frozen_spec=None):
         model.optimizer.add_param_group(dict(params=[model.static_offset],
                                              lr=effective['shared_clothing_offset_lr'], name='static_offset'))
     init = initialization(model)
+    color_projection = DCColorProjection(model._features_dc, C0)
+    initial_colors = color_projection.measure(model)
     indices, values = _uniform_laplacian(fit['faces'], len(clothing))
     laplacian = torch.sparse_coo_tensor(indices, values, (len(clothing), len(clothing)), device='cuda').coalesce()
     targets = []
@@ -513,6 +516,7 @@ def _train_smpl_sh0(root, effective, frozen_spec=None):
                     pkg['viewspace_points'].grad.mul_(density_weights[i])
                     model.add_densification_stats(pkg['viewspace_points'], visible)
                 model.optimizer.step()
+                color_projection.apply(model, after_step=True)
                 model.optimizer.zero_grad(set_to_none=True)
                 if model.static_offset.requires_grad:
                     world_scale.refresh()
@@ -528,6 +532,8 @@ def _train_smpl_sh0(root, effective, frozen_spec=None):
                     model.densify_and_prune(options.densify_grad_threshold, .005, extent, size)
                     stock_densifications += 1
                     densification = 'stock_densification'
+                if densification is not None:
+                    color_projection.apply(model, after_step=False)
                 if step in schedule['world_scale']['split_steps']:
                     world_scale.repair(step, constraints)
                 if densification is not None:
@@ -547,7 +553,9 @@ def _train_smpl_sh0(root, effective, frozen_spec=None):
                     else:
                         world_scale.checkpoint(step, 'snapshot')
                         rt.save(world_path, world_scale.report(world_initial))
+                    colors = color_projection.measure(model)
                     snapshot = out/f'step-{step:06d}'; snapshot.mkdir()
+                    rt.save(snapshot/'sh0-color-range.json', colors)
                     model.export_world_ply(snapshot/'world.ply', reference)
                     reloaded = GaussianModel(0); reloaded.load_ply(str(snapshot/'world.ply'))
                     native, diff = reference_ply_comparison(render, cameras[reference_row], model, reloaded, pipe, bg, reference)
@@ -572,10 +580,15 @@ def _train_smpl_sh0(root, effective, frozen_spec=None):
                     model.select_mesh_by_timestep(slot)
                     del reloaded, native, diff
     stock = out/f'step-{options.iterations:06d}'
+    color_path = out/'color-constraint.json'
+    color_report = color_projection.report(model, initial_colors)
+    rt.save(color_path, color_report)
     integrated = dict(init, state='completed', optimizer_updates=options.iterations, schedule=schedule,
                       coverage_events=coverage_events, stock_densifications=stock_densifications,
                       frozen_surface_sha256=rt.sha(frozen_mesh) if frozen_mesh is not None else None,
                       raw_native_rgb_target=True, prior_render_used_as_target=False,
+                      sh0_color_constraint=dict(file=color_path.name, sha256=rt.sha(color_path),
+                                               terminal=color_report['terminal']),
                       world_scale=dict(file=world_path.name, sha256=rt.sha(world_path), terminal=world_terminal))
     rt.save(out/'integration.json', integrated)
     receipt = dict(state='completed', from_scratch=True, steps=options.iterations,

@@ -57,6 +57,68 @@ def initialization(model):
                 optimizer_initial_state_entries=0, optimizer_updates=0, no_prior_gaussian_loaded=True)
 
 
+class DCColorProjection:
+    """Keep the standard SH0 coefficients in the representable LDR interval."""
+
+    def __init__(self, coefficients, c0):
+        import torch
+
+        self.c0 = float(c0)
+        stored_c0 = float(torch.tensor(c0, dtype=coefficients.dtype))
+        real_bound = .5/max(self.c0, stored_c0)
+        bound = torch.tensor(real_bound, dtype=coefficients.dtype)
+        if float(bound) > real_bound:
+            bound = torch.nextafter(bound, torch.zeros_like(bound))
+        self.bound = float(bound)
+        self.counts = torch.zeros(2, dtype=torch.int64, device=coefficients.device)
+        self.optimizer_steps = 0
+        self.topology_projections = 0
+
+    def apply(self, model, *, after_step):
+        import torch
+
+        # Densification and pruning replace the Parameter and its Adam state.
+        # Resolve both from the current model each time.
+        coefficients = model._features_dc
+        moment = model.optimizer.state.get(coefficients, {}).get('exp_avg')
+        with torch.no_grad():
+            hits = ((coefficients < -self.bound) | (coefficients > self.bound)).count_nonzero()
+            coefficients.clamp_(-self.bound, self.bound)
+            self.counts[0].add_(hits)
+            if moment is not None:
+                outward = (((coefficients <= -self.bound) & (moment > 0)) |
+                           ((coefficients >= self.bound) & (moment < 0)))
+                self.counts[1].add_(outward.count_nonzero())
+                # Adam subtracts its first moment. Keep inward momentum and
+                # the variance estimate so the next inward update can move.
+                moment.masked_fill_(outward, 0.)
+        if after_step:
+            self.optimizer_steps += 1
+        else:
+            self.topology_projections += 1
+
+    def measure(self, model):
+        import torch
+
+        rgb = model._features_dc.detach().double()*self.c0+.5
+        finite = bool(torch.isfinite(rgb).all())
+        outside = (rgb < 0.) | (rgb > 1.)
+        active = model.get_opacity.detach().reshape(-1) > .1
+        if not finite or bool(outside.any()):
+            raise RuntimeError('Training SH0 coefficients left the LDR interval.')
+        return dict(points=len(rgb), rgb_min=float(rgb.min()), rgb_max=float(rgb.max()),
+                    finite=finite, channels_outside_bounds=int(outside.count_nonzero()),
+                    active_points=int(active.count_nonzero()),
+                    active_points_outside_bounds=int((outside.flatten(1).any(1) & active).count_nonzero()))
+
+    def report(self, model, initial):
+        projected, cleared = self.counts.tolist()
+        return dict(policy='projected_ldr_dc', color_basis_c0=self.c0, max_abs_dc=self.bound,
+                    optimizer_steps=self.optimizer_steps, topology_projections=self.topology_projections,
+                    projected_channels=projected, cleared_outward_first_moments=cleared,
+                    initial=initial, terminal=self.measure(model))
+
+
 def _protected_landmark_pixels(view, landmarks):
     """Native reliable foreground around observed eyes and ears in the OpenPose layout."""
     import torch
