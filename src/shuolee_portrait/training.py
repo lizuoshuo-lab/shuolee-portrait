@@ -354,6 +354,7 @@ def _train_smpl_sh0(root, effective, frozen_spec=None):
     from scene.smplx_gaussian_model import SMPLXGaussianModel
     from utils.graphics_utils import compute_face_orientation
     from .sh0_main import Constraints, frozen_surface, initialization
+    from .world_scale import WorldScale
     from .stable_selection import SOURCE_BIN_COVERAGE_BASIS, source_bin_training_order
 
     official = verify_official_fit(root)
@@ -451,6 +452,11 @@ def _train_smpl_sh0(root, effective, frozen_spec=None):
     schedule = effective['unified_main']
     slots = layout['pose_indices']
     constraints, coverage_events, stock_densifications = None, [], 0
+    with torch.no_grad():
+        world_scale = WorldScale(model, extent, reference, schedule['world_scale'])
+        world_initial = world_scale.checkpoint(0, 'initial')
+    world_path = out/'world-scale.json'
+    rt.save(world_path, world_scale.report(world_initial))
     start = time.monotonic()
     with (out/'loss.jsonl').open('x') as log:
         for step in range(1, options.iterations+1):
@@ -508,18 +514,37 @@ def _train_smpl_sh0(root, effective, frozen_spec=None):
                     model.add_densification_stats(pkg['viewspace_points'], visible)
                 model.optimizer.step()
                 model.optimizer.zero_grad(set_to_none=True)
+                if model.static_offset.requires_grad:
+                    world_scale.refresh()
+                world_scale.project()
+                densification = None
                 if step in schedule['coverage_steps']:
+                    densification = 'coverage_densification'
                     coverage_events.append(dict(step=step, **constraints.reseed(reference)))
                     rt.save(out/'coverage-events.json', coverage_events)
                 elif options.densify_from_iter < step <= schedule['stock_densify_through'] and step % options.densification_interval == 0:
                     size = 20 if step > options.opacity_reset_interval else None
                     model.densify_and_prune(options.densify_grad_threshold, .005, extent, size)
                     stock_densifications += 1
+                    densification = 'stock_densification'
+                if step in schedule['world_scale']['split_steps']:
+                    world_scale.repair(step, constraints)
+                if densification is not None:
+                    world_scale.project()
+                    world_scale.checkpoint(step, densification)
+                    if step in schedule['world_scale']['split_steps']:
+                        rt.save(world_path, world_scale.report(world_initial))
                 if len(model._xyz) >= 1200000 or int(model.binding_counter.min()) < 1:
                     raise RuntimeError(f'SH0 point count or per-face binding out of bounds at step {step}.')
                 if step in effective['opacity_reset_steps']:
                     model.reset_opacity()
                 if step in effective['snapshot_steps']:
+                    if step == options.iterations:
+                        world_terminal = world_scale.checkpoint(step, 'terminal')
+                        rt.save(world_path, world_scale.report(world_initial, world_terminal))
+                    else:
+                        world_scale.checkpoint(step, 'snapshot')
+                        rt.save(world_path, world_scale.report(world_initial))
                     snapshot = out/f'step-{step:06d}'; snapshot.mkdir()
                     model.export_world_ply(snapshot/'world.ply', reference)
                     reloaded = GaussianModel(0); reloaded.load_ply(str(snapshot/'world.ply'))
@@ -548,7 +573,8 @@ def _train_smpl_sh0(root, effective, frozen_spec=None):
     integrated = dict(init, state='completed', optimizer_updates=options.iterations, schedule=schedule,
                       coverage_events=coverage_events, stock_densifications=stock_densifications,
                       frozen_surface_sha256=rt.sha(frozen_mesh) if frozen_mesh is not None else None,
-                      raw_native_rgb_target=True, prior_render_used_as_target=False)
+                      raw_native_rgb_target=True, prior_render_used_as_target=False,
+                      world_scale=dict(file=world_path.name, sha256=rt.sha(world_path), terminal=world_terminal))
     rt.save(out/'integration.json', integrated)
     receipt = dict(state='completed', from_scratch=True, steps=options.iterations,
         execution_kind='official_smplifyx', gaussian_profile='smpl_sh0', sh_degree=0, points=len(model._xyz),

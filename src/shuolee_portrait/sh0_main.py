@@ -12,9 +12,12 @@ from .shape_refinement import (_balanced_alpha, _footprints, _prepare_views, _pr
 
 
 def main_schedule():
+    from .world_scale import scale_config
+
     settings = shape_config()
     return dict(warmup_steps=2400, constraint_ramp_steps=600, stock_densify_through=7800,
                 coverage_steps=[4800, 8400], face_rgb_weight=.08, face_alpha_weight=.10,
+                world_scale=scale_config(),
                 constraints={key: value for key, value in settings.items() if key not in {
                     'steps', 'reseed_step', 'reset_steps', 'face_rgb_anchor', 'face_alpha_anchor',
                     'position_lr', 'position_final_lr', 'scaling_lr', 'rotation_lr', 'feature_lr', 'opacity_lr'}})
