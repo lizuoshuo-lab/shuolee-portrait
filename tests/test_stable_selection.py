@@ -207,6 +207,68 @@ class StableSelectionTests(unittest.TestCase):
         self.assertAlmostEqual(float(targets[2, 0, 2]), .4 / .72)
         self.assertEqual(float(targets[2, 16, 2]), 0.)
 
+    def test_pinned_visibility_withholds_only_confirmed_fit_slot_weights(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            image, mask = root / "rgb.png", root / "mask.png"
+            Image.new("RGB", (8, 6)).save(image)
+            Image.new("L", (8, 6), 255).save(mask)
+            K = [[8., 0., 3.], [0., 8., 2.], [0., 0., 1.]]
+            corner = [[8., 0., 3.5], [0., 8., 2.5], [0., 0., 1.]]
+            ids = [f"frame_{i:03}" for i in range(4)]
+            rows = [dict(frame=frame, image=str(image), mask=str(mask), wh=[8, 6],
+                         source_sha256=runtime.sha(image), mask_sha256=runtime.sha(mask), source_frame_index=i,
+                         K_integer_centers=K, K=corner, w2c=np.eye(4).tolist()) for i, frame in enumerate(ids)]
+            manifest, observations, annotations = (root / name for name in ("inputs.json", "obs.npz", "visibility.json"))
+            runtime.save(manifest, dict(records=rows, video_sha256=VIDEO_SHA))
+            np.savez(observations, frame_ids=np.array(ids[::-1]), keypoints=np.full((4, 133, 2), 2., np.float32),
+                     scores=np.tile(np.array([.1, .2, .4, .8])[:, None], (1, 133)),
+                     boxes=np.tile([0, 0, 8, 6], (4, 1)), flip_disagreement=np.zeros((4, 133)))
+            layout = dict(arc="half", video_sha256=VIDEO_SHA, front_source_ranges=[[0, 2]],
+                          rear_source_ranges=[], held_source_indices=[1])
+            records = [dict(frame=ids[i], source_sha256=rows[i]["source_sha256"], absent_groups=groups)
+                       for i, groups in enumerate((["left_foot"], ["right_foot"], ["right_foot"], ["left_foot"]))]
+            receipt = dict(actual_visual_review=True, source_video_sha256=VIDEO_SHA,
+                           observations_sha256=runtime.sha(observations), records=records[::-1])
+
+            def load(config):
+                return official_sequence.load_inputs(manifest, observations, reference_frame=ids[0],
+                    capture_layout=config, camera_length_contract=dict(translation_unit="meters",
+                        meters_per_camera_unit=1., basis="synthetic_known", evidence="CPU fixture"))
+
+            def configured(digest):
+                return dict(layout, visibility_annotations=dict(path=str(annotations), sha256=digest))
+
+            runtime.save(annotations, receipt)
+            original = load(layout)
+            pin = runtime.sha(annotations)
+            modified = load(configured(pin))
+            expected = original["targets"].copy()
+            expected[0, [14, 19, 20, 21], 2] = 0.
+            expected[2, [11, 22, 23, 24], 2] = 0.
+            self.assertTrue((original["targets"][[0, 2], :, 2].sum(axis=1) > 0).all())
+            np.testing.assert_array_equal(modified["targets"], expected)
+            self.assertFalse(modified["targets"][[1, 3]].any())
+            self.assertEqual(modified["confidence"], original["confidence"])
+            self.assertEqual(modified["scope"], original["scope"])
+            for key in ("K", "source_reliability"):
+                np.testing.assert_array_equal(modified[key], original[key])
+            self.assertEqual(modified["bound"][str(annotations)], pin)
+            with self.assertRaisesRegex(ValueError, "Visibility annotation file hash"):
+                load(configured("0" * 64))
+            for changed, message in (
+                (dict(receipt, observations_sha256="0" * 64), "detector observations"),
+                (dict(receipt, records=records[:3] + records[:1]), "one-to-one"),
+                (dict(receipt, records=[dict(records[0], source_sha256="0" * 64), *records[1:]]), "source hashes"),
+                (dict(receipt, records=[dict(records[0], absent_groups=["left_knee"]), *records[1:]]), "foot groups"),
+            ):
+                with self.subTest(message=message):
+                    runtime.save(annotations, changed)
+                    with self.assertRaisesRegex(ValueError, message):
+                        load(configured(runtime.sha(annotations)))
+            with self.assertRaisesRegex(ValueError, "Input or source changed"):
+                official_sequence.check_bound(modified["bound"])
+
 
 if __name__ == "__main__":
     unittest.main()

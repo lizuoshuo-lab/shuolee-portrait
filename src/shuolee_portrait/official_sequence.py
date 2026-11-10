@@ -17,6 +17,44 @@ from . import official_smplifyx as official, runtime as rt
 from .camera_world_units import normalize_camera_w2c
 
 
+ANKLE_FOOT_TARGETS = {'left_foot': (14, 19, 20, 21), 'right_foot': (11, 22, 23, 24)}
+
+
+def _source_visibility(spec, manifest, observations_sha256, bound):
+    """Bind independently reviewed ankle/foot absence to exact native input rows."""
+    if (not isinstance(spec, dict) or set(spec) != {'path', 'sha256'} or
+            not isinstance(spec['path'], str) or not Path(spec['path']).is_absolute() or
+            not isinstance(spec['sha256'], str) or not re.fullmatch(r'[0-9a-f]{64}', spec['sha256'])):
+        raise ValueError('Visibility annotations require an absolute path and SHA-256.')
+    path = Path(spec['path']).resolve()
+    digest = spec['sha256']
+    if not path.is_file() or rt.sha(path) != digest:
+        raise ValueError('Visibility annotation file hash differs.')
+    evidence = rt.read(path)
+    if (not isinstance(evidence, dict) or evidence.get('actual_visual_review') is not True or
+            evidence.get('source_video_sha256') != manifest['video_sha256'] or
+            evidence.get('observations_sha256') != observations_sha256):
+        raise ValueError('Visibility annotations must match the reviewed source video and detector observations.')
+    source = {row['frame']: row['source_sha256'] for row in manifest['records']}
+    records = evidence.get('records')
+    if not isinstance(records, list) or len(records) != len(source):
+        raise ValueError('Visibility annotations require a complete one-to-one native frame roster.')
+    absent = {}
+    for record in records:
+        frame = record.get('frame') if isinstance(record, dict) else None
+        if (not isinstance(frame, str) or frame not in source or frame in absent or
+                record.get('source_sha256') != source[frame]):
+            raise ValueError('Visibility annotations require a complete one-to-one native frame roster and source hashes.')
+        groups = record.get('absent_groups')
+        if (not isinstance(groups, list) or
+                any(not isinstance(group, str) or group not in ANKLE_FOOT_TARGETS for group in groups) or
+                len(set(groups)) != len(groups)):
+            raise ValueError('Visibility annotations accept only unique left_foot and right_foot groups.')
+        absent[frame] = [slot for group in groups for slot in ANKLE_FOOT_TARGETS[group]]
+    bound[str(path)] = digest
+    return absent
+
+
 def checked_image(row):
     image = None
     for key, digest in [('image', 'source_sha256'), ('mask', 'mask_sha256')]:
@@ -64,6 +102,11 @@ def load_inputs(frames_path, observations_path, *, camera_length_contract, refer
     fit_order = [order[i] for i in fit_slots]
     fitted_targets, confidence = official.adapt_rtmw_observations(
         *(obs[key][fit_order] for key in ('keypoints', 'scores', 'boxes', 'flip_disagreement')))
+    if capture_layout is not None and 'visibility_annotations' in capture_layout:
+        absent = _source_visibility(capture_layout['visibility_annotations'], manifest,
+                                    bound[str(observations_path)], bound)
+        for i, slot in enumerate(fit_slots):
+            fitted_targets[i, absent[ids[slot]], 2] = 0
     targets = np.zeros((len(rows), *fitted_targets.shape[1:]), dtype=fitted_targets.dtype)
     targets[fit_slots] = fitted_targets
     K = np.asarray([r['K_integer_centers'] for r in rows], np.float64)
