@@ -226,9 +226,9 @@ def smpl_sh0_effective_config():
         densify_from_iter=300, densification_interval=60, opacity_reset_interval=1800, lambda_laplacian=1e6)
     return dict(gaussian_profile='smpl_sh0', iterations=optimization['iterations'], seed=0,
         training_height=None, initial_points=None, initial_points_policy='one_per_triangle',
-        image_cache_frames=None, image_cache_policy='all_selected_native_masked_targets',
+        image_cache_frames=None, image_cache_policy='all_selected_native_rgb_crops_and_full_soft_masks',
         sh_degree=0, shared_clothing_offset_lr=1e-6, snapshot_steps=[1000, optimization['iterations']],
-        optimization=optimization)
+        alpha_loss_weight=.1, straight_rgb_alpha_floor=1e-4, optimization=optimization)
 
 
 def train_official(root, cfg):
@@ -303,15 +303,38 @@ def _frozen_smpl_surface(fit, model_path):
     return base, linear, clothing, protected, error
 
 
-def _masked_native_target(row):
+def _native_foreground_target(row):
+    """Cache raw RGB in the native foreground box and retain the full soft alpha target."""
     import torch
+
     with Image.open(row['image']) as source, Image.open(row['mask']) as mask:
         if source.size != tuple(row['wh']) or mask.size != source.size:
             raise ValueError('Native RGB or mask size differs: ' + row['frame'])
-        rgb = torch.from_numpy(np.array(source.convert('RGB'))).permute(2, 0, 1)
-        alpha = torch.from_numpy(np.array(mask.convert('L')))[None]
-    # Match the audited CPU composition before caching the float32 target.
-    return rgb.float().div(255) * alpha.float().div(255)
+        alpha = torch.from_numpy(np.array(mask.convert('L')))[None].float().div(255)
+        confident = (alpha[0] > .99).numpy()
+        rows = np.flatnonzero(confident.any(axis=1))
+        columns = np.flatnonzero(confident.any(axis=0))
+        if not rows.size:
+            raise ValueError('No confident native foreground: ' + row['frame'])
+        box = (int(columns[0]), int(rows[0]), int(columns[-1])+1, int(rows[-1])+1)
+        rgb = torch.from_numpy(np.array(source.convert('RGB').crop(box))).permute(2, 0, 1).float().div(255)
+    return rgb, alpha, box
+
+
+def _sh0_foreground_alpha_loss(rgb, accumulated_alpha, target_rgb, target_alpha, box, *, alpha_floor=1e-4):
+    """Use straight color for foreground appearance and separate native alpha supervision."""
+    import torch
+
+    x0, y0, x1, y1 = box
+    region = (..., slice(y0, y1), slice(x0, x1))
+    straight = rgb[region] / accumulated_alpha[region].clamp_min(alpha_floor)
+    photo, l1, ssim = foreground_loss(straight, target_rgb, target_alpha[region])
+    error = (accumulated_alpha-target_alpha).abs()
+    background = 1-target_alpha
+    floor = torch.finfo(target_alpha.dtype).tiny
+    foreground_error = (error*target_alpha).sum()/target_alpha.sum().clamp_min(floor)
+    background_error = (error*background).sum()/background.sum().clamp_min(floor)
+    return photo, l1, ssim, .5*(foreground_error+background_error)
 
 
 def _train_smpl_sh0(root, effective):
@@ -322,7 +345,6 @@ def _train_smpl_sh0(root, effective):
     from scene.gaussian_model import GaussianModel
     from scene.smplx_gaussian_model import SMPLXGaussianModel
     from utils.graphics_utils import compute_face_orientation
-    from utils.loss_utils import l1_loss, ssim
 
     official = verify_official_fit(root)
     with np.load(root/'fit/fitted.npz', allow_pickle=False) as archive:
@@ -369,7 +391,10 @@ def _train_smpl_sh0(root, effective):
                                          lr=effective['shared_clothing_offset_lr'], name='static_offset'))
     indices, values = _uniform_laplacian(fit['faces'], len(clothing))
     laplacian = torch.sparse_coo_tensor(indices, values, (len(clothing), len(clothing)), device='cuda').coalesce()
-    targets = [_masked_native_target(row).cuda() for row in rows]
+    targets = []
+    for row in rows:
+        rgb, alpha, box = _native_foreground_target(row)
+        targets.append((rgb.cuda(), alpha.cuda(), box))
     loader = torch.utils.data.DataLoader(range(len(rows)), batch_size=None, shuffle=True, num_workers=0)
     order = iter(loader)
     pipe = SimpleNamespace(convert_SHs_python=False, compute_cov3D_python=False, debug=False)
@@ -385,9 +410,13 @@ def _train_smpl_sh0(root, effective):
     rt.save(out/'config.json', dict(**resolved, execution_kind='official_smplifyx',
         official_fit_provenance=official, native_resolution=True, reference_extent_m=extent,
         optimizer_initial_state_entries=len(model.optimizer.state),
-        cached_target_bytes=sum(t.numel()*t.element_size() for t in targets), fit_replay_max_abs_m=replay_error,
+        cached_target_bytes=sum(t.numel()*t.element_size() for rgb, alpha, _ in targets for t in (rgb, alpha)),
+        fit_replay_max_abs_m=replay_error,
         active_clothing_vertices=int(clothing.sum()), protected_head_vertices=int(protected.sum()),
-        target_composition='Native RGB times soft mask over black; original full-image L1 and DSSIM',
+        target_composition='Raw native RGB and full soft mask. Black-background premultiplied RGB divided by live alpha; '
+            'foreground-area-normalized L1 at mask >0.99 and complete 11x11 foreground SSIM windows in the tight native pixel box.',
+        alpha_supervision='Second stock white-Gaussian pass over black at the same camera and pose. '
+            'Full native alpha L1, averaged equally across soft foreground and background regions. Stored mask values are preserved.',
         source_training_options='259/269 10k terminal and 18k schedules; stock renderer and model operations'))
     if (root/'status.json').is_file():
         status = rt.read(root/'status.json')
@@ -407,13 +436,16 @@ def _train_smpl_sh0(root, effective):
             slot = layout['pose_indices'][i]
             pkg = render_pose(render, cameras[i], model, pipe, bg, slot)
             rgb, visible = pkg['render'], pkg['visibility_filter']
+            accumulated_alpha = render(cameras[i], model, pipe, bg,
+                                       override_color=torch.ones_like(model._xyz))['render'][:1]
+            target_rgb, target_alpha, box = targets[i]
+            photo, foreground_l1, foreground_ssim, alpha_loss = _sh0_foreground_alpha_loss(
+                rgb, accumulated_alpha, target_rgb, target_alpha, box, alpha_floor=effective['straight_rgb_alpha_floor'])
             delta = model.static_offset * model.clothing[:, None]
-            photo = ((1-options.lambda_dssim)*l1_loss(rgb, targets[i]) +
-                     options.lambda_dssim*(1-ssim(rgb, targets[i])))
             xyz = (model._xyz[visible].norm(dim=1)-options.threshold_xyz).relu().mean()*options.lambda_xyz
             scale = (model._scaling[visible].exp()-options.threshold_scale).relu().norm(dim=1).mean()*options.lambda_scale
             lap = torch.sparse.mm(laplacian, delta).square().sum(-1).mean()*options.lambda_laplacian
-            loss = photo+xyz+scale+lap
+            loss = photo+effective['alpha_loss_weight']*alpha_loss+xyz+scale+lap
             loss.backward()
             with torch.no_grad():
                 if step == 1:
@@ -429,6 +461,7 @@ def _train_smpl_sh0(root, effective):
                         raise RuntimeError(f'Invalid SH0 loss or protected-vertex gradient at step {step}.')
                     progress = dict(updated=rt.now(), stage='training', step=step, target_steps=options.iterations,
                         points=len(model._xyz), loss=float(loss), rgb_loss=float(photo), laplacian_loss=float(lap),
+                        foreground_l1=float(foreground_l1), foreground_ssim=float(foreground_ssim), alpha_loss=float(alpha_loss),
                         seconds=time.monotonic()-start, views_seen=int((counts>0).sum()), quality_accepted=False)
                     rt.save(root/'progress.json', progress); log.write(json.dumps(progress)+'\n'); log.flush()
                 if step in effective['snapshot_steps']:
