@@ -228,7 +228,8 @@ def smpl_sh0_effective_config():
         training_height=None, initial_points=None, initial_points_policy='one_per_triangle',
         image_cache_frames=None, image_cache_policy='all_selected_native_rgb_crops_and_full_soft_masks',
         sh_degree=0, shared_clothing_offset_lr=1e-6, snapshot_steps=[1000, optimization['iterations']],
-        alpha_loss_weight=.1, straight_rgb_alpha_floor=1e-4, optimization=optimization)
+        alpha_loss_weight=.1, straight_rgb_alpha_floor=1e-4,
+        sampling_policy='seeded_equal_occupied_source_bin_cycles', optimization=optimization)
 
 
 def train_official(root, cfg):
@@ -345,6 +346,7 @@ def _train_smpl_sh0(root, effective):
     from scene.gaussian_model import GaussianModel
     from scene.smplx_gaussian_model import SMPLXGaussianModel
     from utils.graphics_utils import compute_face_orientation
+    from .stable_selection import SOURCE_BIN_COVERAGE_BASIS, source_bin_training_order
 
     official = verify_official_fit(root)
     with np.load(root/'fit/fitted.npz', allow_pickle=False) as archive:
@@ -395,8 +397,9 @@ def _train_smpl_sh0(root, effective):
     for row in rows:
         rgb, alpha, box = _native_foreground_target(row)
         targets.append((rgb.cuda(), alpha.cuda(), box))
-    loader = torch.utils.data.DataLoader(range(len(rows)), batch_size=None, shuffle=True, num_workers=0)
-    order = iter(loader)
+    selection = rt.read(root/'fit/official-fit-result.json')['selection']
+    row_bins, order = source_bin_training_order(rows, selection, seed=seed)
+    bin_draws = dict.fromkeys(sorted(set(row_bins)), 0)
     pipe = SimpleNamespace(convert_SHs_python=False, compute_cov3D_python=False, debug=False)
     bg = torch.zeros(3, device='cuda')
     extent = float(np.linalg.norm(np.ptp(fit['vertices_world'][reference], axis=0)))
@@ -411,6 +414,7 @@ def _train_smpl_sh0(root, effective):
         official_fit_provenance=official, native_resolution=True, reference_extent_m=extent,
         optimizer_initial_state_entries=len(model.optimizer.state),
         cached_target_bytes=sum(t.numel()*t.element_size() for rgb, alpha, _ in targets for t in (rgb, alpha)),
+        training_source_bins=row_bins, sampling_coverage_basis=SOURCE_BIN_COVERAGE_BASIS,
         fit_replay_max_abs_m=replay_error,
         active_clothing_vertices=int(clothing.sum()), protected_head_vertices=int(protected.sum()),
         target_composition='Raw native RGB and full soft mask. Black-background premultiplied RGB divided by live alpha; '
@@ -427,12 +431,9 @@ def _train_smpl_sh0(root, effective):
     with (out/'loss.jsonl').open('x') as log:
         for step in range(1, options.iterations+1):
             model.update_learning_rate(step)
-            try:
-                i = next(order)
-            except StopIteration:
-                order = iter(loader)
-                i = next(order)
+            i = next(order)
             counts[i] += 1
+            bin_draws[row_bins[i]] += 1
             slot = layout['pose_indices'][i]
             pkg = render_pose(render, cameras[i], model, pipe, bg, slot)
             rgb, visible = pkg['render'], pkg['visibility_filter']
@@ -462,7 +463,8 @@ def _train_smpl_sh0(root, effective):
                     progress = dict(updated=rt.now(), stage='training', step=step, target_steps=options.iterations,
                         points=len(model._xyz), loss=float(loss), rgb_loss=float(photo), laplacian_loss=float(lap),
                         foreground_l1=float(foreground_l1), foreground_ssim=float(foreground_ssim), alpha_loss=float(alpha_loss),
-                        seconds=time.monotonic()-start, views_seen=int((counts>0).sum()), quality_accepted=False)
+                        seconds=time.monotonic()-start, views_seen=int((counts>0).sum()),
+                        source_bins_seen=sum(draws > 0 for draws in bin_draws.values()), quality_accepted=False)
                     rt.save(root/'progress.json', progress); log.write(json.dumps(progress)+'\n'); log.flush()
                 if step in effective['snapshot_steps']:
                     snapshot = out/f'step-{step:06d}'; snapshot.mkdir()
@@ -499,8 +501,8 @@ def _train_smpl_sh0(root, effective):
     rt.save(out/'result.json', dict(state='completed', from_scratch=True, steps=options.iterations,
         execution_kind='official_smplifyx', gaussian_profile='smpl_sh0', sh_degree=0, points=len(model._xyz),
         schedule_steps=options.position_lr_max_steps, formal_training_admitted=False, quality_accepted=False,
-        per_frame_updates=counts.tolist(), pose_layout=layout, reference_frame_id=layout['reference_frame_id'],
-        final_snapshot=f'step-{options.iterations:06d}'))
+        per_frame_updates=counts.tolist(), source_bin_draws=bin_draws, pose_layout=layout,
+        reference_frame_id=layout['reference_frame_id'], final_snapshot=f'step-{options.iterations:06d}'))
     del targets, laplacian
     try:
         from .bound_replay import save_bound_snapshot

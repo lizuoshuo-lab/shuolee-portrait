@@ -1,4 +1,5 @@
 """CPU fixtures for the stable SMPL capture and selection contract."""
+from itertools import islice
 from pathlib import Path
 import sys
 import tempfile
@@ -81,6 +82,50 @@ class StableSelectionTests(unittest.TestCase):
             stable_selection.select_frames(inputs, dict(winners, frame_022=winners["frame_000"]), scope=scope)
         with self.assertRaisesRegex(ValueError, "different original video"):
             stable_selection.selection_scope(inputs, arc="full", capture_layout=dict(layout, video_sha256="b"*64))
+
+    def test_quota_extras_spread_native_time_and_report_edge_gaps(self):
+        inputs = fixture(72)
+        for index, row in enumerate(inputs["rows"]):
+            row["time_seconds"] = index + (20 if index >= 68 else 0)
+        scope = stable_selection.selection_scope(inputs)
+        winners = fitted_winners(inputs, scope)
+        for bin_id in (0, 1, 7, 8, 23):
+            for frame in scope["source_view_bins"][bin_id]:
+                winners.pop(frame, None)
+        winners["frame_067"]["joints_projected_native"][0, 2, 0] = 4.
+        winners["frame_068"]["joints_projected_native"][0, 2, 0] = 2.75
+        selection = stable_selection.select_frames(inputs, winners, scope=scope)
+        coverage = selection["coverage"]["front"]
+        self.assertTrue(selection["full_roster"])
+        self.assertFalse(selection["full_bin_coverage"])
+        self.assertEqual(coverage["missing_bin_runs"], [[0, 1], [7, 8], [23, 23]])
+        self.assertEqual(coverage["max_consecutive_uncovered_bins"], 2)
+        self.assertEqual(selection["coverage"]["rear"]["max_consecutive_uncovered_bins"], 0)
+        self.assertEqual(coverage["quota_fill_spacing_axis"], "native_pts_microseconds")
+        self.assertEqual(selection["reasons"]["frame_068"]["status"], "selected_quota_fill")
+        self.assertEqual(selection["reasons"]["frame_067"]["status"], "pose_screen_rejection")
+        self.assertTrue(set(scope["retained_holdouts"]).isdisjoint(selection["selected_frames"]))
+
+    def test_sampler_balances_occupied_bins_and_rotates_within_each_bin(self):
+        ids = ["frame_010", "frame_002", "frame_000", "frame_001"]
+        rows = [dict(frame=frame, source_frame_index=int(frame[6:])) for frame in ids]
+        reasons = {frame: dict(source_bin=bin_id, status=status) for frame, bin_id, status in zip(
+            ids, (3, 0, 0, 0), ("selected_bin_leader", "selected_quota_fill",
+                                 "selected_bin_leader", "selected_quota_fill"))}
+        selection = dict(selected_frames=sorted(ids), reasons=reasons, retained_holdouts=["frame_009"],
+                         coverage={"front": {"occupied_source_bins": [0, 3]}})
+        bins, order = stable_selection.source_bin_training_order(rows, selection, seed=0)
+        self.assertEqual(bins, [3, 0, 0, 0])
+        picked = list(islice(order, 8))
+        _, repeat = stable_selection.source_bin_training_order(rows, selection, seed=0)
+        self.assertEqual(picked, list(islice(repeat, 8)))
+        for i in range(0, len(picked), 2):
+            self.assertEqual(sorted(bins[j] for j in picked[i:i+2]), [0, 3])
+        self.assertEqual([ids[j] for j in picked if bins[j] == 0],
+                         ["frame_000", "frame_001", "frame_002", "frame_000"])
+        with self.assertRaisesRegex(ValueError, "protected selection"):
+            stable_selection.source_bin_training_order(
+                rows, dict(selection, retained_holdouts=["frame_000"]), seed=0)
 
     def test_q90_excludes_protected_and_unassigned_native_observations(self):
         with tempfile.TemporaryDirectory() as folder:

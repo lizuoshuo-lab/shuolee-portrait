@@ -1,4 +1,5 @@
 """Deterministic capture-arc roster and reference for one-shot portrait delivery."""
+from itertools import count
 import math
 import re
 
@@ -8,6 +9,7 @@ import numpy as np
 BODY = np.array([0, 16, 15, 18, 17, 5, 2, 6, 3, 7, 4, 13, 10, 14, 11])
 FEET = np.arange(19, 25)
 FACE = np.arange(67, 118)
+SOURCE_BIN_COVERAGE_BASIS = "Chronological native source sample bins; a proxy, not measured orbit angles."
 POSE_FIELDS = (
     "global_orient", "body_pose_axis_angle", "camera_translation", "pose_embedding",
     "left_hand_pose", "right_hand_pose", "jaw_pose", "leye_pose", "reye_pose", "expression",
@@ -202,6 +204,69 @@ def _body_rank(record):
             -(feet["mean_confidence"] or 0.), record["source_index"])
 
 
+def _spread_fill(eligible, leaders, limit, rows, reasons):
+    """Fill within a side by distance from already selected native timestamps."""
+    timestamps = {frame: rows[frame][1].get("time_seconds") for frame in eligible}
+    use_pts = all(type(value) in (int, float) and math.isfinite(value) for value in timestamps.values())
+    axis = "native_pts_microseconds" if use_pts else "original_source_index"
+    positions = ({frame: round(value*1_000_000) for frame, value in timestamps.items()} if use_pts
+                 else {frame: reasons[frame]["source_index"] for frame in eligible})
+    remaining = set(eligible) - set(leaders)
+    chosen, fill = list(leaders), []
+    for _ in range(min(limit, len(remaining))):
+        frame = min(remaining, key=lambda name: (
+            -min(abs(positions[name]-positions[other]) for other in chosen),
+            _body_rank(reasons[name]), name))
+        remaining.remove(frame)
+        fill.append(frame)
+        chosen.append(frame)
+    return fill, axis
+
+
+def _uncovered_runs(missing):
+    """Inclusive registered-bin intervals, including either end of the arc."""
+    runs = []
+    for index in missing:
+        if runs and index == runs[-1][1]+1:
+            runs[-1][1] = index
+        else:
+            runs.append([index, index])
+    return runs
+
+
+def source_bin_training_order(rows, selection, *, seed):
+    """Map training slots to source bins and yield one shuffled pick per occupied bin."""
+    _require(_index(seed), "A deterministic nonnegative integer seed is required.")
+    chronological = _source_rows(rows)
+    ids = [row["frame"] for row in rows]
+    selected = selection["selected_frames"]
+    _require(len(selected) == len(ids) and set(selected) == set(ids)
+             and not set(ids) & set(selection["retained_holdouts"]),
+             "Training frame roster differs from protected selection.")
+    reasons = [selection["reasons"][frame] for frame in ids]
+    row_bins = [reason["source_bin"] for reason in reasons]
+    _require(all(_index(bin_id) and reason["status"] in ("selected_bin_leader", "selected_quota_fill")
+                 and not reason.get("screen_flags") for bin_id, reason in zip(row_bins, reasons)),
+             "Training requires an admitted source bin per frame.")
+    occupied = sorted({bin_id for side in selection["coverage"].values()
+                       for bin_id in side["occupied_source_bins"]})
+    _require(set(row_bins) == set(occupied), "Training source bins differ from reported coverage.")
+    slots = {frame: i for i, frame in enumerate(ids)}
+    groups = {bin_id: [] for bin_id in occupied}
+    for frame, _ in chronological:
+        slot = slots[frame]
+        groups[row_bins[slot]].append(slot)
+
+    def order():
+        rng = np.random.default_rng(seed)
+        for cycle in count():
+            for bin_id in rng.permutation(occupied):
+                group = groups[bin_id]
+                yield group[cycle % len(group)]
+
+    return row_bins, order()
+
+
 def select_frames(inputs, winners, *, scope, reports=None, shared_betas=None, screen_pose=True):
     """Rank official technical winners using the original automatic pose screen."""
     rows = {row["frame"]: (index, row) for index, row in enumerate(inputs["rows"])}
@@ -254,16 +319,18 @@ def select_frames(inputs, winners, *, scope, reports=None, shared_betas=None, sc
         for frame in leaders:
             selected.add(frame)
             reasons[frame]["status"] = "selected_bin_leader"
-        fill = sorted((frame for frame in eligible if frame not in selected),
-                      key=lambda frame: (_body_rank(reasons[frame]), frame))[:target-len(leaders)]
+        fill, spacing_axis = _spread_fill(eligible, leaders, target-len(leaders), rows, reasons)
         for frame in fill:
             selected.add(frame)
             reasons[frame]["status"] = "selected_quota_fill"
         count = len(leaders) + len(fill)
+        missing = [index for index in interval if index not in occupied]
+        runs = _uncovered_runs(missing)
         coverage[side] = dict(target=target, eligible=len(eligible), selected=count, source_bins=target,
-                              occupied_source_bins=occupied,
-                              missing_source_bins=[index for index in interval if index not in occupied],
-                              shortfall=target-count)
+                              occupied_source_bins=occupied, missing_source_bins=missing,
+                              missing_bin_runs=runs, max_consecutive_uncovered_bins=max(
+                                  (end-start+1 for start, end in runs), default=0),
+                              quota_fill_spacing_axis=spacing_axis, shortfall=target-count)
         offset += target
     _require(bool(selected), "No technically valid non-holdout poses for automatic training.")
     for frame in holdouts:
@@ -276,7 +343,10 @@ def select_frames(inputs, winners, *, scope, reports=None, shared_betas=None, sc
         _body_rank(reasons[frame]), frame))
     result = dict(arc=scope["arc"], target_frames=sum(targets.values()), selected_frames=ordered,
                   retained_holdouts=holdouts, reference_frame=reference, coverage=coverage, reasons=reasons,
-                  full_roster=len(ordered) == sum(targets.values()), quality_accepted=False)
+                  coverage_basis=SOURCE_BIN_COVERAGE_BASIS,
+                  full_roster=len(ordered) == sum(targets.values()),
+                  full_bin_coverage=all(not side["missing_source_bins"] for side in coverage.values()),
+                  quality_accepted=False)
     if screen_pose:
         result["pose_screen"] = "original_body_and_feet_v1"
     return result
