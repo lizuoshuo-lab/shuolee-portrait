@@ -83,7 +83,7 @@ def load_official_config(official_root):
     return config
 
 
-def adapted_entry_source(official_root, *, refine_body_placement=False, seed_body_stage=False):
+def adapted_entry_source(official_root, *, refine_body_placement=False):
     """Exact replacements only; keep pristine source and expose the full diff."""
     root = Path(official_root)
     for relative, digest in PINNED.items():
@@ -116,13 +116,6 @@ def adapted_entry_source(official_root, *, refine_body_placement=False, seed_bod
              "result = {key: value.copy() for key, value in result.items()}\n"
              "            results.append({'loss': final_loss_val,"),
         ]
-    if seed_body_stage:
-        reset = 'pose_embedding.fill_(0)'
-        need(source.count(reset) == 1
-             and source.index('cam_init_loss_val = monitor.run_fitting(') < source.index(reset)
-             < source.index('for opt_idx, curr_weights in enumerate('),
-             'Expected one official latent reset between the camera and body stages.')
-        edits.append((reset, "pose_embedding.copy_(kwargs['_initial_body_latent'])"))
     for old, new in edits:
         need(source.count(old) == 1, 'Pinned input hook does not match source.')
         source = source.replace(old, new)
@@ -176,7 +169,7 @@ def decode_shared_body_pose(vposer2, latent, *, device):
 
 def fit_one(*, official_root, image, keypoints, K_integer_centers, body_model,
             vposer2, result_path, shared_betas, freeze_betas,
-            device, diff_path, shared_body_pose=None, initial_body_latent=None):
+            device, diff_path, shared_body_pose=None):
     """One frame only, optionally with the supplied frozen shared body rotations."""
     import cv2
     import torch
@@ -191,13 +184,7 @@ def fit_one(*, official_root, image, keypoints, K_integer_centers, body_model,
         need(shared_body_pose.shape in ((63,), (1, 63)) and np.isfinite(shared_body_pose).all(),
              'Expected one finite 63-vector of shared body rotations.')
     refine_body_placement = shared_body_pose is not None
-    if initial_body_latent is not None:
-        initial_body_latent = np.asarray(initial_body_latent, dtype=np.float32)
-        need(freeze_betas and initial_body_latent.shape in ((32,), (1, 32))
-             and np.isfinite(initial_body_latent).all(), 'Body-stage recovery requires frozen shape and a finite 32-vector.')
-        initial_body_latent = initial_body_latent.reshape(1, 32)
-    source, diff = adapted_entry_source(official_root, refine_body_placement=refine_body_placement,
-                                       seed_body_stage=initial_body_latent is not None)
+    source, diff = adapted_entry_source(official_root, refine_body_placement=refine_body_placement)
     Path(diff_path).write_text(diff, encoding='utf-8')
     utils, prior, fitting, optimizer = load_official(official_root)
     dtype = torch.float32
@@ -266,8 +253,6 @@ def fit_one(*, official_root, image, keypoints, K_integer_centers, body_model,
     # headless, custom export, and collision disabled as in the prior local run.
     config.update(interpenetration=False, visualize=False, save_meshes=False,
                   use_cuda=dev.type == 'cuda', model_type='smplx')
-    if initial_body_latent is not None:
-        config['_initial_body_latent'] = torch.as_tensor(initial_body_latent, dtype=dtype, device=dev)
     jw = torch.ones((1,118), dtype=dtype, device=dev); jw[:,[1,9,12]] = 0
     l2 = lambda: prior.L2Prior().to(device=dev, dtype=dtype)
     result = scope['fit_single_frame'](
@@ -303,9 +288,6 @@ def fit_one(*, official_root, image, keypoints, K_integer_centers, body_model,
         winning_loss=float(result['winner']['loss']), coordinate_system='opencv_camera_model_meters',
         translation_applied_once=True, full_K_integer_centers=True,
         external_world_camera_used=False, physical_camera_calibration_accepted=False)
-    if initial_body_latent is not None:
-        report['initialization'] = 'Official zero-latent camera fit, then explicit recovery VPoser latent for the body stages'
-        report['initial_body_latent_sha256'] = hashlib.sha256(initial_body_latent.tobytes()).hexdigest()
     if shared_body_pose is not None:
         need(body_loss_trace['calls'] > 0 and torch.isfinite(body_loss_trace['last']).item(),
              'Shared body loss did not produce a finite evaluation.')
@@ -391,7 +373,7 @@ def create_models(*, official_root, assets, device='cuda', static_topology=True)
 
 def fit_frame(*, official_root, image, keypoints, K_integer_centers, body_model,
               vposer2, result_path, shared_betas, freeze_betas, device, diff_path,
-              static_topology=True, shared_body_pose=None, initial_body_latent=None):
+              static_topology=True, shared_body_pose=None):
     """Validated single-frame entry; shared-shape and pose decisions stay with the caller."""
     import torch
     from .smplifyx_runtime import cache_static_topology
@@ -418,7 +400,6 @@ def fit_frame(*, official_root, image, keypoints, K_integer_centers, body_model,
         K_integer_centers=K_integer_centers, body_model=body_model, vposer2=vposer2,
         result_path=result_path, shared_betas=shared_betas, freeze_betas=freeze_betas,
         device=device, diff_path=diff_path,
-        **({'shared_body_pose': shared_body_pose} if shared_body_pose is not None else {}),
-        **({'initial_body_latent': initial_body_latent} if initial_body_latent is not None else {}))
+        **({'shared_body_pose': shared_body_pose} if shared_body_pose is not None else {}))
     report['runtime_optimization'] = topology
     return arrays, report

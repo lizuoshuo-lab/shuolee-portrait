@@ -39,49 +39,6 @@ def fitted_winners(inputs, scope):
 
 
 class StableSelectionTests(unittest.TestCase):
-    def test_missing_bin_seed_is_ranked_once_and_excludes_holdouts(self):
-        inputs = fixture(60)
-        scope = stable_selection.selection_scope(inputs)
-        winners = fitted_winners(inputs, scope)
-        for pose in winners.values():
-            pose['pose_embedding'] = np.ones((1, 32), np.float32)
-        missing = 3
-        members = scope['source_view_bins'][missing]
-        first, second, *_ = [frame for frame in members if frame in winners]
-        self.assertTrue(set(members) & set(scope['retained_holdouts']))
-        for frame in members:
-            if frame in winners:
-                winners[frame]['joints_projected_native'][0, 2, 0] = 5.
-        winners[second]['joints_projected_native'][0, 2, 0] = 4.
-        selection = stable_selection.select_frames(inputs, winners, scope=scope)
-        self.assertIn(missing, selection['coverage']['front']['missing_source_bins'])
-        items = list(official_sequence._missing_bin_seeds(inputs, selection, winners, {}))
-        item, = [item for item in items if item['source_bin'] == missing]
-        self.assertEqual(item['frame_id'], second)
-        self.assertEqual(item['seed_kind'], 'nearby_baseline_admitted')
-        self.assertNotIn(item['seed_frame'], scope['retained_holdouts'])
-        self.assertLessEqual(abs(selection['reasons'][item['seed_frame']]['source_bin']-missing), 2)
-        anchors = {second: (np.ones((1, 32), np.float32), {})}
-        item, = [item for item in official_sequence._missing_bin_seeds(inputs, selection, winners, anchors)
-                 if item['source_bin'] == missing]
-        self.assertEqual((item['frame_id'], item['seed_kind'], item['seed_frame']),
-                         (second, 'same_frame_shape_anchor', second))
-        self.assertNotEqual(first, item['frame_id'])
-
-    def test_recovery_checks_each_supported_point_in_native_pixels(self):
-        observed = np.zeros((118, 3), np.float32)
-        observed[[2, 25, 67], 2] = 1.
-        before = dict(joints_projected_native=np.zeros((1, 118, 2), np.float32))
-        after = dict(joints_projected_native=before['joints_projected_native'].copy())
-        after['joints_projected_native'][0, [2, 25, 67, 68], 0] = [1., .75, .51, 500.]
-        protect = official_sequence._recovery_protection(observed, before, after)
-        self.assertEqual(protect['head']['points'], 1)
-        self.assertFalse(protect['head']['passed'])
-        self.assertEqual(protect['nonhead']['points'], 2)
-        self.assertTrue(protect['nonhead']['passed'])
-        after['joints_projected_native'][0, 25, 0] = 1.01
-        self.assertFalse(official_sequence._recovery_protection(observed, before, after)['nonhead']['passed'])
-
     def test_half_budget_original_pose_gate_and_reference(self):
         inputs = fixture(60)
         scope = stable_selection.selection_scope(inputs)

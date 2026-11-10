@@ -108,15 +108,6 @@ class OfficialFrameInterfaceTests(unittest.TestCase):
                         entry.fit_frame(**dict(self.kw, **changes))
                     fit.assert_not_called()
 
-    def test_recovery_seed_is_opt_in_at_the_single_frame_boundary(self):
-        seed = np.ones((1, 32), dtype=np.float32)
-        with patch.object(entry, 'fit_one', return_value=({}, {})) as fit:
-            entry.fit_frame(**self.kw, static_topology=False)
-            self.assertNotIn('initial_body_latent', fit.call_args.kwargs)
-            entry.fit_frame(**dict(self.kw, freeze_betas=True), static_topology=False,
-                            initial_body_latent=seed)
-            self.assertIs(fit.call_args.kwargs['initial_body_latent'], seed)
-
     def test_existing_output_is_preserved(self):
         self.kw['result_path'].write_bytes(b'original result')
         with patch.object(entry, 'fit_one') as fit:
