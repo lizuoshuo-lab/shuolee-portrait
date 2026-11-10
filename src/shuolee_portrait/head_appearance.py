@@ -40,8 +40,20 @@ def snapshot_name(receipt):
                 or surface.get('baseline_snapshot') != name or surface.get('frozen_mesh_verified') is not True):
             raise ValueError('Invalid surface refinement receipt.')
         name = f'{name}-surface-{surface["steps"]:06d}'
-        if surface.get('snapshot') != name or surface.get('points') != receipt.get('points'):
+        if surface.get('snapshot') != name:
             raise ValueError('The refined snapshot differs from the registered terminal.')
+    coverage = receipt.get('coverage_refinement')
+    if coverage is not None:
+        if (surface is None or not isinstance(coverage, dict) or coverage.get('state') != 'completed'
+                or type(coverage.get('steps')) is not int or coverage['steps'] <= 0
+                or coverage.get('baseline_snapshot') != name or coverage.get('frozen_mesh_verified') is not True
+                or coverage.get('initial_points') != surface.get('points')):
+            raise ValueError('Invalid coverage refinement receipt.')
+        name = f'{name}-coverage-{coverage["steps"]:06d}'
+        if coverage.get('snapshot') != name or coverage.get('points') != receipt.get('points'):
+            raise ValueError('The coverage snapshot differs from the registered terminal.')
+    elif surface is not None and surface.get('points') != receipt.get('points'):
+        raise ValueError('The refined snapshot differs from the registered terminal.')
     if receipt.get('final_snapshot') != name:
         raise ValueError('The selected SH0 snapshot does not match its terminal receipt.')
     return name
