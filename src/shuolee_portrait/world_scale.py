@@ -2,7 +2,8 @@
 
 import torch
 
-from .render_support import FootprintLimits, classify, coverage_trial, source_weights
+from .render_support import FootprintLimits, classify, replacement_evaluator, source_weights
+from .replacement_selection import select_replacements
 from .shape_refinement import _projection, _screen_visibility, _tangent_distance
 
 
@@ -14,7 +15,11 @@ def scale_config():
                 needle=dict(width_over_extent=.008, width_over_face=.65, gap_over_extent=.010, gap_over_face=.75,
                             max_parents=128, center_move_fraction=.50, max_move_over_extent=.010, width_trim_ratio=.75),
                 render_support=dict(min_equivalent_pixels=1., min_background_bins=2, background_to_foreground=.20,
-                                    coverage_slack_px=2., coverage_loss_fraction=.025, replacement_budget=16))
+                                    coverage_slack_px=2., coverage_loss_fraction=.025, replacement_budget=16,
+                                    coverage_max_trials=32, coverage_tile_px=16,
+                                    coverage_local_deficit_px=1., coverage_region_deficit_px=1.,
+                                    coverage_rgb_mae_increase=1/255,
+                                    coverage_local_rgb_mae_increase=1/255))
 
 
 def _limits(face_scale, extent, options):
@@ -212,6 +217,17 @@ class WorldScale:
                 record['max_preprojection_growth_ratio'] = max(record['max_preprojection_growth_ratio'], growth)
         self.support_history.append(dict(step=step, phase=phase, tracks=tracks))
 
+    def _verified_subset(self, constraints, parents, centers, scales, opacity, weights):
+        options = self.options['render_support']
+        if not len(parents):
+            return parents, None
+        with replacement_evaluator(self.model, constraints, parents, centers, scales, opacity, weights, options) as evaluate:
+            chosen, trial = select_replacements(evaluate, parents.tolist(), max_trials=options['coverage_max_trials'])
+        trial['initial_proposed'] = trial['proposed']
+        if chosen:
+            trial['proposed'] = len(chosen)
+        return parents.new_tensor(chosen), trial
+
     def _repair_displaced(self, constraints):
         """Measure raster support before adjusting broad off-surface rows."""
         from utils.general_utils import build_rotation
@@ -259,9 +275,10 @@ class WorldScale:
         shortlist = (has_fg & conflicted & geometry).nonzero(as_tuple=True)[0][:support['replacement_budget']]
         children = log_sigma[shortlist].clone()
         children.scatter_(1, axis[shortlist, None], child_sigma[shortlist, None].log())
-        trial = coverage_trial(model, constraints, ids[shortlist], proposals[shortlist, 1:],
-                               children, child_opacity[shortlist], weights[:, shortlist], support)
-        replace = shortlist if trial['accepted'] else shortlist[:0]
+        children = torch.minimum(children, self.limits.cap[ids[shortlist]])
+        chosen, trial = self._verified_subset(constraints, ids[shortlist], proposals[shortlist, 1:],
+                                              children, child_opacity[shortlist], weights[:, shortlist])
+        replace, children = shortlist[chosen], children[chosen]
         trim = (~has_fg) & (conflicted | unobserved)
 
         # Retain the center, opacity and smallest width; cap all axes against regrowth.
@@ -272,7 +289,7 @@ class WorldScale:
         limit = torch.maximum(limit, widest_trimmed)
         limit.scatter_(1, trim_axes, trimmed)
         parents = ids[replace]
-        lineage = torch.cat((self.limits.set(trim_ids, limit), self.limits.set(parents, children[:len(parents)])))
+        lineage = torch.cat((self.limits.set(trim_ids, limit), self.limits.set(parents, children)))
         rows = torch.cat((trim.nonzero(as_tuple=True)[0], replace))
         original_sigma = log_sigma[rows].amax(1).exp()*self.maximum_scale[owner[ids[rows]]]
         mass = weights[:, rows].sum(0)
@@ -315,7 +332,7 @@ class WorldScale:
         event = dict(step=step, near_limit_candidates=int(eligible.count_nonzero()), assessed=len(ids),
                      split_parents=0, children=0, exterior_trimmed=0, retained_without_child_support=0,
                      visible_parent_view_pairs=0, small_projected_world_axis_pairs=0, small_projected_ellipse_pairs=0)
-        near_trial = None
+        near_trial, near_interventions = None, []
         if len(ids):
             axis = axes[ids]
             local_sigma = model._scaling[ids].exp()
@@ -335,14 +352,24 @@ class WorldScale:
                 parents = ids[shortlist]
                 log_sigma = model._scaling[parents].clone()
                 log_sigma.scatter_(1, axis[shortlist, None], child_sigma[shortlist, None].log())
-                near_trial = coverage_trial(model, constraints, parents, probes[shortlist, 1:],
-                                            log_sigma, opacity[shortlist], weights, support)
-                if near_trial['accepted']:
-                    self._replace(parents, probes[shortlist, 1:], log_sigma, opacity[shortlist])
+                log_sigma = torch.minimum(log_sigma, self.limits.cap[parents])
+                chosen, near_trial = self._verified_subset(constraints, parents, probes[shortlist, 1:],
+                                                           log_sigma, opacity[shortlist], weights)
+                parents, children = parents[chosen], log_sigma[chosen]
+                if len(parents):
+                    lineage = self.limits.set(parents, children)
+                    mass = weights[:, chosen].sum(0).tolist()
+                    sigma = (model._scaling[parents].amax(1).exp()*self.maximum_scale[model.binding[parents]]).tolist()
+                    near_interventions = [
+                        dict(lineage=key, action='near_limit_replace', foreground=values[0], background=values[1],
+                             total=values[2], max_sigma_m=width)
+                        for key, values, width in zip(lineage.tolist(), mass, sigma, strict=True)]
+                    self._replace(parents, probes[shortlist[chosen], 1:], children, opacity[shortlist[chosen]])
                     event.update(split_parents=len(parents), children=2*len(parents))
             event.update(observation, retained_without_child_support=len(ids)-event['split_parents'])
         event['needle'], event['render_support'] = self._repair_displaced(constraints)
         event['render_support']['near_limit_trial'] = near_trial
+        event['render_support']['near_limit_interventions'] = near_interventions
         self.project()
         self.remeasure(constraints, step, 'after_repair')
         self.splits.append(event)

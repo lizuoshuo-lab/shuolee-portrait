@@ -57,6 +57,37 @@ def initialization(model):
                 optimizer_initial_state_entries=0, optimizer_updates=0, no_prior_gaussian_loaded=True)
 
 
+def _protected_landmark_pixels(view, landmarks):
+    """Native reliable foreground around observed eyes and ears in the OpenPose layout."""
+    import torch
+
+    confidence = np.isfinite(landmarks).all(axis=1) & (landmarks[:, 2] >= .5)
+    inner = landmarks[67:118, :2][confidence[67:118]]
+    if len(inner) < 8:
+        return {}
+    # Ear neighborhoods are an observation-based probe, without assuming that
+    # the detector has established physical visibility through hair.
+    ear_radius = max(3, round(.12*float(np.ptp(inner, axis=0).max())))
+    x0, y0, x1, y1 = view.box
+    regions = {}
+    for name, indices in (('right_eye', range(86, 92)), ('left_eye', range(92, 98)),
+                          ('right_ear', [17]), ('left_ear', [18])):
+        indices = np.asarray(indices)
+        supported = landmarks[indices, :2][confidence[indices]]
+        ear = len(indices) == 1
+        if len(supported) < (1 if ear else 3):
+            continue
+        pad = ear_radius if ear else max(2, round(.25*float(np.ptp(supported, axis=0).max())))
+        left, top = np.maximum([x0, y0], np.floor(supported.min(axis=0)).astype(int)-pad)
+        right, bottom = np.minimum([x1, y1], np.ceil(supported.max(axis=0)).astype(int)+pad+1)
+        if left >= right or top >= bottom:
+            continue
+        pixels = view.inside[top:bottom, left:right].nonzero().T
+        if pixels.shape[1] >= 8:
+            regions[name] = pixels + torch.tensor([[top], [left]], device=pixels.device)
+    return regions
+
+
 class Constraints:
     def __init__(self, model, rows, slots, cameras, fit, pipe, black, targets, bins, extent, schedule):
         self.model, self.rows, self.slots, self.cameras = model, rows, slots, cameras
@@ -65,6 +96,8 @@ class Constraints:
         self.options = schedule['constraints']
         self.views, self.matrices = _prepare_views(model, rows, slots, cameras, fit, pipe, black, self.options,
                                                   native_targets=targets, capture_face_anchor=False)
+        self.protected_regions = [_protected_landmark_pixels(view, fit['observed_native_keypoints'][slot])
+                                  for view, slot in zip(self.views, slots, strict=True)]
 
     def loss(self, i, rgb, alpha, visible, old_alpha, step):
         view, matrix = self.views[i], self.matrices[i]
