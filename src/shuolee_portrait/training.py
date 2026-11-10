@@ -216,10 +216,28 @@ def verify_official_fit(root):
                 formal_training_admitted=False)
 
 
+def smpl_sh0_effective_config():
+    """Resolve the stable profile once from the stock GaussianAvatars options."""
+    from arguments import OptimizationParams
+
+    parser = argparse.ArgumentParser()
+    optimization = vars(OptimizationParams(parser).extract(parser.parse_args([]))).copy()
+    optimization.update(iterations=10000, position_lr_max_steps=18000, densify_until_iter=18000,
+        densify_from_iter=300, densification_interval=60, opacity_reset_interval=1800, lambda_laplacian=1e6)
+    return dict(gaussian_profile='smpl_sh0', iterations=optimization['iterations'], seed=0,
+        training_height=None, initial_points=None, initial_points_policy='one_per_triangle',
+        image_cache_frames=None, image_cache_policy='all_selected_native_masked_targets',
+        sh_degree=0, shared_clothing_offset_lr=1e-6, snapshot_steps=[1000, optimization['iterations']],
+        optimization=optimization)
+
+
 def train_official(root, cfg):
     """Train on hash-bound official named fits using the requested profile."""
     if cfg.get('gaussian_profile') == 'smpl_sh0':
-        return _train_smpl_sh0(Path(root))
+        effective = smpl_sh0_effective_config()
+        if any(cfg.get(key, value) != value for key, value in effective.items()):
+            raise ValueError('Run config conflicts with the stable SH0 training profile.')
+        return _train_smpl_sh0(Path(root), effective)
     return _train_static(Path(root), cfg, execution_kind='official_smplifyx')
 
 
@@ -296,10 +314,9 @@ def _masked_native_target(row):
     return rgb.float().div(255) * alpha.float().div(255)
 
 
-def _train_smpl_sh0(root):
+def _train_smpl_sh0(root, effective):
     import random
     import torch
-    from arguments import OptimizationParams
     from gaussian_renderer import render
     from roma import quat_xyzw_to_wxyz, rotmat_to_unitquat
     from scene.gaussian_model import GaussianModel
@@ -318,13 +335,9 @@ def _train_smpl_sh0(root):
     torch.set_num_threads(4)
     base, linear, clothing, protected, replay_error = _frozen_smpl_surface(fit, rt.ASSETS/'smplx/SMPLX_NEUTRAL.npz')
     torch.backends.cuda.matmul.allow_tf32 = False
-    random.seed(0); torch.manual_seed(0); torch.cuda.manual_seed_all(0); np.random.seed(0)
-    parser = argparse.ArgumentParser()
-    options = OptimizationParams(parser).extract(parser.parse_args([]))
-    options.iterations = 10000
-    options.position_lr_max_steps = options.densify_until_iter = 18000
-    options.densify_from_iter, options.densification_interval, options.opacity_reset_interval = 300, 60, 1800
-    options.lambda_laplacian = 1e6
+    seed = effective['seed']
+    random.seed(seed); torch.manual_seed(seed); torch.cuda.manual_seed_all(seed); np.random.seed(seed)
+    options = SimpleNamespace(**effective['optimization'])
 
     class SharedSurface(SMPLXGaussianModel):
         def posed_vertices(self, slot):
@@ -339,7 +352,7 @@ def _train_smpl_sh0(root):
             self.face_scaling = scaling.clamp_min(1e-8)
             self.face_orien_quat = quat_xyzw_to_wxyz(rotmat_to_unitquat(self.face_orien_mat))
 
-    model = SharedSurface(0)
+    model = SharedSurface(effective['sh_degree'])
     model.base, model.linear = base.cuda(), linear.cuda()
     del linear
     model.clothing = torch.as_tensor(clothing, device='cuda')
@@ -352,7 +365,8 @@ def _train_smpl_sh0(root):
         model.select_mesh_by_timestep(reference)
         model.create_from_pcd(None, 1.)
     model.training_setup(options)
-    model.optimizer.add_param_group(dict(params=[model.static_offset], lr=1e-6, name='static_offset'))
+    model.optimizer.add_param_group(dict(params=[model.static_offset],
+                                         lr=effective['shared_clothing_offset_lr'], name='static_offset'))
     indices, values = _uniform_laplacian(fit['faces'], len(clothing))
     laplacian = torch.sparse_coo_tensor(indices, values, (len(clothing), len(clothing)), device='cuda').coalesce()
     targets = [_masked_native_target(row).cuda() for row in rows]
@@ -365,11 +379,14 @@ def _train_smpl_sh0(root):
         raise ValueError('Invalid reference mesh extent in meters.')
     out = root/'gaussian-run'; out.mkdir()
     rt.save(out/'training-cameras.json', dict(records=records, source_sha256=official['training_inputs_sha256'], interpolated_cameras=0))
-    rt.save(out/'config.json', dict(gaussian_profile='smpl_sh0', execution_kind='official_smplifyx',
-        official_fit_provenance=official, optimization=vars(options), seed=0, native_resolution=True,
-        sh_degree=0, initial_points=len(model.faces), optimizer_initial_state_entries=len(model.optimizer.state),
+    resolved = dict(effective, initial_points=len(model.faces), image_cache_frames=len(targets))
+    config_path = root/'config.json'
+    rt.save(config_path, dict(rt.read(config_path), **resolved))
+    rt.save(out/'config.json', dict(**resolved, execution_kind='official_smplifyx',
+        official_fit_provenance=official, native_resolution=True, reference_extent_m=extent,
+        optimizer_initial_state_entries=len(model.optimizer.state),
         cached_target_bytes=sum(t.numel()*t.element_size() for t in targets), fit_replay_max_abs_m=replay_error,
-        shared_clothing_offset_lr=1e-6, active_clothing_vertices=int(clothing.sum()), protected_head_vertices=int(protected.sum()),
+        active_clothing_vertices=int(clothing.sum()), protected_head_vertices=int(protected.sum()),
         target_composition='Native RGB times soft mask over black; original full-image L1 and DSSIM',
         source_training_options='259/269 10k terminal and 18k schedules; stock renderer and model operations'))
     if (root/'status.json').is_file():
@@ -414,7 +431,7 @@ def _train_smpl_sh0(root):
                         points=len(model._xyz), loss=float(loss), rgb_loss=float(photo), laplacian_loss=float(lap),
                         seconds=time.monotonic()-start, views_seen=int((counts>0).sum()), quality_accepted=False)
                     rt.save(root/'progress.json', progress); log.write(json.dumps(progress)+'\n'); log.flush()
-                if step in (1000, options.iterations):
+                if step in effective['snapshot_steps']:
                     snapshot = out/f'step-{step:06d}'; snapshot.mkdir()
                     model.export_world_ply(snapshot/'world.ply', reference)
                     reloaded = GaussianModel(0); reloaded.load_ply(str(snapshot/'world.ply'))
@@ -451,6 +468,131 @@ def _train_smpl_sh0(root):
         schedule_steps=options.position_lr_max_steps, formal_training_admitted=False, quality_accepted=False,
         per_frame_updates=counts.tolist(), pose_layout=layout, reference_frame_id=layout['reference_frame_id'],
         final_snapshot=f'step-{options.iterations:06d}'))
+    del targets, laplacian
+    try:
+        from .bound_replay import save_bound_snapshot
+
+        with torch.no_grad():
+            return save_bound_snapshot(root, out/f'step-{options.iterations:06d}', model)
+    except Exception as error:
+        # A sidecar failure does not invalidate the already verified static PLY.
+        rt.save(out/'bound-snapshot-failure.json', dict(state='failed', step=options.iterations,
+                error_type=type(error).__name__, error=str(error), optimizer_updates=0))
+        return None
+
+
+def replay_official_bound(root, replay=None):
+    """Render each selected native camera with its saved pose under the caller's GPU lease."""
+    from tempfile import TemporaryDirectory
+    import torch
+    from gaussian_renderer import render
+    from scene.gaussian_model import GaussianModel
+    from .bound_replay import load_bound_snapshot
+
+    root = Path(root)
+    out = root/'gaussian-run'
+    training = rt.read(out/'result.json')
+    effective = smpl_sh0_effective_config()
+    terminal_step = effective['iterations']
+    if (training.get('state') != 'completed' or training.get('gaussian_profile') != effective['gaussian_profile']
+            or training.get('steps') != terminal_step or training.get('sh_degree') != effective['sh_degree']
+            or training.get('final_snapshot') != f'step-{terminal_step:06d}'):
+        raise ValueError('Bound replay requires the successful terminal stable SH0 training snapshot.')
+    failure = out/'bound-snapshot-failure.json'
+    if failure.is_file():
+        raise RuntimeError(f'Terminal bound snapshot failed. See {failure}')
+    snapshot = out/training['final_snapshot']
+    destination = snapshot/'posed-replay'
+    if destination.exists():
+        raise FileExistsError(f'Preserve the existing posed replay: {destination}')
+    official = verify_official_fit(root)
+    selection = rt.read(root/'fit/official-fit-result.json')['selection']
+    rows = rt.read(root/'data/training-inputs.json')['records']
+    with np.load(root/'fit/fitted.npz', allow_pickle=False) as archive:
+        layout = named_pose_layout(archive, rows)
+    frames = [dict(frame=row['frame'], pose_index=slot, source_frame_index=row['source_frame_index'],
+                   source_sha256=row['source_sha256'], mask_sha256=row['mask_sha256'])
+              for row, slot in zip(rows, layout['pose_indices'], strict=True)]
+    ids = [item['frame'] for item in frames]
+    held = selection['retained_holdouts']
+    counts = training['per_frame_updates']
+    if (set(ids) != set(selection['selected_frames']) or set(ids) & set(held)
+            or training['pose_layout'] != layout or len(counts) != len(ids)
+            or min(counts) <= 0 or sum(counts) != training['steps']
+            or any(Path(frame).name != frame or frame in ('.', '..') for frame in ids)):
+        raise ValueError('The replay roster must match only the selected, sampled fit and camera identities.')
+
+    manifest_path = snapshot/'bound-replay.json'
+    if replay is None:
+        run_path = root/'run.json'
+        assets = rt.read(run_path).get('assets') if run_path.is_file() else None
+        asset_path = Path(assets)/'smplx/SMPLX_NEUTRAL.npz' if assets else None
+        replay = load_bound_snapshot(root, snapshot, asset_path=asset_path)
+    model, manifest = replay
+    ref_frame, ref_slot = layout['reference_frame_id'], layout['reference_pose_index']
+    bound_path = snapshot/'bound-local.ply'
+    if (manifest != rt.read(manifest_path) or manifest['frames'] != frames
+            or manifest['bound_ply_sha256'] != rt.sha(bound_path)
+            or manifest['reference_frame_id'] != ref_frame or manifest['reference_pose_index'] != ref_slot
+            or manifest['points'] != training['points'] or len(model.binding) != training['points']
+            or model.optimizer is not None or model.active_sh_degree != 0):
+        raise ValueError('The verified bound model, snapshot and replay roster differ.')
+    movement = manifest['geometry_parity']['live_to_reloaded']
+    if [(m['frame'], m['pose_index']) for m in movement] != [(f['frame'], f['pose_index']) for f in frames]:
+        raise ValueError('The terminal bound motion records differ from the named poses.')
+
+    camera_path = out/'training-cameras.json'
+    archived_cameras = rt.read(camera_path)
+    camera_records = archived_cameras['records']
+    if archived_cameras['source_sha256'] != official['training_inputs_sha256'] or len(camera_records) != len(frames):
+        raise ValueError('The terminal cameras do not identify the selected source inputs.')
+    pipe = SimpleNamespace(convert_SHs_python=False, compute_cov3D_python=False, debug=False)
+    bg = torch.zeros(3, device=model.binding.device)
+    records = []
+    with TemporaryDirectory(prefix='.posed-replay-', dir=snapshot) as temporary, torch.no_grad():
+        stage = Path(temporary)/'replay'
+        stage.mkdir()
+        for i, (row, item, actual, motion) in enumerate(zip(rows, frames, camera_records, movement, strict=True)):
+            slot = item['pose_index']
+            cam, record = camera(row, i, pose_index=slot)
+            if any(record[key] != actual[key] for key in ('frame', 'pose_index', 'K', 'w2c', 'wh', 'pixel_convention')):
+                raise ValueError('Replayed camera differs from the training camera: ' + item['frame'])
+            rgb = render_pose(render, cam, model, pipe, bg, slot)['render']
+            if not torch.isfinite(rgb).all():
+                raise RuntimeError('Nonfinite bound replay: ' + item['frame'])
+            posed_image = image(rgb)
+            if item['frame'] == ref_frame:
+                world = GaussianModel(0)
+                world.load_ply(str(snapshot/'world.ply'))
+                diff = (rgb - render(cam, world, pipe, bg)['render']).abs()
+                with Image.open(snapshot/'reference-render.png') as reference:
+                    archive_diff = np.abs(np.asarray(posed_image, dtype=np.int16)
+                                          - np.asarray(reference.convert('RGB'), dtype=np.int16))
+                parity = dict(mean_abs=float(diff.mean()), max_abs=float(diff.max()),
+                              archived_max_abs_8bit=int(archive_diff.max()))
+                if not (parity['mean_abs'] < 2e-6 and parity['max_abs'] < .005
+                        and parity['archived_max_abs_8bit'] == 0):
+                    raise RuntimeError(f'The reloaded bound reference render differs: {parity}')
+            name = item['frame'] + '.png'
+            posed_image.save(stage/name)
+            records.append(dict(item, image=name, image_sha256=rt.sha(stage/name), camera=record, movement=motion))
+
+        mesh_file = 'meshes.npz'
+        slots = layout['pose_indices']
+        np.savez_compressed(stage/mesh_file, vertices_world=model.vertices_sequence[slots].cpu().numpy(),
+            faces=model.faces.cpu().numpy(), frame_ids=np.asarray(ids), pose_indices=np.asarray(slots),
+            source_frames=np.asarray([item['source_frame_index'] for item in frames]),
+            image_sha256=np.asarray([item['source_sha256'] for item in frames]),
+            mask_sha256=np.asarray([item['mask_sha256'] for item in frames]))
+        receipt = dict(state='completed', reference_frame_id=ref_frame, reference_pose_index=ref_slot,
+            reference_reload_parity=parity, bound_replay_sha256=rt.sha(manifest_path),
+            training_inputs_sha256=official['training_inputs_sha256'], training_camera_sha256=rt.sha(camera_path),
+            mesh_file=mesh_file, mesh_sha256=rt.sha(stage/mesh_file), retained_holdouts=held, records=records,
+            movement_scope='Gaussian centers in the fitted world, including rigid pose placement.',
+            optimizer_updates=0, quality_accepted=False)
+        rt.save(stage/'result.json', receipt)
+        stage.rename(destination)
+    return receipt
 
 
 def _train_static(root, cfg, *, execution_kind='formal_training'):

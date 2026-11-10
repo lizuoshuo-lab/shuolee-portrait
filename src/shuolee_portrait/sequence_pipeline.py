@@ -46,7 +46,7 @@ def reconstruct(*, video, root, assets, configuration, reference_frame):
     from .official_sequence import fit_named_sequence, read_shape_policy
     from .cli import gpu_lock
     from .video119 import prepare_video
-    from .training import train_official
+    from .training import smpl_sh0_effective_config, train_official
     from .export import export
 
     root, assets = Path(root), Path(assets)
@@ -69,7 +69,8 @@ def reconstruct(*, video, root, assets, configuration, reference_frame):
                pixel_center_convention='renderer_corner_to_detector_integer')
     stable = 'capture_layout' in cfg
     if stable:
-        cfg['gaussian_profile'] = 'smpl_sh0'
+        cfg.update(smpl_sh0_effective_config())
+        cfg['export_frame_mode'] = 'reference_camera_up'
         length = dict(translation_unit='meters', meters_per_camera_unit=1., basis='model_conditioned',
                       evidence='Per-frame camera identity; SMPLify-X body translation is in model metres.')
         cfg['camera_length_contract'] = length
@@ -99,7 +100,7 @@ def reconstruct(*, video, root, assets, configuration, reference_frame):
         if stable:
             reference_frame = fit_result['selection']['reference_frame']
         progress('gaussian_inputs', fitting_complete=True, reference_frame=reference_frame)
-        train_official(root, cfg)
+        trained = train_official(root, cfg)
         progress('export', training_complete=True)
         export(root, cfg)
         result = rt.read(root/'result.json')
@@ -108,6 +109,24 @@ def reconstruct(*, video, root, assets, configuration, reference_frame):
                 result.get('reference_frame_id') != reference_frame or
                 not ply.is_file() or result.get('sha256') != rt.sha(ply)):
             raise ReconstructionError('EXPORT_RESULT_INCOMPLETE', 'No verified named-reference PLY export.')
+        if stable:
+            from .bound_review_panels import write_panels
+            from .training import replay_official_bound
+
+            progress('bound_review', static_export_passed=True, static_export_completed_at=rt.now())
+            replay = replay_official_bound(root, replay=trained)
+            replay_path = root/'gaussian-run'/f'step-{result["steps"]:06d}'/'posed-replay/result.json'
+            panels = write_panels(root, replay_path)
+            panel_path = root/'audit/bound-panels/result.json'
+            selected = set(fit_result['selection']['selected_frames'])
+            if (set(x['frame'] for x in replay['records']) != selected or
+                    len(replay['records']) != len(selected) or not panel_path.is_file() or
+                    panels != rt.read(panel_path)):
+                raise ReconstructionError('BOUND_REVIEW_INCOMPLETE', 'Posed replay must cover the exact selected frame roster.')
+            result.update(bound_replay=str(replay_path.relative_to(root)),
+                bound_replay_sha256=rt.sha(replay_path),
+                bound_panels=str(panel_path.relative_to(root)), bound_panels_sha256=rt.sha(panel_path))
+            rt.save(root/'result.json', result)
         progress('complete', state='completed', format_passed=True, quality_accepted=False,
                  ply=str(ply), sha256=result['sha256'])
         return result

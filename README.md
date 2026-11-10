@@ -45,6 +45,8 @@ python run_smplx.py status --run /path/to/run
 
 成功后直接使用 `export/scene.zip`。同目录有 `point_cloud.ply`、`reference-mesh.obj`、`cameras.json`，`result.json` 保存包的 SHA-256。格式核验、图像质量和原视频到导出的耗时单独记录。
 
+终点的 `gaussian-run/step-010000/` 保留局部高斯和三角形绑定、共享衣物偏移、拟合身份与选帧映射。静态包通过格式检查后，从同一终点逐帧重载绑定高斯，按各自的拟合网格和相机生成渲染。四合一图保存在 `audit/bound-panels/`。最终 `scene.zip` 仍是参考姿态的静态资产，逐帧图和静态包分别供检查。
+
 ### 旧配置兼容
 
 未声明 `capture_layout` 的已有相机配置沿用原先的双分辨率流程、指定参考帧和相机长度约定。下面的分辨率表只用于该路线。
