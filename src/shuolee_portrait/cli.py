@@ -109,14 +109,22 @@ def stage(name,root,assets):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__,epilog='Development release: reconstruct stops at alignment-gate with exit code 3 until independent alignment validation is implemented. It cannot yet complete formal Gaussian training.')
-    parser.add_argument('command',choices=['doctor','reconstruct','alignment-status','_stage'])
+    parser.add_argument('command',choices=['doctor','reconstruct','train-fitted','alignment-status','_stage'])
     parser.add_argument('--assets',type=Path,default=rt.PROJECT/'assets')
     parser.add_argument('--config',type=Path,default=rt.PROJECT/'configs/server.json')
     parser.add_argument('--video',type=Path);parser.add_argument('--output',type=Path)
+    parser.add_argument('--run',type=Path,help='Staged official fit for a fresh train-fitted run.')
     parser.add_argument('--stop-after',choices=STAGES,default='export',help='Bounded diagnosis; never resumes a previous run.')
     parser.add_argument('--stage',choices=STAGES,help=argparse.SUPPRESS)
     args=parser.parse_args();assets=args.assets.resolve()
     if args.command=='doctor':doctor(assets);return
+    if args.command=='train-fitted':
+        if not args.run or args.video or args.output:
+            parser.error('train-fitted requires --run with staged fit inputs.')
+        from .sequence_pipeline import train_fitted
+        result=train_fitted(args.run)
+        print(json.dumps(result,ensure_ascii=False),flush=True)
+        return
     if args.command=='alignment-status':
         if not args.output:parser.error('alignment-status requires --output with an existing run directory')
         if not args.output.is_dir():raise FileNotFoundError(args.output)

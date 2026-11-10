@@ -139,7 +139,7 @@ def _shape_loss(model, visible, view, bad, extent, options):
             + (weight*(options['normal_weight']*normal.square()+options['tangent_weight']*tangent.square())).mean())
 
 
-def _prepare_views(model, rows, slots, cameras, fit, pipe, black, options):
+def _prepare_views(model, rows, slots, cameras, fit, pipe, black, options, *, native_targets=None, capture_face_anchor=True):
     import nvdiffrast.torch as dr
     from scipy.ndimage import distance_transform_edt
     import torch
@@ -150,9 +150,9 @@ def _prepare_views(model, rows, slots, cameras, fit, pipe, black, options):
     faces = model.faces.int().contiguous()
     views, matrices = [], []
     for i, (row, slot) in enumerate(zip(rows, slots, strict=True)):
-        rgb, mask, box = _native_foreground_target(row)
+        rgb, mask, box = _native_foreground_target(row) if native_targets is None else native_targets[i]
         face = _face_pixels(fit, row, slot, mask, box)
-        hard = (mask[0] > options['reliable_foreground']).numpy()
+        hard = (mask[0] > options['reliable_foreground']).cpu().numpy()
         distance = distance_transform_edt(~hard)-distance_transform_edt(hard)
         distance = torch.from_numpy(np.clip(distance, -64, 64).astype(np.float16)).cuda()
         mask = mask.cuda()
@@ -173,18 +173,19 @@ def _prepare_views(model, rows, slots, cameras, fit, pipe, black, options):
         triangle = (triangle @ model.face_orien_mat)/model.face_scaling[:, None, :]
         base_rgb = base_alpha = None
         if face is not None:
-            x0, y0, _, _ = box
             face = torch.as_tensor(face, device=model.binding.device)
-            y, x = face[0]+y0, face[1]+x0
-            base_rgb = render(cameras[i], model, pipe, black)['render'][:, y, x].clone()
-            base_alpha = render(cameras[i], model, pipe, black, override_color=torch.ones_like(model._xyz))['render'][0, y, x].clone()
+            if capture_face_anchor:
+                x0, y0, _, _ = box
+                y, x = face[0]+y0, face[1]+x0
+                base_rgb = render(cameras[i], model, pipe, black)['render'][:, y, x].clone()
+                base_alpha = render(cameras[i], model, pipe, black, override_color=torch.ones_like(model._xyz))['render'][0, y, x].clone()
         matrices.append((K, matrix))
         views.append(View(rgb.cuda(), mask, box, inside, outside, distance, depth, triangle[..., [0, 2]],
                           face, base_rgb, base_alpha))
     return views, matrices
 
 
-def _reseed(model, rows, cameras, views, slots, bins, matrices, pipe, black, options, reference):
+def _reseed(model, rows, cameras, views, slots, bins, matrices, pipe, black, options, reference, *, preserve_optimizer=False):
     import torch
 
     foreground, background = _support(model, views, slots, bins, matrices, options)
@@ -200,8 +201,9 @@ def _reseed(model, rows, cameras, views, slots, bins, matrices, pipe, black, opt
     pruned = before-len(model.binding)
     targets = [(v.rgb, v.mask, v.box, v.inside, v.outside, v.face) for v in views]
     owners, bary, color, evidence = _surface_sites(model, rows, cameras, targets, slots, bins, pipe, black, options)
-    model.optimizer = None
-    _append(model, owners, bary, color, options, reference)
+    if not preserve_optimizer:
+        model.optimizer = None
+    _append(model, owners, bary, color, options, reference, preserve_optimizer=preserve_optimizer)
     if int(model.binding_counter.min()) < 1 or len(model.binding) != before-pruned+len(owners):
         raise RuntimeError('Shape refinement changed the required triangle support.')
     return dict(evidence, pruned=pruned, isolated_off_surface_candidates=int((isolated & off_surface).sum()))

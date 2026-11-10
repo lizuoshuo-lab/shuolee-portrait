@@ -40,14 +40,87 @@ def prepare_native(video, root, cfg, assets):
     observe(root, cfg)
 
 
+def deliver_official(root, cfg, progress, reference_frame, selection=None, *, fit_reused=False):
+    from .export import export
+    from .reconstruction import ReconstructionError
+    from .training import train_official
+
+    progress('gaussian_inputs', fitting_complete=True, reference_frame=reference_frame)
+    trained = train_official(root, cfg)
+    progress('export', training_complete=True)
+    export(root, cfg)
+    result = rt.read(root/'result.json')
+    ply = root/'export/point_cloud.ply'
+    if (result.get('state') != 'completed' or result.get('format_passed') is not True or
+            result.get('reference_frame_id') != reference_frame or
+            not ply.is_file() or result.get('sha256') != rt.sha(ply)):
+        raise ReconstructionError('EXPORT_RESULT_INCOMPLETE', 'No verified named-reference PLY export.')
+    if selection is not None:
+        from .bound_review_panels import write_panels
+        from .training import replay_official_bound
+
+        progress('bound_review', static_export_passed=True, static_export_completed_at=rt.now())
+        replay = replay_official_bound(root, replay=trained)
+        replay_path = root/'gaussian-run'/result['final_snapshot']/'posed-replay/result.json'
+        panels = write_panels(root, replay_path)
+        panel_path = root/'audit/bound-panels/result.json'
+        selected = set(selection['selected_frames'])
+        if (set(x['frame'] for x in replay['records']) != selected or
+                len(replay['records']) != len(selected) or not panel_path.is_file() or
+                panels != rt.read(panel_path)):
+            raise ReconstructionError('BOUND_REVIEW_INCOMPLETE', 'Posed replay must cover the exact selected frame roster.')
+        result.update(bound_replay=str(replay_path.relative_to(root)),
+            bound_replay_sha256=rt.sha(replay_path),
+            bound_panels=str(panel_path.relative_to(root)), bound_panels_sha256=rt.sha(panel_path))
+    if fit_reused:
+        result.update(from_scratch=False, gaussian_from_scratch=True, fit_reused=True, fit_calls=0, cold_video_clock=False)
+    rt.save(root/'result.json', result)
+    progress('complete', state='completed', format_passed=True, quality_accepted=False,
+             ply=str(ply), sha256=result['sha256'])
+    return result
+
+
+def train_fitted(root):
+    """Run the normal SH0 path on a staged, previously verified official fit."""
+    from .cli import gpu_lock
+    from .training import verify_official_fit
+
+    root = Path(root).resolve(strict=True)
+    cfg = rt.read(root/'config.json')
+    metadata = rt.read(root/'run.json')
+    if cfg.get('gaussian_profile') != 'smpl_sh0':
+        raise ValueError('train-fitted requires the public smpl_sh0 profile.')
+
+    def progress(stage, **values):
+        path = root/'status.json'
+        status = rt.read(path) if path.exists() else dict(state='running', fit_reused=True, fit_calls=0)
+        status.update(stage=stage, updated=rt.now(), **values)
+        rt.save(path, status)
+
+    with gpu_lock():
+        if any((root/name).exists() for name in ('status.json', 'gaussian-run', 'export', 'audit', 'result.json')):
+            raise FileExistsError('train-fitted requires fresh Gaussian outputs.')
+        rt.configure(Path(metadata['assets']), root)
+        verify_official_fit(root)
+        inputs = rt.read(root/'data/training-inputs.json')['records']
+        if any(rt.sha(Path(row['mask'])) != row['mask_sha256'] for row in inputs):
+            raise ValueError('A selected native mask differs from the fitted inputs.')
+        selection = rt.read(root/'fit/official-fit-result.json')['selection']
+        try:
+            return deliver_official(root, cfg, progress, selection['reference_frame'], selection, fit_reused=True)
+        except Exception as error:
+            state = rt.read(root/'status.json')
+            progress(state['stage'], state='failed', error=str(error))
+            raise
+
+
 def reconstruct(*, video, root, assets, configuration, reference_frame):
     from .reconstruction import ReconstructionError
     from .official_smplifyx import adapted_entry_source
     from .official_sequence import fit_named_sequence, read_shape_policy
     from .cli import gpu_lock
     from .video119 import prepare_video
-    from .training import smpl_sh0_effective_config, train_official
-    from .export import export
+    from .training import smpl_sh0_effective_config
 
     root, assets = Path(root), Path(assets)
     def progress(stage, **values):
@@ -99,34 +172,5 @@ def reconstruct(*, video, root, assets, configuration, reference_frame):
             shape_policy=options['shape_policy'], **stable_options)
         if stable:
             reference_frame = fit_result['selection']['reference_frame']
-        progress('gaussian_inputs', fitting_complete=True, reference_frame=reference_frame)
-        trained = train_official(root, cfg)
-        progress('export', training_complete=True)
-        export(root, cfg)
-        result = rt.read(root/'result.json')
-        ply = root/'export/point_cloud.ply'
-        if (result.get('state') != 'completed' or result.get('format_passed') is not True or
-                result.get('reference_frame_id') != reference_frame or
-                not ply.is_file() or result.get('sha256') != rt.sha(ply)):
-            raise ReconstructionError('EXPORT_RESULT_INCOMPLETE', 'No verified named-reference PLY export.')
-        if stable:
-            from .bound_review_panels import write_panels
-            from .training import replay_official_bound
-
-            progress('bound_review', static_export_passed=True, static_export_completed_at=rt.now())
-            replay = replay_official_bound(root, replay=trained)
-            replay_path = root/'gaussian-run'/result['final_snapshot']/'posed-replay/result.json'
-            panels = write_panels(root, replay_path)
-            panel_path = root/'audit/bound-panels/result.json'
-            selected = set(fit_result['selection']['selected_frames'])
-            if (set(x['frame'] for x in replay['records']) != selected or
-                    len(replay['records']) != len(selected) or not panel_path.is_file() or
-                    panels != rt.read(panel_path)):
-                raise ReconstructionError('BOUND_REVIEW_INCOMPLETE', 'Posed replay must cover the exact selected frame roster.')
-            result.update(bound_replay=str(replay_path.relative_to(root)),
-                bound_replay_sha256=rt.sha(replay_path),
-                bound_panels=str(panel_path.relative_to(root)), bound_panels_sha256=rt.sha(panel_path))
-            rt.save(root/'result.json', result)
-        progress('complete', state='completed', format_passed=True, quality_accepted=False,
-                 ply=str(ply), sha256=result['sha256'])
-        return result
+        selection = fit_result['selection'] if stable else None
+        return deliver_official(root, cfg, progress, reference_frame, selection)

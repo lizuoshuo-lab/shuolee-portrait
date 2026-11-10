@@ -116,7 +116,7 @@ def _surface_sites(model, rows, cameras, targets, slots, bins, pipe, black, opti
     return chosen, bary[site], color, facts
 
 
-def _append(model, owners, weights, color, options, reference):
+def _append(model, owners, weights, color, options, reference, *, preserve_optimizer=False):
     import torch
     from utils.sh_utils import RGB2SH
 
@@ -134,10 +134,13 @@ def _append(model, owners, weights, color, options, reference):
     rest = model._features_rest.new_zeros((len(owners), *model._features_rest.shape[1:]))
     added = dict(_xyz=local, _features_dc=RGB2SH(color)[:, None], _features_rest=rest,
                  _opacity=opacity, _scaling=log_sigma, _rotation=rotation)
-    for name, values in added.items():
-        setattr(model, name, torch.nn.Parameter(torch.cat((getattr(model, name).detach(), values), dim=0)))
     model.binding = torch.cat((model.binding.long(), owners))
     model.binding_counter.scatter_add_(0, owners, torch.ones_like(owners, dtype=torch.int32))
+    if preserve_optimizer:
+        model.densification_postfix(*added.values())
+    else:
+        for name, values in added.items():
+            setattr(model, name, torch.nn.Parameter(torch.cat((getattr(model, name).detach(), values), dim=0)))
     if len(owners) and not torch.allclose(model.get_xyz[-len(owners):], world, atol=2e-6, rtol=0):
         raise RuntimeError('Coverage sites do not round-trip through the face-local transform.')
     return tuple(added)

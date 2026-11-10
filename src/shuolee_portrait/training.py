@@ -219,11 +219,12 @@ def verify_official_fit(root):
 def smpl_sh0_effective_config():
     """Resolve the stable profile once from the stock GaussianAvatars options."""
     from arguments import OptimizationParams
-    from .head_appearance import STEPS, WEIGHT
+    from .sh0_main import main_schedule
 
     parser = argparse.ArgumentParser()
     optimization = vars(OptimizationParams(parser).extract(parser.parse_args([]))).copy()
-    optimization.update(iterations=10000, position_lr_max_steps=18000, densify_until_iter=18000,
+    schedule = main_schedule()
+    optimization.update(iterations=10000, position_lr_max_steps=18000, densify_until_iter=schedule['stock_densify_through'],
         densify_from_iter=300, densification_interval=60, opacity_reset_interval=1800, lambda_laplacian=1e6)
     interval = optimization['opacity_reset_interval']
     # Leave one full reset interval for recovery before the terminal render.
@@ -234,7 +235,7 @@ def smpl_sh0_effective_config():
         sh_degree=0, shared_clothing_offset_lr=1e-6, snapshot_steps=[1000, optimization['iterations']],
         opacity_reset_steps=opacity_reset_steps,
         alpha_loss_weight=.1, straight_rgb_alpha_floor=1e-4, alpha_loss_normalization='foreground_area',
-        head_appearance_steps=STEPS, head_appearance_weight=WEIGHT,
+        head_appearance_steps=0, head_appearance_weight=0., unified_main=schedule,
         densification_gradient_units='native_raster_area',
         sampling_policy='seeded_equal_occupied_source_bin_cycles', optimization=optimization)
 
@@ -245,7 +246,7 @@ def train_official(root, cfg):
         effective = smpl_sh0_effective_config()
         if any(cfg.get(key, value) != value for key, value in effective.items()):
             raise ValueError('Run config conflicts with the stable SH0 training profile.')
-        return _train_smpl_sh0(Path(root), effective)
+        return _train_smpl_sh0(Path(root), effective, cfg.get('frozen_surface'))
     return _train_static(Path(root), cfg, execution_kind='official_smplifyx')
 
 
@@ -343,14 +344,16 @@ def _sh0_foreground_alpha_loss(rgb, accumulated_alpha, target_rgb, target_alpha,
     return photo, l1, ssim, .5*error.sum()/target_alpha.sum().clamp_min(floor)
 
 
-def _train_smpl_sh0(root, effective):
+def _train_smpl_sh0(root, effective, frozen_spec=None):
     import random
+    from shutil import copyfile
     import torch
     from gaussian_renderer import render
     from roma import quat_xyzw_to_wxyz, rotmat_to_unitquat
     from scene.gaussian_model import GaussianModel
     from scene.smplx_gaussian_model import SMPLXGaussianModel
     from utils.graphics_utils import compute_face_orientation
+    from .sh0_main import Constraints, frozen_surface, initialization
     from .stable_selection import SOURCE_BIN_COVERAGE_BASIS, source_bin_training_order
 
     official = verify_official_fit(root)
@@ -363,6 +366,7 @@ def _train_smpl_sh0(root, effective):
     cameras, records = zip(*(camera(row, i, pose_index=layout['pose_indices'][i]) for i, row in enumerate(rows)))
     torch.set_num_threads(4)
     base, linear, clothing, protected, replay_error = _frozen_smpl_surface(fit, rt.ASSETS/'smplx/SMPLX_NEUTRAL.npz')
+    frozen_mesh, frozen_offset = frozen_surface(root, frozen_spec, fit, layout, clothing)
     torch.backends.cuda.matmul.allow_tf32 = False
     seed = effective['seed']
     random.seed(seed); torch.manual_seed(seed); torch.cuda.manual_seed_all(seed); np.random.seed(seed)
@@ -385,17 +389,24 @@ def _train_smpl_sh0(root, effective):
     model.base, model.linear = base.cuda(), linear.cuda()
     del linear
     model.clothing = torch.as_tensor(clothing, device='cuda')
-    model.static_offset = torch.nn.Parameter(torch.zeros_like(model.base[0]))
+    offset = torch.zeros_like(model.base[0]) if frozen_offset is None else torch.as_tensor(frozen_offset, device='cuda')
+    model.static_offset = torch.nn.Parameter(offset, requires_grad=frozen_mesh is None)
     model.faces = torch.as_tensor(fit['faces'], dtype=torch.long, device='cuda')
     model.num_timesteps = len(base)
     model.binding = torch.arange(len(model.faces), device='cuda')
     model.binding_counter = torch.ones(len(model.faces), dtype=torch.int32, device='cuda')
     with torch.no_grad():
         model.select_mesh_by_timestep(reference)
+        if frozen_mesh is not None:
+            with np.load(frozen_mesh, allow_pickle=False) as mesh:
+                if not np.array_equal(model.posed_vertices(reference).cpu().numpy(), mesh['vertices_world']):
+                    raise ValueError('Frozen reference mesh does not replay from the fitted inputs.')
         model.create_from_pcd(None, 1.)
     model.training_setup(options)
-    model.optimizer.add_param_group(dict(params=[model.static_offset],
-                                         lr=effective['shared_clothing_offset_lr'], name='static_offset'))
+    if model.static_offset.requires_grad:
+        model.optimizer.add_param_group(dict(params=[model.static_offset],
+                                             lr=effective['shared_clothing_offset_lr'], name='static_offset'))
+    init = initialization(model)
     indices, values = _uniform_laplacian(fit['faces'], len(clothing))
     laplacian = torch.sparse_coo_tensor(indices, values, (len(clothing), len(clothing)), device='cuda').coalesce()
     targets = []
@@ -413,6 +424,7 @@ def _train_smpl_sh0(root, effective):
     if not 0 < extent < 10:
         raise ValueError('Invalid reference mesh extent in meters.')
     out = root/'gaussian-run'; out.mkdir()
+    rt.save(out/'initialization.json', init)
     rt.save(out/'training-cameras.json', dict(records=records, source_sha256=official['training_inputs_sha256'], interpolated_cameras=0))
     resolved = dict(effective, initial_points=len(model.faces), image_cache_frames=len(targets))
     config_path = root/'config.json'
@@ -426,8 +438,9 @@ def _train_smpl_sh0(root, effective):
         active_clothing_vertices=int(clothing.sum()), protected_head_vertices=int(protected.sum()),
         target_composition='Raw native RGB and full soft mask. Black-background premultiplied RGB divided by live alpha; '
             'foreground-area-normalized L1 at mask >0.99 and complete 11x11 foreground SSIM windows in the tight native pixel box.',
-        alpha_supervision='Second stock white-Gaussian pass over black at the same camera and pose. '
-            'Full native alpha L1 divided by twice the soft foreground area. Stored mask values are preserved.',
+        frozen_surface_sha256=rt.sha(frozen_mesh) if frozen_mesh is not None else None,
+        alpha_supervision='Independent white-on-black Alpha. Native full-mask L1 in warmup, then equally normalized '
+            'reliable foreground and background with a preserved boundary band.',
         densification_gradient_area_weights=density_weights,
         source_training_options='259/269 10k terminal and 18k schedules; stock renderer and model operations'))
     if (root/'status.json').is_file():
@@ -435,9 +448,17 @@ def _train_smpl_sh0(root, effective):
         status.update(stage='training', training_started=True, updated=rt.now())
         rt.save(root/'status.json', status)
     counts = np.zeros(len(rows), dtype=int)
+    schedule = effective['unified_main']
+    slots = layout['pose_indices']
+    constraints, coverage_events, stock_densifications = None, [], 0
     start = time.monotonic()
     with (out/'loss.jsonl').open('x') as log:
         for step in range(1, options.iterations+1):
+            if step == schedule['warmup_steps']+1:
+                model.static_offset.requires_grad_(False)
+                with torch.no_grad():
+                    model.vertices_sequence = torch.stack([model.posed_vertices(slot) for slot in range(model.num_timesteps)])
+                    constraints = Constraints(model, rows, slots, cameras, fit, pipe, bg, targets, row_bins, extent, schedule)
             model.update_learning_rate(step)
             i = next(order)
             counts[i] += 1
@@ -451,22 +472,29 @@ def _train_smpl_sh0(root, effective):
             photo, foreground_l1, foreground_ssim, alpha_loss = _sh0_foreground_alpha_loss(
                 rgb, accumulated_alpha, target_rgb, target_alpha, box, alpha_floor=effective['straight_rgb_alpha_floor'])
             delta = model.static_offset * model.clothing[:, None]
-            xyz = (model._xyz[visible].norm(dim=1)-options.threshold_xyz).relu().mean()*options.lambda_xyz
-            scale = (model._scaling[visible].exp()-options.threshold_scale).relu().norm(dim=1).mean()*options.lambda_scale
-            lap = torch.sparse.mm(laplacian, delta).square().sum(-1).mean()*options.lambda_laplacian
-            loss = photo+effective['alpha_loss_weight']*alpha_loss+xyz+scale+lap
+            if constraints is None:
+                xyz = (model._xyz[visible].norm(dim=1)-options.threshold_xyz).relu().mean()*options.lambda_xyz
+                scale = (model._scaling[visible].exp()-options.threshold_scale).relu().norm(dim=1).mean()*options.lambda_scale
+                lap = (torch.sparse.mm(laplacian, delta).square().sum(-1).mean()*options.lambda_laplacian
+                       if model.static_offset.requires_grad else rgb.new_zeros(()))
+                loss = photo+effective['alpha_loss_weight']*alpha_loss+xyz+scale+lap
+            else:
+                lap = rgb.new_zeros(())
+                loss = photo+constraints.loss(i, rgb, accumulated_alpha, visible, effective['alpha_loss_weight']*alpha_loss, step)
             loss.backward()
             with torch.no_grad():
                 if step == 1:
                     grads = [p.grad for g in model.optimizer.param_groups for p in g['params']]
+                    offset_gradient = model.static_offset.grad
                     if (model.optimizer.state or any(g is None or not torch.isfinite(g).all() for g in grads)
-                            or not model.static_offset.grad.norm() > 0):
-                        raise RuntimeError('Fresh SH0 preflight did not produce finite gradients and a shared surface update.')
+                            or (model.static_offset.requires_grad and not offset_gradient.norm() > 0)):
+                        raise RuntimeError('Fresh SH0 preflight did not produce finite gradients.')
                     rt.save(out/'preflight.json', dict(finite_backward=True, optimizer_updates=0,
-                        static_offset_gradient_norm=float(model.static_offset.grad.norm()),
+                        static_offset_gradient_norm=float(offset_gradient.norm()) if offset_gradient is not None else None,
                         fit_replay_max_abs_m=replay_error))
                 if step == 1 or step % 100 == 0 or step == options.iterations:
-                    if not torch.isfinite(loss) or torch.count_nonzero(model.static_offset.grad[~model.clothing]):
+                    offset_gradient = model.static_offset.grad
+                    if not torch.isfinite(loss) or (offset_gradient is not None and torch.count_nonzero(offset_gradient[~model.clothing])):
                         raise RuntimeError(f'Invalid SH0 loss or protected-vertex gradient at step {step}.')
                     progress = dict(updated=rt.now(), stage='training', step=step, target_steps=options.iterations,
                         points=len(model._xyz), loss=float(loss), rgb_loss=float(photo), laplacian_loss=float(lap),
@@ -474,6 +502,23 @@ def _train_smpl_sh0(root, effective):
                         seconds=time.monotonic()-start, views_seen=int((counts>0).sum()),
                         source_bins_seen=sum(draws > 0 for draws in bin_draws.values()), quality_accepted=False)
                     rt.save(root/'progress.json', progress); log.write(json.dumps(progress)+'\n'); log.flush()
+                if step <= schedule['stock_densify_through']:
+                    model.max_radii2D[visible] = torch.maximum(model.max_radii2D[visible], pkg['radii'][visible])
+                    pkg['viewspace_points'].grad.mul_(density_weights[i])
+                    model.add_densification_stats(pkg['viewspace_points'], visible)
+                model.optimizer.step()
+                model.optimizer.zero_grad(set_to_none=True)
+                if step in schedule['coverage_steps']:
+                    coverage_events.append(dict(step=step, **constraints.reseed(reference)))
+                    rt.save(out/'coverage-events.json', coverage_events)
+                elif options.densify_from_iter < step <= schedule['stock_densify_through'] and step % options.densification_interval == 0:
+                    size = 20 if step > options.opacity_reset_interval else None
+                    model.densify_and_prune(options.densify_grad_threshold, .005, extent, size)
+                    stock_densifications += 1
+                if len(model._xyz) >= 1200000 or int(model.binding_counter.min()) < 1:
+                    raise RuntimeError(f'SH0 point count or per-face binding out of bounds at step {step}.')
+                if step in effective['opacity_reset_steps']:
+                    model.reset_opacity()
                 if step in effective['snapshot_steps']:
                     snapshot = out/f'step-{step:06d}'; snapshot.mkdir()
                     model.export_world_ply(snapshot/'world.ply', reference)
@@ -484,9 +529,13 @@ def _train_smpl_sh0(root, effective):
                     mesh = model.posed_vertices(reference).cpu().numpy()
                     if not np.isfinite(mesh).all() or not np.array_equal(mesh[protected], base[reference].numpy()[protected]):
                         raise RuntimeError('Nonfinite or displaced protected reference geometry.')
-                    np.savez_compressed(snapshot/'reference-mesh.npz', vertices_world=mesh, faces=fit['faces'],
-                        reference_frame_id=layout['reference_frame_id'], reference_pose_index=reference,
-                        static_offset=delta.cpu().numpy())
+                    mesh_path = snapshot/'reference-mesh.npz'
+                    if frozen_mesh is None:
+                        np.savez_compressed(mesh_path, vertices_world=mesh, faces=fit['faces'],
+                            reference_frame_id=layout['reference_frame_id'], reference_pose_index=reference,
+                            static_offset=(model.static_offset*model.clothing[:, None]).cpu().numpy())
+                    else:
+                        copyfile(frozen_mesh, mesh_path)
                     image(native).save(snapshot/'reference-render.png')
                     rt.save(snapshot/'native-ply-parity.json', dict(passed=passed, checks=[parity],
                         sha256=rt.sha(snapshot/'world.ply'), mesh_sha256=rt.sha(snapshot/'reference-mesh.npz'),
@@ -495,26 +544,18 @@ def _train_smpl_sh0(root, effective):
                         raise RuntimeError('SH0 PLY does not reproduce native reference geometry.')
                     model.select_mesh_by_timestep(slot)
                     del reloaded, native, diff
-                model.max_radii2D[visible] = torch.maximum(model.max_radii2D[visible], pkg['radii'][visible])
-                # Only the stock screen-space statistic uses the old full-raster area units.
-                pkg['viewspace_points'].grad.mul_(density_weights[i])
-                model.add_densification_stats(pkg['viewspace_points'], visible)
-                if step > options.densify_from_iter and step % options.densification_interval == 0:
-                    size = 20 if step > options.opacity_reset_interval else None
-                    model.densify_and_prune(options.densify_grad_threshold, .005, extent, size)
-                    if len(model._xyz) >= 1200000 or int(model.binding_counter.min()) < 1:
-                        raise RuntimeError(f'SH0 safety bounds at step {step}: {len(model._xyz)} points, '
-                                           f'minimum triangle count {int(model.binding_counter.min())}.')
-                if step in effective['opacity_reset_steps']:
-                    model.reset_opacity()
-                if step < options.iterations:
-                    model.optimizer.step(); model.optimizer.zero_grad(set_to_none=True)
     stock = out/f'step-{options.iterations:06d}'
+    integrated = dict(init, state='completed', optimizer_updates=options.iterations, schedule=schedule,
+                      coverage_events=coverage_events, stock_densifications=stock_densifications,
+                      frozen_surface_sha256=rt.sha(frozen_mesh) if frozen_mesh is not None else None,
+                      raw_native_rgb_target=True, prior_render_used_as_target=False)
+    rt.save(out/'integration.json', integrated)
     receipt = dict(state='completed', from_scratch=True, steps=options.iterations,
         execution_kind='official_smplifyx', gaussian_profile='smpl_sh0', sh_degree=0, points=len(model._xyz),
         schedule_steps=options.position_lr_max_steps, formal_training_admitted=False, quality_accepted=False,
         per_frame_updates=counts.tolist(), source_bin_draws=bin_draws, pose_layout=layout,
-        reference_frame_id=layout['reference_frame_id'], final_snapshot=stock.name, stock_snapshot=stock.name)
+        reference_frame_id=layout['reference_frame_id'], final_snapshot=stock.name, stock_snapshot=stock.name,
+        unified_main_training=integrated)
     rt.save(out/'result.json', receipt)
     del laplacian
     try:
@@ -527,20 +568,7 @@ def _train_smpl_sh0(root, effective):
         rt.save(out/'bound-snapshot-failure.json', dict(state='failed', step=options.iterations,
                 error_type=type(error).__name__, error=str(error), optimizer_updates=0))
         return None
-    del model
-    if (root/'status.json').is_file():
-        rt.save(root/'status.json', dict(rt.read(root/'status.json'), stage='head_appearance', updated=rt.now()))
-    try:
-        from .head_appearance import polish
-
-        selected, appearance = polish(root, stock, replay, fit, rows, layout, selection, protected, cameras, targets, effective)
-    except Exception as error:
-        selected = replay
-        appearance = dict(state='failed', reason='head_appearance_integrity_failure', snapshot=stock.name,
-                          error_type=type(error).__name__, error=str(error))
-        rt.save(out/'head-appearance-failure.json', appearance)
-    rt.save(out/'result.json', dict(receipt, final_snapshot=appearance['snapshot'], head_appearance=appearance))
-    return selected
+    return replay
 
 
 def replay_official_bound(root, replay=None):
