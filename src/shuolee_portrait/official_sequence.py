@@ -382,6 +382,69 @@ def _joint_candidates(root, inputs, winners, reports, shared, latent, body, vpos
     return refined, proof
 
 
+def _joint_select(root, inputs, winners, descriptors, shared, latent, body, vposer, reference_frame):
+    from . import stable_selection
+
+    scope = inputs['scope']
+    reports = {frame: rt.read(desc['path']) for frame, desc in descriptors.items()}
+    hashes = {report.get('shared_body_target_sha256') for report in reports.values()}
+    if len(hashes) != 1 or None in hashes:
+        raise ValueError('Final fits did not use one shared body target.')
+    extra = dict(fitted_candidate_frames=len(winners))
+    if len(winners) > 1:
+        winners, extra['joint_body_refinement'] = _joint_candidates(
+            root, inputs, winners, reports, shared, latent, body, vposer)
+    selection = stable_selection.select_frames(inputs, winners, scope=scope, reports=reports, shared_betas=shared)
+    selected = selection['selected_frames']
+    reference = reference_frame or selection['reference_frame']
+    if reference not in selected:
+        raise ValueError('Requested reference did not pass the automatic training selection.')
+    selection['reference_frame'] = reference
+    ordered = [reference] + [frame for frame in selected if frame != reference]
+    if len(ordered) != len(set(ordered)) or set(ordered) & set(scope['retained_holdouts']):
+        raise ValueError('Automatic training selection changed the protected roster.')
+    rt.save(root/'fit/selection.json', selection)
+    return _selection_inputs(inputs, ordered, reference), {frame: winners[frame] for frame in ordered}, dict(
+        extra, selection=selection)
+
+
+def refine_saved_official_sequence(*, frames_path, observations_path, root, official_root, assets,
+                                  camera_length_contract, capture_layout, shared_body, winners):
+    """Jointly refine hash-bound official initializers and emit the standard training fit."""
+    from shutil import copyfile
+
+    root = Path(root).resolve()
+    first = rt.read(frames_path)['records'][0]['frame']
+    inputs = load_inputs(frames_path, observations_path, camera_length_contract=camera_length_contract,
+                         reference_frame=first, capture_layout=capture_layout)
+    names = inputs['scope']['fit_frame_ids']
+    if len(names) < 2 or set(winners) != set(names):
+        raise ValueError('Saved initializers must match the protected joint fit roster.')
+    shared_path = Path(shared_body['path']).resolve(strict=True)
+    inputs['bound'][str(shared_path)] = shared_body['sha256']
+    arrays, descriptors = _read_saved_winners(inputs, winners, names)
+    check_bound(inputs['bound'])
+    anchor = rt.read(shared_path)
+    shared = np.asarray(anchor['betas'], dtype=np.float32).reshape(1, 10)
+    latent = np.asarray(anchor['pose_latent'], dtype=np.float32).reshape(1, 32)
+    body, vposer, meta = official.create_models(official_root=official_root, assets=assets,
+                                                device='cpu', static_topology=False)
+    basis = pelvis_basis(body)
+    started = time.monotonic()
+    (root/'fit').mkdir(exist_ok=False)
+    copied = root/'fit/shared-body.json'
+    copyfile(shared_path, copied)
+    if rt.sha(copied) != shared_body['sha256']:
+        raise ValueError('Shared initializer changed during reuse.')
+    inputs, arrays, extra = _joint_select(root, inputs, arrays, descriptors, shared, latent, body, vposer, None)
+    receipt = write_results(root, inputs, arrays, shared, basis, [descriptors[name] for name in inputs['ids']],
+        execution_kind='reused_official_initializers_joint_refinement', extra=dict(
+            extra, vposer=meta['vposer'], shared_body_sha256=shared_body['sha256'],
+            official_initializers_reused=True, elapsed_seconds=time.monotonic()-started))
+    rt.save(root/'fit/progress.json', dict(state='complete', frames_completed=len(names)))
+    return receipt
+
+
 def fit_named_sequence(*, frames_path, observations_path, root, official_root, assets,
                        camera_length_contract, reference_frame, shape_policy, capture_layout=None):
     """Use official frame initializers, then jointly refine the protected capture scope."""
@@ -467,27 +530,10 @@ def fit_named_sequence(*, frames_path, observations_path, root, official_root, a
             winners[frame], descriptors[frame] = arrays, desc
         fitted_count = len(winners)
         if scope is not None:
-            reports = {frame: rt.read(desc['path']) for frame, desc in descriptors.items()}
-            hashes = {report.get('shared_body_target_sha256') for report in reports.values()}
-            if len(hashes) != 1 or None in hashes:
-                raise ValueError('Final fits did not use one shared body target.')
             stack.close()
-            if fitted_count > 1:
-                winners, extra['joint_body_refinement'] = _joint_candidates(
-                    root, inputs, winners, reports, shared, latent, body, vposer)
-            selection = stable_selection.select_frames(inputs, winners, scope=scope, reports=reports, shared_betas=shared)
-            selected = selection['selected_frames']
-            reference = reference_frame or selection['reference_frame']
-            if reference not in selected:
-                raise ValueError('Requested reference did not pass the automatic training selection.')
-            selection['reference_frame'] = reference
-            ordered = [reference] + [frame for frame in selected if frame != reference]
-            if len(ordered) != len(set(ordered)) or set(ordered) & set(scope['retained_holdouts']):
-                raise ValueError('Automatic training selection changed the protected roster.')
-            rt.save(root/'fit/selection.json', selection)
-            inputs = _selection_inputs(inputs, ordered, reference)
-            winners = {frame: winners[frame] for frame in ordered}
-            extra.update(selection=selection, fitted_candidate_frames=fitted_count)
+            inputs, winners, selected = _joint_select(
+                root, inputs, winners, descriptors, shared, latent, body, vposer, reference_frame)
+            extra.update(selected)
         receipt = write_results(root, inputs, winners, shared, basis,
             [descriptors[frame] for frame in inputs['ids']], execution_kind='fresh_official_sequence',
             extra=dict(extra, elapsed_seconds=time.monotonic()-started))
@@ -500,21 +546,28 @@ def fit_named_sequence(*, frames_path, observations_path, root, official_root, a
         stack.close()
 
 
+def _read_saved_winners(inputs, winners, frame_ids):
+    arrays, descriptors = {}, {}
+    rows = {row['frame']: row for row in inputs['rows']}
+    for frame in frame_ids:
+        item = winners[frame]
+        for key in ('npz', 'result'):
+            if rt.sha(item[key]) != item[key+'_sha256']:
+                raise ValueError('Saved winner changed: ' + frame)
+            inputs['bound'][str(Path(item[key]).resolve())] = item[key+'_sha256']
+        with np.load(item['npz'], allow_pickle=False) as file:
+            arrays[frame] = {key: file[key].copy() for key in file.files}
+        check_result(rt.read(item['result']), rows[frame])
+        descriptors[frame] = dict(frame_id=frame, path=str(Path(item['result']).resolve()), sha256=item['result_sha256'])
+    return arrays, descriptors
+
+
 def assemble_saved_winners(*, inputs, root, winners, shared_betas, basis):
     """Read-only historical verification: never initializes a model or fits a frame."""
     root = Path(root).resolve()
     (root/'fit').mkdir(parents=True, exist_ok=False)
     if set(winners) != set(inputs['ids']):
         raise ValueError('Saved winners must match the full named roster.')
-    arrays, descriptors = {}, []
-    for frame in inputs['ids']:
-        item = winners[frame]
-        for key in ('npz', 'result'):
-            if rt.sha(item[key]) != item[key+'_sha256']:
-                raise ValueError('Saved winner changed: ' + frame)
-            inputs['bound'][str(Path(item[key]).resolve())] = item[key+'_sha256']
-        with np.load(item['npz'], allow_pickle=False) as f:
-            arrays[frame] = {key: f[key].copy() for key in f.files}
-        descriptors.append(dict(frame_id=frame, path=str(Path(item['result']).resolve()), sha256=item['result_sha256']))
-    return write_results(root, inputs, arrays, shared_betas, basis, descriptors,
+    arrays, descriptors = _read_saved_winners(inputs, winners, inputs['ids'])
+    return write_results(root, inputs, arrays, shared_betas, basis, [descriptors[name] for name in inputs['ids']],
                          execution_kind='historical_readonly_assembly')
