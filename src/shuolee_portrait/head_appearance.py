@@ -33,6 +33,15 @@ def snapshot_name(receipt):
         elif (appearance.get('state') not in ('skipped', 'failed')
               or appearance.get('snapshot', name) != name):
             raise ValueError('Invalid head appearance fallback snapshot.')
+    surface = receipt.get('surface_refinement')
+    if surface is not None:
+        if (not isinstance(surface, dict) or surface.get('state') != 'completed'
+                or type(surface.get('steps')) is not int or surface['steps'] <= 0
+                or surface.get('baseline_snapshot') != name or surface.get('frozen_mesh_verified') is not True):
+            raise ValueError('Invalid surface refinement receipt.')
+        name = f'{name}-surface-{surface["steps"]:06d}'
+        if surface.get('snapshot') != name or surface.get('points') != receipt.get('points'):
+            raise ValueError('The refined snapshot differs from the registered terminal.')
     if receipt.get('final_snapshot') != name:
         raise ValueError('The selected SH0 snapshot does not match its terminal receipt.')
     return name

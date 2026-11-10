@@ -331,6 +331,8 @@ def export(root,cfg):
             camera='export/cameras.json', scene='export/scene.zip', scene_sha256=package_hash, final_snapshot=snapshot.name)
         if 'head_appearance' in result:
             delivery['head_appearance'] = result['head_appearance']
+        if 'surface_refinement' in result:
+            delivery['surface_refinement'] = result['surface_refinement']
     if not standard_export:
         htmltext='<!doctype html><meta charset="utf-8"><title>Shuolee reconstruction review</title><style>body{font:16px sans-serif;background:#eee;margin:24px}figure{margin:16px 0}img{max-width:30%;height:auto}</style><h1>新视频静态重建检查</h1><p>每行：原图 / 原生渲染 / +Y PLY。尚未通过重影与未知视角质量验收。图片保持比例，不叠字。</p>'+''.join(panels)+'<h2>连续未知视角（无实拍真值）</h2><input id="angle" type="range" min="0" max="35" value="0"><br><img id="orbit" src="review/novel_000.png"><script>angle.oninput=()=>orbit.src="review/novel_"+angle.value.padStart(3,"0")+".png"</script>'
         (out/'review.html').write_text(htmltext,encoding='utf-8')
