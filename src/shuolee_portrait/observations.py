@@ -47,6 +47,12 @@ def observe(root,cfg):
  from sam2.build_sam import build_sam2
  from sam2.sam2_image_predictor import SAM2ImagePredictor
  inputs=rt.read(root/'data/inputs.json');rows=inputs['records'];maskdir=root/'data/masks';maskdir.mkdir()
+ fit_frames=None
+ if 'capture_layout' in cfg:
+  from .stable_selection import selection_scope
+  capture=cfg['capture_layout']
+  scope=selection_scope(dict(rows=rows,source_manifest=inputs),arc=capture['arc'],capture_layout=capture)
+  fit_frames=set(scope['fit_frame_ids'])
  detector=load_detector()
  net=build_sam2('configs/sam2.1/sam2.1_hiera_t.yaml',str(rt.ASSETS/'sam2/sam2.1_hiera_tiny.pt'),device='cuda',apply_postprocessing=False)
  segmenter=SAM2ImagePredictor(net,max_hole_area=0,max_sprinkle_area=0)
@@ -77,7 +83,10 @@ def observe(root,cfg):
     if iou[order[0]]<.1 or (len(order)>1 and iou[order[0]]-iou[order[1]]<.05):raise RuntimeError(f'Person track ambiguous at {row["name"]}. No identity switch is silently accepted.')
     box=b[order[0]]
    other_boxes=[item.tolist() for index,item in enumerate(b) if index!=int(order[0])]
-   previous=box.copy();margin=.04*max(box[2:]-box[:2]);box=np.clip(box+[-margin,-margin,margin,margin],[0,0,0,0],[W,H,W,H])
+   # Holdout observations are available for review, without feeding the fit track.
+   if fit_frames is None or row['frame'] in fit_frames:
+    previous=box.copy()
+   margin=.04*max(box[2:]-box[:2]);box=np.clip(box+[-margin,-margin,margin,margin],[0,0,0,0],[W,H,W,H])
    a,sa=pose(rgb,bboxes=box[None]);a,sa=a[0],sa[0]
    fb=np.array([W-1-box[2],box[1],W-1-box[0],box[3]])
    b,sb=pose(rgb[:,::-1].copy(),bboxes=fb[None]);b,sb=b[0][flip],sb[0][flip];b[:,0]=W-1-b[:,0]

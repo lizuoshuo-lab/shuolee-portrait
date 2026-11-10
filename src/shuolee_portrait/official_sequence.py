@@ -256,6 +256,8 @@ def check_result(report, row):
 
 def write_results(root, inputs, winners, shared, basis, descriptors, *, execution_kind, extra=None):
     arrays, training = assemble(inputs, winners, shared, basis)
+    if extra and 'joint_body_refinement' in extra:
+        training['pose_mode'] = 'named_official_initialization_joint_shared_body'
     check_bound(inputs['bound'])
     for row in inputs['rows']:
         checked_image(row)
@@ -272,8 +274,12 @@ def write_results(root, inputs, winners, shared, basis, descriptors, *, executio
     with (root/'fit/fitted.npz').open('xb') as stream:
         np.savez_compressed(stream, **arrays)
     rt.save(target, training)
-    sources = [dict(path=str(p.resolve()), sha256=rt.sha(p)) for p in
-               (Path(__file__), Path(official.__file__), Path(__file__).with_name('smplifyx_runtime.py'))]
+    source_paths = [Path(__file__), Path(official.__file__), Path(__file__).with_name('smplifyx_runtime.py')]
+    if extra and 'joint_body_refinement' in extra:
+        joint = extra['joint_body_refinement']
+        source_paths.extend((Path(__file__).with_name('joint_body_fit.py'), root/joint['file'],
+                             root/joint['candidate_file'], root/joint['before_selection_file']))
+    sources = [dict(path=str(path.resolve()), sha256=rt.sha(path)) for path in source_paths]
     receipt = dict(state='complete', frames=len(inputs['rows']), execution_kind=execution_kind,
         source=dict(input_files=inputs['bound'], confidence=inputs['confidence'], gvhmr_used=False),
         frame_results=reports, official_frame_results=descriptors, sources=sources,
@@ -332,9 +338,53 @@ def _selection_inputs(inputs, ordered, reference):
                 K=inputs['K'][slots], targets=inputs['targets'][slots])
 
 
+def _joint_candidates(root, inputs, winners, reports, shared, latent, body, vposer):
+    from . import joint_body_fit, stable_selection
+
+    scope = inputs['scope']
+    try:
+        before = stable_selection.select_frames(inputs, winners, scope=scope, reports=reports, shared_betas=shared)
+    except ValueError as error:
+        if str(error) != 'No technically valid non-holdout poses for automatic training.':
+            raise
+        before = dict(state='no_eligible_initial_pose', selected_frames=[], retained_holdouts=scope['retained_holdouts'])
+    before_path = root/'fit/selection-before-joint.json'
+    rt.save(before_path, before)
+    refined, refinement = joint_body_fit.refine_joint_body(inputs=inputs, winners=winners, body=body, vposer=vposer,
+        shared_betas=shared, shared_latent=latent, progress_path=root/'fit/progress.json')
+    frame_ids = scope['fit_frame_ids']
+    if (set(refined) != set(frame_ids) or set(refined) & set(scope['retained_holdouts'])
+            or not all(np.array_equal(item['betas'], shared) for item in refined.values())):
+        raise ValueError('The joint fit changed the shared shape or fit roster.')
+    fields = ('vertices_camera', 'joints_camera', 'joints_projected_native', 'body_pose_axis_angle',
+              'global_orient', 'camera_translation', 'pose_embedding', 'expression', 'jaw_pose',
+              'left_hand_pose', 'right_hand_pose', 'leye_pose', 'reye_pose')
+    row_slots = {row['frame']: i for i, row in enumerate(inputs['rows'])}
+    rows = {row['frame']: row for row in inputs['rows']}
+    file = root/'fit/joint-candidates.npz'
+    with file.open('xb') as stream:
+        np.savez_compressed(stream, frame_ids=np.asarray(frame_ids), betas=shared,
+            faces=refined[frame_ids[0]]['faces'],
+            source_frames=np.asarray([rows[name]['source_frame_index'] for name in frame_ids], np.int64),
+            image_sha256=np.asarray([rows[name]['source_sha256'] for name in frame_ids]),
+            mask_sha256=np.asarray([rows[name]['mask_sha256'] for name in frame_ids]),
+            K_integer_centers=np.stack([refined[name]['K_integer_centers'] for name in frame_ids]),
+            observed_native_keypoints=inputs['targets'][[row_slots[name] for name in frame_ids]],
+            **{field: np.concatenate([refined[name][field] for name in frame_ids], axis=0) for field in fields})
+    refinement.update(fit_frame_ids=frame_ids, excluded_holdouts=scope['retained_holdouts'],
+        joint_module_sha256=rt.sha(joint_body_fit.__file__), candidate_sha256=rt.sha(file),
+        before_selection_sha256=rt.sha(before_path))
+    audit = root/'fit/joint-body-refinement.json'
+    rt.save(audit, refinement)
+    proof = dict(file=str(audit.relative_to(root)), sha256=rt.sha(audit), candidate_file=str(file.relative_to(root)),
+        candidate_sha256=rt.sha(file), before_selection_file=str(before_path.relative_to(root)),
+        before_selection_sha256=rt.sha(before_path))
+    return refined, proof
+
+
 def fit_named_sequence(*, frames_path, observations_path, root, official_root, assets,
                        camera_length_contract, reference_frame, shape_policy, capture_layout=None):
-    """One reusable model pair, independent official fits, one explicitly chosen shape."""
+    """Use official frame initializers, then jointly refine the protected capture scope."""
     root = Path(root).resolve()
     if (root/'fit').exists():
         raise FileExistsError('Use a fresh run for a new shared-shape pass.')
@@ -421,6 +471,10 @@ def fit_named_sequence(*, frames_path, observations_path, root, official_root, a
             hashes = {report.get('shared_body_target_sha256') for report in reports.values()}
             if len(hashes) != 1 or None in hashes:
                 raise ValueError('Final fits did not use one shared body target.')
+            stack.close()
+            if fitted_count > 1:
+                winners, extra['joint_body_refinement'] = _joint_candidates(
+                    root, inputs, winners, reports, shared, latent, body, vposer)
             selection = stable_selection.select_frames(inputs, winners, scope=scope, reports=reports, shared_betas=shared)
             selected = selection['selected_frames']
             reference = reference_frame or selection['reference_frame']
