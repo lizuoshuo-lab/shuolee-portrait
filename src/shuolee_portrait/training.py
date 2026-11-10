@@ -219,6 +219,7 @@ def verify_official_fit(root):
 def smpl_sh0_effective_config():
     """Resolve the stable profile once from the stock GaussianAvatars options."""
     from arguments import OptimizationParams
+    from .head_appearance import STEPS, WEIGHT
 
     parser = argparse.ArgumentParser()
     optimization = vars(OptimizationParams(parser).extract(parser.parse_args([]))).copy()
@@ -233,6 +234,7 @@ def smpl_sh0_effective_config():
         sh_degree=0, shared_clothing_offset_lr=1e-6, snapshot_steps=[1000, optimization['iterations']],
         opacity_reset_steps=opacity_reset_steps,
         alpha_loss_weight=.1, straight_rgb_alpha_floor=1e-4, alpha_loss_normalization='foreground_area',
+        head_appearance_steps=STEPS, head_appearance_weight=WEIGHT,
         densification_gradient_units='native_raster_area',
         sampling_policy='seeded_equal_occupied_source_bin_cycles', optimization=optimization)
 
@@ -507,22 +509,38 @@ def _train_smpl_sh0(root, effective):
                     model.reset_opacity()
                 if step < options.iterations:
                     model.optimizer.step(); model.optimizer.zero_grad(set_to_none=True)
-    rt.save(out/'result.json', dict(state='completed', from_scratch=True, steps=options.iterations,
+    stock = out/f'step-{options.iterations:06d}'
+    receipt = dict(state='completed', from_scratch=True, steps=options.iterations,
         execution_kind='official_smplifyx', gaussian_profile='smpl_sh0', sh_degree=0, points=len(model._xyz),
         schedule_steps=options.position_lr_max_steps, formal_training_admitted=False, quality_accepted=False,
         per_frame_updates=counts.tolist(), source_bin_draws=bin_draws, pose_layout=layout,
-        reference_frame_id=layout['reference_frame_id'], final_snapshot=f'step-{options.iterations:06d}'))
-    del targets, laplacian
+        reference_frame_id=layout['reference_frame_id'], final_snapshot=stock.name, stock_snapshot=stock.name)
+    rt.save(out/'result.json', receipt)
+    del laplacian
     try:
         from .bound_replay import save_bound_snapshot
 
         with torch.no_grad():
-            return save_bound_snapshot(root, out/f'step-{options.iterations:06d}', model)
+            replay = save_bound_snapshot(root, stock, model)
     except Exception as error:
         # A sidecar failure does not invalidate the already verified static PLY.
         rt.save(out/'bound-snapshot-failure.json', dict(state='failed', step=options.iterations,
                 error_type=type(error).__name__, error=str(error), optimizer_updates=0))
         return None
+    del model
+    if (root/'status.json').is_file():
+        rt.save(root/'status.json', dict(rt.read(root/'status.json'), stage='head_appearance', updated=rt.now()))
+    try:
+        from .head_appearance import polish
+
+        selected, appearance = polish(root, stock, replay, fit, rows, layout, selection, protected, cameras, targets, effective)
+    except Exception as error:
+        selected = replay
+        appearance = dict(state='failed', reason='head_appearance_integrity_failure', snapshot=stock.name,
+                          error_type=type(error).__name__, error=str(error))
+        rt.save(out/'head-appearance-failure.json', appearance)
+    rt.save(out/'result.json', dict(receipt, final_snapshot=appearance['snapshot'], head_appearance=appearance))
+    return selected
 
 
 def replay_official_bound(root, replay=None):
@@ -532,6 +550,7 @@ def replay_official_bound(root, replay=None):
     from gaussian_renderer import render
     from scene.gaussian_model import GaussianModel
     from .bound_replay import load_bound_snapshot
+    from .head_appearance import snapshot_name
 
     root = Path(root)
     out = root/'gaussian-run'
@@ -539,13 +558,12 @@ def replay_official_bound(root, replay=None):
     effective = smpl_sh0_effective_config()
     terminal_step = effective['iterations']
     if (training.get('state') != 'completed' or training.get('gaussian_profile') != effective['gaussian_profile']
-            or training.get('steps') != terminal_step or training.get('sh_degree') != effective['sh_degree']
-            or training.get('final_snapshot') != f'step-{terminal_step:06d}'):
+            or training.get('steps') != terminal_step or training.get('sh_degree') != effective['sh_degree']):
         raise ValueError('Bound replay requires the successful terminal stable SH0 training snapshot.')
     failure = out/'bound-snapshot-failure.json'
     if failure.is_file():
         raise RuntimeError(f'Terminal bound snapshot failed. See {failure}')
-    snapshot = out/training['final_snapshot']
+    snapshot = out/snapshot_name(training)
     destination = snapshot/'posed-replay'
     if destination.exists():
         raise FileExistsError(f'Preserve the existing posed replay: {destination}')

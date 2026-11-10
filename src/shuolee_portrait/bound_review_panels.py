@@ -8,6 +8,7 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 from . import runtime as rt
+from .head_appearance import snapshot_name
 from .official_smplifyx import COCO
 
 
@@ -114,10 +115,9 @@ def write_panels(root, replay_receipt, *, output_dir=None):
 
     run = root / "gaussian-run"
     train = rt.read(pin(run / "result.json"))
-    name = train["final_snapshot"]
     _need(train["state"] == "completed" and train["gaussian_profile"] == "smpl_sh0"
-          and train["sh_degree"] == 0 and re.fullmatch(r"step-\d+", name), "Need a completed terminal SH0 snapshot.")
-    snapshot = run / name
+          and train["sh_degree"] == 0, "Need a completed terminal SH0 snapshot.")
+    snapshot = run / snapshot_name(train)
     replay = snapshot / "posed-replay"
     _need(replay_receipt == (replay / "result.json").resolve(), "Use the terminal bound replay receipt.")
     receipt = rt.read(pin(replay_receipt))

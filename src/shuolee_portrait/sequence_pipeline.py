@@ -115,7 +115,7 @@ def reconstruct(*, video, root, assets, configuration, reference_frame):
 
             progress('bound_review', static_export_passed=True, static_export_completed_at=rt.now())
             replay = replay_official_bound(root, replay=trained)
-            replay_path = root/'gaussian-run'/f'step-{result["steps"]:06d}'/'posed-replay/result.json'
+            replay_path = root/'gaussian-run'/result['final_snapshot']/'posed-replay/result.json'
             panels = write_panels(root, replay_path)
             panel_path = root/'audit/bound-panels/result.json'
             selected = set(fit_result['selection']['selected_frames'])

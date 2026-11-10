@@ -221,10 +221,15 @@ def export(root,cfg):
     from scene.gaussian_model import GaussianModel
     from gaussian_renderer import render
     from .training import camera,image
-    result=rt.read(root/'gaussian-run/result.json');snapshot=root/'gaussian-run'/result['final_snapshot']
+    result=rt.read(root/'gaussian-run/result.json')
     stable = result.get('gaussian_profile') == 'smpl_sh0'
     if stable and (result.get('state') != 'completed' or result.get('steps') != 10000 or result.get('sh_degree') != 0):
         raise ValueError('A terminal degree-zero training receipt is required.')
+    if stable:
+        from .head_appearance import snapshot_name
+        snapshot = root/'gaussian-run'/snapshot_name(result)
+    else:
+        snapshot = root/'gaussian-run'/result['final_snapshot']
     receipt=rt.read(snapshot/'native-ply-parity.json')
     if not receipt['passed'] or receipt['sha256']!=rt.sha(snapshot/'world.ply'):
         raise RuntimeError('Native world export is not verified.')
@@ -323,7 +328,9 @@ def export(root,cfg):
         mesh = _reference_mesh(out, snapshot, fit, rows[0], receipt, report)
         package_hash = _package_smpl_sh0(out, result, report, mesh)
         delivery.update(gaussian_profile='smpl_sh0', sh_degree=0, points=report['points'], mesh='export/reference-mesh.obj',
-            camera='export/cameras.json', scene='export/scene.zip', scene_sha256=package_hash)
+            camera='export/cameras.json', scene='export/scene.zip', scene_sha256=package_hash, final_snapshot=snapshot.name)
+        if 'head_appearance' in result:
+            delivery['head_appearance'] = result['head_appearance']
     if not standard_export:
         htmltext='<!doctype html><meta charset="utf-8"><title>Shuolee reconstruction review</title><style>body{font:16px sans-serif;background:#eee;margin:24px}figure{margin:16px 0}img{max-width:30%;height:auto}</style><h1>新视频静态重建检查</h1><p>每行：原图 / 原生渲染 / +Y PLY。尚未通过重影与未知视角质量验收。图片保持比例，不叠字。</p>'+''.join(panels)+'<h2>连续未知视角（无实拍真值）</h2><input id="angle" type="range" min="0" max="35" value="0"><br><img id="orbit" src="review/novel_000.png"><script>angle.oninput=()=>orbit.src="review/novel_"+angle.value.padStart(3,"0")+".png"</script>'
         (out/'review.html').write_text(htmltext,encoding='utf-8')
