@@ -2,20 +2,36 @@
 
 import torch
 
-from .shape_refinement import _projection, _screen_visibility
+from .shape_refinement import _projection, _screen_visibility, _tangent_distance
 
 
 def scale_config():
     return dict(global_extent_ratio=.025, minimum_extent_ratio=.016, triangle_scale_multiple=3.,
                 active_opacity=.10, audit_thresholds_m=[.05, .10], near_limit_ratio=.90,
                 axis_ratio_min=2., max_parents=128, child_sigma_ratio=.82, child_opacity_max=.995,
-                unsupported_cap_ratio=.80, small_projected_sigma_px=5., split_steps=[3000, 4800, 6600, 8400])
+                unsupported_cap_ratio=.80, small_projected_sigma_px=5., split_steps=[3000, 4800, 6600, 8400],
+                needle=dict(width_over_extent=.008, width_over_face=.65, gap_over_extent=.010, gap_over_face=.75,
+                            max_parents=128, center_move_fraction=.50, max_move_over_extent=.010, width_trim_ratio=.75))
 
 
 def _limits(face_scale, extent, options):
     cap = (options['triangle_scale_multiple']*face_scale).clamp(
         extent*options['minimum_extent_ratio'], extent*options['global_extent_ratio'])
     return cap, (cap/face_scale).log()
+
+
+def _off_surface(local, triangle, scale, extent, options):
+    normal = local[:, 1].abs()
+    tangent = _tangent_distance(local[:, [0, 2]], triangle)
+    gap = torch.hypot(normal, tangent)*scale
+    threshold = (options['gap_over_face']*scale).clamp_min(options['gap_over_extent']*extent)
+    return gap, gap > threshold
+
+
+def _source_conflict(fg, bg, min_background):
+    conflicted = (bg >= min_background) & (bg > fg)
+    unobserved = (fg == 0) & (bg == 0)
+    return conflicted, unobserved
 
 
 def _children(parent_sigma, alpha, options):
@@ -96,6 +112,12 @@ class WorldScale:
                    reference=_summary(local*self.reference_scale[owner], active, self.cap[owner], self.options),
                    all_poses_max=_summary(local*self.maximum_scale[owner], active, self.cap[owner], self.options),
                    hard_projection=dict(axis_hits=axis_hits, point_hits=point_hits, calls_with_hits=calls))
+        if stage in ('initial', 'terminal'):
+            active_log_axes = model._scaling[active].topk(2, dim=1).values
+            ratio = (active_log_axes[:, 0]-active_log_axes[:, 1]).exp()
+            row['needle'] = dict(active_ratio_max=float(ratio.max()) if len(ratio) else None,
+                                 active_ratio_over_20=int((ratio > 20).count_nonzero()),
+                                 active_ratio_over_40=int((ratio > 40).count_nonzero()))
         if stage != 'initial' and row['all_poses_max']['all']['over_limit']:
             raise RuntimeError('World covariance limit did not hold in all registered poses.')
         if stage not in ('initial', 'terminal'):
@@ -136,6 +158,78 @@ class WorldScale:
         return foreground, background, dict(visible_parent_view_pairs=int(visible_count),
              small_projected_world_axis_pairs=int(small_axis), small_projected_ellipse_pairs=int(small_ellipse))
 
+    def _replace(self, parents, centers, log_sigma, opacity):
+        model = self.model
+        binding = model.binding[parents].repeat(2)
+        prune = torch.zeros(len(model.binding)+len(binding), device=binding.device, dtype=torch.bool)
+        prune[parents] = True
+        model.binding = torch.cat((model.binding, binding))
+        model.binding_counter.scatter_add_(0, binding, torch.ones_like(binding, dtype=torch.int32))
+        model.densification_postfix(centers.transpose(0, 1).reshape(-1, 3),
+            model._features_dc[parents].repeat(2, 1, 1), model._features_rest[parents].repeat(2, 1, 1),
+            opacity[:, None].repeat(2, 1).logit(), log_sigma.repeat(2, 1), model._rotation[parents].repeat(2, 1))
+        model.prune_points(prune)
+        if len(model.binding) != len(prune)-len(parents) or int(model.binding_counter.min()) < 1:
+            raise RuntimeError('Principal-axis replacement lost a bound parent or child.')
+
+    def _repair_displaced(self, constraints):
+        """Only adjust broad off-surface rows with contradictory or absent native support."""
+        from utils.general_utils import build_rotation
+
+        model, options = self.model, self.options
+        cfg = options['needle']
+        owner = model.binding
+        scale = self.reference_scale[owner]
+        high = model._scaling.amax(1).exp()*scale
+        min_width = (cfg['width_over_face']*scale).clamp_min(cfg['width_over_extent']*self.extent)
+        opacity = model.get_opacity[:, 0]
+        ids = ((high >= min_width) & (opacity >= options['active_opacity'])).nonzero(as_tuple=True)[0]
+        ref_view = constraints.views[constraints.slots.index(self.reference)]
+        gap, displaced = _off_surface(model._xyz[ids], ref_view.triangle[owner[ids]], scale[ids], self.extent, cfg)
+        priority = high[ids]*gap*opacity[ids]
+        ids, priority = ids[displaced], priority[displaced]
+        count = len(ids)
+        if count > cfg['max_parents']:
+            ids = ids[priority.argsort(descending=True, stable=True)[:cfg['max_parents']]]
+        event = dict(displaced_candidates=count, assessed=len(ids), conflicted=0, unobserved=0,
+                     support_replaced=0, children=0, width_trimmed=0, preserved=len(ids))
+        if not len(ids):
+            return event
+
+        log_sigma = model._scaling[ids]
+        wide_logs, wide_axes = log_sigma.topk(2, dim=1)
+        axis = wide_axes[:, 0]
+        rotation = build_rotation(model._rotation[ids])
+        direction = rotation.gather(2, axis[:, None, None].expand(-1, 3, 1)).squeeze(2)
+        child_sigma, shift, child_opacity = _children(wide_logs[:, 0].exp(), opacity[ids], options)
+        original = model._xyz[ids]
+        travel = original.norm(dim=1)*scale[ids]
+        move = (cfg['max_move_over_extent']*self.extent/travel.clamp_min(1e-8)).clamp_max(cfg['center_move_fraction'])
+        anchor = original*(1-move[:, None])
+        displacement = direction*shift[:, None]
+        proposals = torch.stack((original, anchor-displacement, anchor+displacement), 1)
+        fg, bg, _ = self._votes(proposals, owner[ids], rotation, log_sigma.exp(), axis, constraints)
+        conflicted, unobserved = _source_conflict(fg[:, 0], bg[:, 0], constraints.options['prune_bg_bins'])
+        supported = (fg[:, 1:] >= constraints.options['required_source_bins']).all(1) & (bg[:, 1:] == 0).all(1)
+        replace = conflicted & supported
+        trim = (conflicted | unobserved) & ~replace
+
+        # Without reliable child observations, retain the center, opacity and thin axis.
+        trim_ids, trim_axes = ids[trim], wide_axes[trim]
+        model._scaling[trim_ids[:, None], trim_axes] = wide_logs[trim]+wide_logs.new_tensor(cfg['width_trim_ratio']).log()
+        state = model.optimizer.state.get(model._scaling)
+        if state is not None:
+            state['exp_avg'][trim_ids[:, None], trim_axes] = 0
+        parents = ids[replace]
+        if len(parents):
+            children = log_sigma[replace].clone()
+            children.scatter_(1, axis[replace, None], child_sigma[replace, None].log())
+            self._replace(parents, proposals[replace, 1:], children, child_opacity[replace])
+        event.update(conflicted=int(conflicted.count_nonzero()), unobserved=int(unobserved.count_nonzero()),
+                     support_replaced=len(parents), children=2*len(parents), width_trimmed=len(trim_ids),
+                     preserved=len(ids)-len(parents)-len(trim_ids))
+        return event
+
     def repair(self, step, constraints):
         """Split only near-cap long axes whose two centers have multi-view foreground support."""
         from utils.general_utils import build_rotation
@@ -175,22 +269,12 @@ class WorldScale:
             parents = ids[supported]
             count = len(parents)
             if count:
-                children = probes[supported, 1:].transpose(0, 1).reshape(-1, 3)
                 log_sigma = model._scaling[parents].clone()
                 log_sigma.scatter_(1, axis[supported, None], child_sigma[supported, None].log())
-                binding = model.binding[parents].repeat(2)
-                prune = torch.zeros(len(model.binding)+len(binding), device=local_sigma.device, dtype=torch.bool)
-                prune[parents] = True
-                model.binding = torch.cat((model.binding, binding))
-                model.binding_counter.scatter_add_(0, binding, torch.ones_like(binding, dtype=torch.int32))
-                model.densification_postfix(children, model._features_dc[parents].repeat(2, 1, 1),
-                    model._features_rest[parents].repeat(2, 1, 1), opacity[supported, None].repeat(2, 1).logit(),
-                    log_sigma.repeat(2, 1), model._rotation[parents].repeat(2, 1))
-                model.prune_points(prune)
-                if len(model.binding) != len(prune)-count or int(model.binding_counter.min()) < 1:
-                    raise RuntimeError('Principal-axis replacement lost a bound parent or child.')
+                self._replace(parents, probes[supported, 1:], log_sigma, opacity[supported])
             event.update(observation, split_parents=count, children=2*count, exterior_trimmed=len(trim_ids),
                          retained_without_child_support=len(ids)-count-len(trim_ids))
+        event['needle'] = self._repair_displaced(constraints)
         self.splits.append(event)
 
     def report(self, initial, terminal=None):

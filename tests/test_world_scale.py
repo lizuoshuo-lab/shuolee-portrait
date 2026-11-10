@@ -4,7 +4,8 @@ import unittest
 
 import torch
 
-from shuolee_portrait.world_scale import WorldScale, _children, _limits, _projected_widths, scale_config
+from shuolee_portrait.world_scale import (WorldScale, _children, _limits, _off_surface, _projected_widths,
+                                          _source_conflict, scale_config)
 
 
 class WorldScaleTests(unittest.TestCase):
@@ -48,3 +49,16 @@ class WorldScaleTests(unittest.TestCase):
         self.assertEqual(axis.item(), 0)
         self.assertTrue(math.isclose(ellipse.item(), 3))
 
+
+    def test_off_surface_distance_uses_triangle_instead_of_centroid(self):
+        local = torch.tensor([[.8, 0., 0.], [.8, 1., 0.], [3., 0., 0.]])
+        triangle = torch.tensor([[[0., 0.], [1., 0.], [0., 1.]]]).expand(3, -1, -1)
+        gap, displaced = _off_surface(local, triangle, torch.full((3,), .025), 1.7, scale_config()['needle'])
+        torch.testing.assert_close(gap, torch.tensor([0., .025, .05]))
+        self.assertEqual(displaced.tolist(), [False, True, True])
+
+    def test_native_conflict_is_distinct_from_occlusion_and_supported_geometry(self):
+        fg, bg = torch.tensor([2, 3, 0, 1]), torch.tensor([5, 2, 0, 1])
+        conflicted, unobserved = _source_conflict(fg, bg, 3)
+        self.assertEqual(conflicted.tolist(), [True, False, False, False])
+        self.assertEqual(unobserved.tolist(), [False, False, True, False])
