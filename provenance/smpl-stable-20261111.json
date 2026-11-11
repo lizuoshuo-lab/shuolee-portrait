@@ -1,0 +1,65 @@
+{
+  "schema": "smpl-engineering-release-v1",
+  "date": "2026-11-11",
+  "tag": "smpl-stable-20261111",
+  "source_commit": "6785a212b304d38a31f699933b23096d38ceb4a4",
+  "source_tree": "a445f078fcbde7e75a18db92eaeb6126f07324b0",
+  "previous_published_commit": "84fb66105999d2b6abce16008470c4d44da952a2",
+  "receipt_sha256": "617dc00c2cc6fa1e913732ec3713c4ac8624e342ef18bf715608647d985c0eb1",
+  "local_validation": {
+    "unittest_passed": 313,
+    "unittest_seconds": 27.357,
+    "unittest_log_sha256": "b90dcbb32b8295382d092789c1dc1c1df813217ecb0750a0ce03c2bf7258309f",
+    "cuda_visible_devices": "-1",
+    "shell_syntax_and_compileall_passed": true,
+    "cli_help_checks_passed": [
+      "run_smplx.py train",
+      "scripts/setup_server.sh",
+      "deploy.sh",
+      "scripts/train.sh",
+      "watch.py",
+      "scripts/check_frame_pose_inputs.py"
+    ],
+    "cli_checks_evidence": "All eight subprocess checks completed with exit code 0; no dependency reinstall or new reconstruction run."
+  },
+  "subjects": {
+    "016": {
+      "points": 92722,
+      "reference": "frame_000027",
+      "frames": 24,
+      "public_effective_config_matches_with_runtime_resolution": true,
+      "resolved_fields": {
+        "initial_points": 20908,
+        "image_cache_frames": 24
+      },
+      "artifact_sha256": {
+        "scene": "8bb4cba31380b213a84373ee22adaa8b1739783ab26967289923478eeacb9be6",
+        "bound_replay": "6fa68147d17419f5d8f99bb929eff5a2024fca95e01f93bc16a3d0e4bdc2911b"
+      }
+    },
+    "006": {
+      "points": 113347,
+      "reference": "frame_000025",
+      "frames": 24,
+      "public_effective_config_matches_with_runtime_resolution": true,
+      "resolved_fields": {
+        "initial_points": 20908,
+        "image_cache_frames": 24
+      },
+      "artifact_sha256": {
+        "scene": "5285d703b0d2f7b533543293a35eeb5507a8b98c0f2bd7e111ee8821db66c4ed",
+        "bound_replay": "7ea9eae0f1f1ba4997de2ac9050b5a2d32ce1f2a9b73b7984b906f57deb4daeb"
+      }
+    }
+  },
+  "training_scope": "Fresh Gaussian parameters and optimizer for 10000 steps, reusing verified R14 fits, source inputs and 24-frame rosters.",
+  "fresh_video_reconstruction_this_release": false,
+  "remote_gpu_deployment_this_release": false,
+  "quality_accepted": false,
+  "known_limitations": [
+    "Side-view floaters, broad clothing splats and residual facial/ear fitting errors remain.",
+    "Uniform occupied source-time bins are not calibrated uniform physical angles.",
+    "006 first attempt failed the step-1000 native PLY parity max-error gate (0.00510645 > 0.005); one unchanged retry passed. Root cause remains unresolved.",
+    "Saved artifact reproducibility is hash-verified; bitwise-identical GPU retraining is not established."
+  ]
+}
