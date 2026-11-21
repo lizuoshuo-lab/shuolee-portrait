@@ -1,0 +1,301 @@
+[
+  {
+    "run": "demo2-00560-bilateral-20261119T150523Z",
+    "status": "complete",
+    "stages": [
+      "prepare_identity",
+      "select_identity",
+      "frontal_identity",
+      "prepare_scene",
+      "select_scene",
+      "guide_sequence",
+      "measure_body",
+      "frame_head_neck",
+      "track_registered",
+      "project_to_world",
+      "fit_anatomical_prior",
+      "extract_head_neck",
+      "observe_outline",
+      "fit_scalp",
+      "joint_head_hair",
+      "native_vhap",
+      "geometry-binding",
+      "neck-expanded",
+      "neck-narrow",
+      "observe_native_skin",
+      "observe_front",
+      "neck-pose",
+      "neck-surface",
+      "neck-pitch"
+    ]
+  },
+  {
+    "run": "demo2-00560-bilateral-gaussian-20261120T013239Z",
+    "status": "complete",
+    "stages": [
+      "head_seed",
+      "scene_seed",
+      "gaussian_training",
+      "export_replay"
+    ]
+  },
+  {
+    "run": "demo2-00560-bilateral-mesh-offset-20261120T021120Z",
+    "status": "complete",
+    "stages": [
+      "head_seed",
+      "scene_seed",
+      "gaussian_training"
+    ]
+  },
+  {
+    "run": "demo2-00560-bilateral-surface4-20261120T022355Z",
+    "status": "complete",
+    "stages": [
+      "gaussian_training"
+    ]
+  },
+  {
+    "run": "demo2-00560-bilateral-surface4-footprints-20261120T023647Z",
+    "status": "complete",
+    "stages": [
+      "gaussian_training"
+    ]
+  },
+  {
+    "run": "demo2-00560-bilateral-surface4-no-growth-20261120T030757Z",
+    "status": "complete",
+    "stages": [
+      "gaussian_training"
+    ]
+  },
+  {
+    "run": "demo2-00560-bilateral-surface4-original-axis-20261120T032344Z",
+    "status": "complete",
+    "stages": [
+      "gaussian_training"
+    ]
+  },
+  {
+    "run": "demo2-00560-opacity-control-20261120T064127Z",
+    "status": "complete",
+    "stages": [
+      "gaussian_training"
+    ]
+  },
+  {
+    "run": "demo2-00560-opacity-prune-20261120T064127Z",
+    "status": "complete",
+    "stages": [
+      "gaussian_training"
+    ]
+  },
+  {
+    "run": "demo2-00560-surface-detail-20261120T074525Z",
+    "status": "complete",
+    "stages": [
+      "prepare_identity",
+      "select_identity",
+      "frontal_identity",
+      "prepare_scene",
+      "select_scene",
+      "guide_sequence",
+      "measure_body",
+      "frame_head_neck",
+      "track_registered",
+      "project_to_world",
+      "fit_anatomical_prior",
+      "extract_head_neck",
+      "observe_outline",
+      "fit_scalp",
+      "joint_head_hair",
+      "native_vhap",
+      "geometry-binding",
+      "neck-expanded",
+      "neck-narrow",
+      "observe_native_skin",
+      "observe_front",
+      "neck-pose",
+      "neck-surface",
+      "neck-pitch"
+    ]
+  },
+  {
+    "run": "demo2-cold-once-20261119T053029Z",
+    "status": "stopped_for_cold_retrain",
+    "stages": [
+      "01_prepare_scene",
+      "02_select_anchors",
+      "03_guide_all_frames",
+      "04_frame_head_and_neck",
+      "05_observe_neck",
+      "06_train_vhap",
+      "07_bind_head_seeds",
+      "08_fit_shared_neck",
+      "09_initialize_scene_seeds"
+    ]
+  },
+  {
+    "run": "demo2-front-target-profile-20261119T140427Z",
+    "status": "failed",
+    "stages": [
+      "prepare_identity"
+    ]
+  },
+  {
+    "run": "demo2-native-neutral-own-20261119T094706Z",
+    "status": "complete",
+    "stages": [
+      "prepare_identity",
+      "select_identity",
+      "frontal_identity",
+      "prepare_scene",
+      "select_scene",
+      "guide_sequence",
+      "measure_body",
+      "frame_head_neck",
+      "track_registered",
+      "project_to_world",
+      "fit_anatomical_prior",
+      "extract_head_neck",
+      "observe_outline",
+      "fit_scalp",
+      "joint_head_hair",
+      "native_vhap",
+      "geometry-binding",
+      "neck-expanded",
+      "neck-narrow",
+      "observe_native_skin",
+      "observe_front"
+    ]
+  },
+  {
+    "run": "demo2-observed-from-video-20261119T062819Z",
+    "status": "complete",
+    "stages": [
+      "prepare_identity",
+      "select_identity",
+      "frontal_identity",
+      "prepare_scene",
+      "select_scene",
+      "guide_sequence",
+      "measure_body",
+      "frame_head_neck",
+      "track_registered",
+      "project_to_world",
+      "fit_anatomical_prior",
+      "extract_head_neck",
+      "observe_outline",
+      "fit_scalp",
+      "joint_head_hair",
+      "native_vhap",
+      "geometry-binding",
+      "neck-expanded",
+      "neck-narrow",
+      "observe_native_skin",
+      "observe_front",
+      "neck-pose",
+      "neck-surface",
+      "neck-pitch",
+      "observe_color",
+      "fit_visible_rgb",
+      "fit_rear_rgb",
+      "registered-head",
+      "scene_seed",
+      "gaussian_training"
+    ]
+  },
+  {
+    "run": "demo2-side-entry-check",
+    "status": null,
+    "stages": [
+      "prepare_scene",
+      "select_head_frames",
+      "train_scene",
+      "train_avatar",
+      "train_joint",
+      "fit_side_frames",
+      "fit_image_profile_pose"
+    ]
+  },
+  {
+    "run": "demo2-target-profile12-20261119T141116Z",
+    "status": "failed",
+    "stages": [
+      "prepare_identity",
+      "select_identity",
+      "frontal_identity",
+      "prepare_scene",
+      "select_scene",
+      "guide_sequence",
+      "measure_body",
+      "frame_head_neck",
+      "track_registered",
+      "project_to_world",
+      "fit_anatomical_prior",
+      "extract_head_neck",
+      "observe_outline",
+      "fit_scalp",
+      "joint_head_hair",
+      "native_vhap",
+      "geometry-binding",
+      "neck-expanded",
+      "neck-narrow",
+      "observe_native_skin",
+      "observe_front",
+      "neck-pose",
+      "neck-surface",
+      "neck-pitch",
+      "observe_color",
+      "fit_visible_rgb"
+    ]
+  },
+  {
+    "run": "demo2-torso-neck-20261119T083655Z",
+    "status": "complete",
+    "stages": [
+      "prepare_identity",
+      "select_identity",
+      "frontal_identity",
+      "prepare_scene",
+      "select_scene",
+      "guide_sequence",
+      "measure_body",
+      "frame_head_neck",
+      "track_registered",
+      "project_to_world",
+      "fit_anatomical_prior",
+      "extract_head_neck",
+      "observe_outline",
+      "fit_scalp",
+      "joint_head_hair",
+      "native_vhap",
+      "geometry-binding",
+      "neck-expanded",
+      "neck-narrow",
+      "observe_native_skin",
+      "observe_front",
+      "neck-pose",
+      "neck-surface",
+      "neck-pitch",
+      "observe_color",
+      "fit_visible_rgb",
+      "fit_rear_rgb",
+      "registered-head",
+      "track_torso_texture",
+      "fit_shared_torso_neck"
+    ]
+  },
+  {
+    "run": "demo2-video-first",
+    "status": null,
+    "stages": [
+      "prepare_scene",
+      "select_head_frames",
+      "train_scene",
+      "train_avatar",
+      "train_joint",
+      "fit_side_frames"
+    ]
+  }
+]
