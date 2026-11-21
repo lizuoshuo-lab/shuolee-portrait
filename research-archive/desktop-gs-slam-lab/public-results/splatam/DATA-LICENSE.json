@@ -1,0 +1,8 @@
+{
+  "dataset": "TUM RGB-D benchmark",
+  "license": "CC BY 4.0",
+  "license_url": "https://creativecommons.org/licenses/by/4.0/",
+  "license_evidence_url": "https://cvg.cit.tum.de/data/datasets/rgbd-dataset#license",
+  "attribution": "TUM RGB-D Benchmark; J. Sturm, N. Engelhard, F. Endres, W. Burgard, D. Cremers, A Benchmark for the Evaluation of RGB-D SLAM Systems, IROS 2012.",
+  "official_download_page": "https://cvg.cit.tum.de/data/datasets/rgbd-dataset/download#freiburg1_desk"
+}

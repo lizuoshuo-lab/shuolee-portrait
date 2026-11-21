@@ -1,0 +1,135 @@
+[
+  {
+    "folder": "4K4D",
+    "origin": "https://github.com/zju3dv/4K4D",
+    "commit": "157b62aa0538181ec2f2f9ab67f72938d2423e92"
+  },
+  {
+    "folder": "CameraHMR-shuolee",
+    "origin": "https://github.com/pixelite1201/CameraHMR",
+    "commit": "65d11a0640d23c60f55ec82ae54298e9e7e549e0"
+  },
+  {
+    "folder": "Depth-Anything-V2",
+    "origin": "https://github.com/DepthAnything/Depth-Anything-V2",
+    "commit": "a561b849ebae10a6f5ef49e26c83cbbcd36c71bf"
+  },
+  {
+    "folder": "Difix3D",
+    "origin": "https://github.com/nv-tlabs/Difix3D",
+    "commit": "c76edc595586e16732c91ddee82f3a6d83a8a9cc"
+  },
+  {
+    "folder": "DINOv2-shuolee",
+    "origin": "https://github.com/facebookresearch/dinov2",
+    "commit": "7764ea0f912e53c92e82eb78a2a1631e92725fc8"
+  },
+  {
+    "folder": "DINOv3-shuolee",
+    "origin": "https://github.com/facebookresearch/dinov3",
+    "commit": "6876159a11b4df116f30f667f8c9888617df0751"
+  },
+  {
+    "folder": "EasyVolcap",
+    "origin": "https://github.com/zju3dv/EasyVolcap",
+    "commit": "c8410c7d41b813a4fdc08fd38e47a4e5f4046656"
+  },
+  {
+    "folder": "GaussianAvatar",
+    "origin": "https://github.com/aipixel/GaussianAvatar",
+    "commit": "d981c62238ef64e89dcc04719d2ebbb4758b080a"
+  },
+  {
+    "folder": "GaussianAvatars_SMPLX",
+    "origin": "https://github.com/jmaraval/GaussianAvatars_SMPLX",
+    "commit": "e44c1a6c5fbb7f76089f14982eba98d94e553214"
+  },
+  {
+    "folder": "gsplat",
+    "origin": "https://github.com/nerfstudio-project/gsplat",
+    "commit": "937e29912570c372bed6747a5c9bf85fed877bae",
+    "local_patch": "upstream-patches/gsplat.patch"
+  },
+  {
+    "folder": "GVHMR-shuolee",
+    "origin": "https://github.com/zju3dv/GVHMR",
+    "commit": "ee960bb6e2ea2d381aa97f08e9b71ef320b624b1"
+  },
+  {
+    "folder": "hamer",
+    "origin": "https://github.com/geopavlakos/hamer",
+    "commit": "3a01849f4148352e9260b69bf28b65d1671a4905",
+    "local_patch": "upstream-patches/hamer.patch"
+  },
+  {
+    "folder": "hierarchical-3d-gaussians",
+    "origin": "https://github.com/graphdeco-inria/hierarchical-3d-gaussians",
+    "commit": "596dc7081ee74e57a66502f4746328911f763b34"
+  },
+  {
+    "folder": "human_body_prior-shuolee",
+    "origin": "https://github.com/nghorbani/human_body_prior",
+    "commit": "6b883ecc3000697409a8caa2744523afe041e48a"
+  },
+  {
+    "folder": "MHR-shuolee",
+    "origin": "https://github.com/facebookresearch/MHR",
+    "commit": "877cba5ee61a5f77d1457bf4de93a66695132bd9"
+  },
+  {
+    "folder": "mini-splatting2",
+    "origin": "https://github.com/fatPeter/mini-splatting2",
+    "commit": "5ec9202c2db7d900728bfc09733e85467cff885e"
+  },
+  {
+    "folder": "MultiHMR-shuolee",
+    "origin": "https://github.com/naver/multi-hmr",
+    "commit": "651fb411e1cbcc626aaa5f38805ecab9cc891f7a"
+  },
+  {
+    "folder": "NLF-shuolee",
+    "origin": "https://github.com/isarandi/nlf",
+    "commit": "29046738a8101c15dc366ab45945b45e40debf17"
+  },
+  {
+    "folder": "PGSR-shuolee",
+    "origin": "https://github.com/zju3dv/PGSR",
+    "commit": "de24f1a38b350387e8d8fe381b2cd70c1ae946e7",
+    "local_patch": "upstream-patches/PGSR-shuolee.patch"
+  },
+  {
+    "folder": "sam2",
+    "origin": "https://github.com/facebookresearch/sam2",
+    "commit": "2b90b9f5ceec907a1c18123530e92e794ad901a4"
+  },
+  {
+    "folder": "SAM3DBody-shuolee",
+    "origin": "https://github.com/facebookresearch/sam-3d-body",
+    "commit": "b5c765a0d89d789985e186d396315e7590887b94"
+  },
+  {
+    "folder": "SMPLer-X-shuolee",
+    "origin": "https://github.com/MotrixLab/SMPLer-X",
+    "commit": "064baef0e4ab5277a3297691bc1d46ea5412586f"
+  },
+  {
+    "folder": "SplaTAM",
+    "origin": "https://github.com/spla-tam/SplaTAM",
+    "commit": "da6bbcd24c248dc884ac7f49d62e91b841b26ccc"
+  },
+  {
+    "folder": "torch-mesh-isect-shuolee124",
+    "origin": "https://github.com/vchoutas/torch-mesh-isect",
+    "commit": "85b30177821a1527e3fe62fcf8ce65262d7c1879"
+  },
+  {
+    "folder": "VHAP_smplx",
+    "origin": "https://github.com/jmaraval/VHAP_smplx",
+    "commit": "8980d4948d91b05ff96ae91bae29e3f15a238f5e"
+  },
+  {
+    "folder": "ViewExtrapolator",
+    "origin": "https://github.com/Kunhao-Liu/ViewExtrapolator",
+    "commit": "ee87f74f1e25a68f61768a298bcecee31695d7b2"
+  }
+]

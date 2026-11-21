@@ -1,0 +1,45 @@
+{
+  "run_name": "freiburg1_desk_full_640x480_s0_20261010T080134Z_823ff9d6",
+  "sequence": "rgbd_dataset_freiburg1_desk",
+  "frames": 592,
+  "full_associated_sequence": true,
+  "resolution": [
+    640,
+    480
+  ],
+  "gaussian_count": 970345,
+  "splatam_commit": "da6bbcd24c248dc884ac7f49d62e91b841b26ccc",
+  "ate_se3_translation": {
+    "count": 592,
+    "unit": "m",
+    "rmse": 0.01952744504570878,
+    "mean": 0.016667467803871516,
+    "median": 0.015107481616562585,
+    "max": 0.05229751600140022,
+    "min": 0.0018105667806798862,
+    "std": 0.010174312115326663
+  },
+  "rpe_1frame_translation": {
+    "count": 591,
+    "unit": "m",
+    "rmse": 0.00926044396835605,
+    "mean": 0.0072054727089742865,
+    "median": 0.005551144694642935,
+    "max": 0.043535617193479044,
+    "min": 0.0002971486631739595,
+    "std": 0.005816956724206285
+  },
+  "rpe_1frame_rotation": {
+    "count": 591,
+    "unit": "deg",
+    "rmse": 0.5577814095671902,
+    "mean": 0.45964363684211185,
+    "median": 0.3762714964144448,
+    "max": 2.221106434444629,
+    "min": 0.015640288118548205,
+    "std": 0.31598706930714504
+  },
+  "tracking_uses_gt_poses": false,
+  "status": "independently_verified",
+  "checkpoint_sha256": "e610b8f4310cb274c5d13e0ca2317ed513907c7902a42910593b5c8e574df67c"
+}

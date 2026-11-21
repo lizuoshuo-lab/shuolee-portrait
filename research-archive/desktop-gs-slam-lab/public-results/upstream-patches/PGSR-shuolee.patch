@@ -1,0 +1,19 @@
+diff --git a/gaussian_renderer/__init__.py b/gaussian_renderer/__init__.py
+index 50d10f3..9fc44bf 100644
+--- a/gaussian_renderer/__init__.py
++++ b/gaussian_renderer/__init__.py
+@@ -161,6 +161,7 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor,
+                     "radii": radii,
+                     "out_observe": out_observe,
+                     "rendered_normal": rendered_normal,
++                    "rendered_alpha": rendered_alpha,
+                     "plane_depth": plane_depth,
+                     "rendered_distance": rendered_distance
+                     }
+@@ -176,4 +177,4 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor,
+     
+     # Those Gaussians that were frustum culled or had a radius of 0 were not visible.
+     # They will be excluded from value updates used in the splitting criteria.
+-    return return_dict
+\ No newline at end of file
++    return return_dict
