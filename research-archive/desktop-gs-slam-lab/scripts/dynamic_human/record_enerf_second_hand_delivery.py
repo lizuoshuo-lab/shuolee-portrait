@@ -1,0 +1,10 @@
+from pathlib import Path
+from datetime import datetime,timezone
+import json,hashlib
+L=Path(__file__).resolve().parents[2];O=L/'outputs/dynamic-human-enerf-hand-motion-082'
+read=lambda p:json.loads(p.read_text(encoding='utf8'));save=lambda p,x:p.write_text(json.dumps(x,ensure_ascii=False,indent=2)+'\n',encoding='utf8')
+assert read(O/'website-qa.json')['status']=='two_pages_six_new_assets_HTTP_verified'
+assert (O/'website-visible.png').exists()
+save(O/'website-visual-review.json',dict(status='actual_updated_hand_section_browser_verified',screenshot='website-visible.png',screenshot_sha256=hashlib.sha256((O/'website-visible.png').read_bytes()).hexdigest(),observed='Existing tab15 reloaded and navigated to hand section. Full three-row five-column native-photo prediction comparison loaded; title, small source caption and explanatory text visible. No KaTeX errors inDOM.',production_build='passed',preview_parent_pid=int((O/'website-preview.pid').read_text()),goal_complete=False))
+p=L/'manifests/dynamic-human-work.json';m=read(p);m.update(latest_verified_site='outputs/'+O.name+'/website-qa.json',latest_visible_result='http://localhost:8799/gs-lab/read/dynamic-human-scene-reconstruction#手部观测必须区分可见性与预测分数',current_runs=[],updated_at=datetime.now(timezone.utc).isoformat());m['goal_turn_classification']+=' Website existinghandsection replaced withnativeevidence andtheory; buildpassed,2pages6assets verified,actualbrowser screenshotchecked.';m['next_action']='Use new interval actor5_6 opening-right-hand728..732, native training-only image correspondences and occlusion checks, for a bounded photometric/local-motion reconstruction intervention. Do not rerun oldframe750singleframe hand detector, do not promote082failed finger labels orpalm motion. Inspect075sparse correspondence findings before choosing dense/local matching. Preserve079baseline andfixed108heldout evaluations; actual handRGB must improve, not onlypose residual.';save(p,m)
+print('DELIVERY_COMPLETE; overallgoal remains active; humanclarity notaccepted')

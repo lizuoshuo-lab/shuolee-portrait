@@ -1,0 +1,15 @@
+diff --git a/gsplat/cuda/_backend.py b/gsplat/cuda/_backend.py
+index 3b6faee..03cf2cf 100644
+--- a/gsplat/cuda/_backend.py
++++ b/gsplat/cuda/_backend.py
+@@ -174,7 +174,9 @@ except ImportError:
+ 
+         extra_include_paths = [os.path.join(PATH, "include/"), glm_path]
+         opt_level = "-O0" if FAST_COMPILE else "-O3"
+-        extra_cflags = [opt_level, "-Wno-attributes"]
++        # Local Windows JIT compatibility patch: MSVC rejects GCC's -Wno-attributes.
++        extra_cflags = (["/Od" if FAST_COMPILE else "/O2"]
++                        if os.name == "nt" else [opt_level, "-Wno-attributes"])
+         extra_cuda_cflags = [opt_level]
+         if not NO_FAST_MATH:
+             extra_cuda_cflags += ["-use_fast_math"]

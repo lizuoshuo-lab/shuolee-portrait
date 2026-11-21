@@ -1,0 +1,13 @@
+# CUDA extensions and pure-Python COLMAP reader are installed separately at official pinned commits.
+viser==0.2.23
+imageio[ffmpeg]==2.37.0
+scikit-learn==1.6.1
+torchmetrics[image]==1.7.1
+tyro==0.9.18
+tensorboard==2.19.0
+tensorly==0.9.0
+splines==0.3.2
+pyyaml==6.0.2
+Pillow==11.1.0
+matplotlib==3.10.1
+opencv-python==4.11.0.86

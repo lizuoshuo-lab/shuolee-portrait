@@ -1,0 +1,41 @@
+from pathlib import Path
+import json,hashlib
+L=Path(r'C:\Users\Administrator\Desktop\GS-SLAM-Lab');D=L/'scripts/dynamic_human';O=L/'outputs/dynamic-human-enerf-hand-fine-085'
+sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
+q=json.loads((O/'preparation/completion.json').read_text());assert q['all_nodes_two_camera_supported']
+cams=sorted({r['camera'] for r in q['records']})
+review=dict(training_approved=True,status='13projection_sheets_39trainingcontexts_actually_viewed',files=[dict(path='preparation/camera'+c+'-nodes.png',sha256=sha(O/'preparation'/('camera'+c+'-nodes.png'))) for c in cams],
+observations=['Mostcontrols project ontohand/wrist plusdiffusefringe; frontal04/01/03/09/10/11 show several nodes over shirt or toy, reflecting originalblurredmaterial and weak two-view support.','Side02/05/07/08/13/15/17 have more supported skin positions but also toy-border nodes. No exact fingertip/anatomical label assertion.','Approve only bounded residual-control test on same6330Gaussians; centerprojections alone do not validate geometry. Original model and all evaltargets preserved.'],goal_complete=False)
+(O/'preparation/visual-review.json').write_text(json.dumps(review,ensure_ascii=False,indent=2)+'\n')
+s=(D/'smoke_enerf_hand_joint.py').read_text()
+s=s.replace('from enerf_hand_joint_model import HandJointRenderer','from enerf_hand_fine_model import HandFineGraph,HandFineRenderer')
+s=s.replace("O=L/'outputs/dynamic-human-enerf-hand-joint-084'","J=L/'outputs/dynamic-human-enerf-hand-joint-084';O=L/'outputs/dynamic-human-enerf-hand-fine-085'")
+s=s.replace("O/'support/","J/'support/")
+s=s.replace("joint=HandJointRenderer(S/'head/capture-affines.npz',graph,ref,active)","fine=HandFineGraph(O/'fine-graph.npz',cp['scene_scale']);joint=HandFineRenderer(S/'head/capture-affines.npz',graph,ref,active,fine)")
+s=s.replace("graph.local_translation_raw[nodes]+=0.01;","fine.local_translation_raw.add_(0.01);graph.local_translation_raw[nodes]+=0.01;")
+s=s.replace("graph.load_state_dict(cp['graph']);p['means'].copy_", "graph.load_state_dict(cp['graph']);\n  for parameter in fine.parameters():parameter.zero_()\n  p['means'].copy_")
+s=s.replace("for par in graph.parameters():assert par.grad is not None", "for par in fine.parameters():assert par.grad is not None and torch.isfinite(par.grad).all();par.grad=None\n for par in graph.parameters():assert par.grad is not None")
+s=s.replace("assert all(torch.isfinite(v.grad).all() for v in graph.parameters());", "assert all(torch.isfinite(v.grad).all() for v in graph.parameters());assert all(v.grad is not None and torch.isfinite(v.grad).all() for v in fine.parameters());")
+s=s.replace("active_nodes=int(nodes.sum()),","active_nodes=int(nodes.sum()),additional_local_nodes=32,")
+s=s.replace('HAND_JOINT_SMOKE_OK','HAND_FINE_SMOKE_OK')
+(D/'smoke_enerf_hand_fine.py').write_text(s,encoding='utf8')
+s=(D/'train_enerf_hand_joint.py').read_text()
+s=s.replace('from enerf_hand_joint_model import HandJointRenderer','from enerf_hand_fine_model import HandFineGraph,HandFineRenderer')
+s=s.replace("O=L/'outputs/dynamic-human-enerf-hand-joint-084'","J=L/'outputs/dynamic-human-enerf-hand-joint-084';O=L/'outputs/dynamic-human-enerf-hand-fine-085'")
+s=s.replace("'joint_photo'","'fine_photo'").replace("'joint_flow'","'fine_flow'").replace("'hand_joint_084'","'hand_fine_085'")
+s=s.replace("O/'support/visual-review.json'","O/'preparation/visual-review.json'").replace("O/'support/","J/'support/")
+s=s.replace("model=HandJointRenderer(S/'head/capture-affines.npz',graph,reference,active)","fine=HandFineGraph(O/'fine-graph.npz',cp['scene_scale']);model=HandFineRenderer(S/'head/capture-affines.npz',graph,reference,active,fine)")
+s=s.replace("torch.optim.Adam(graph.parameters(),lr=.0003","torch.optim.Adam(list(graph.parameters())+list(fine.parameters()),lr=.0003")
+s=s.replace("graph.load_state_dict(resume['graph']);gopt.load_state_dict", "graph.load_state_dict(resume['graph']);fine.load_state_dict(resume['fine_graph']);gopt.load_state_dict")
+s=s.replace("reference_graph={k:v.detach().cpu() for k,v in reference.state_dict().items()},", "reference_graph={k:v.detach().cpu() for k,v in reference.state_dict().items()},fine_graph={k:v.detach().cpu() for k,v in fine.state_dict().items()},fine_graph_source_sha256=sha(O/'fine-graph.npz'),")
+s=s.replace("reg=10*info['graph_rigidity']+.001*info['graph_rotation_size']+.1*info['graph_translation_size']","reg=10*(info['graph_rigidity']+info['fine_graph_rigidity'])+.001*(info['graph_rotation_size']+info['fine_graph_rotation_size'])+.1*(info['graph_translation_size']+info['fine_graph_translation_size'])")
+s=s.replace("gopt.step();", "assert all(v.grad is not None and torch.isfinite(v.grad).all() for v in fine.parameters())\n gopt.step();")
+s=s.replace("renderer='HandJointRenderer; nonselectedGaussiansalwaysuseparentgraph'","renderer='HandFineRenderer;nonselectedexactparentmotion;32advectedfinecontrolsaftercoarsegraph'")
+s=s.replace("active_nodes=22,", "active_nodes=22,additional_local_nodes=32,")
+s=s.replace("['train_enerf_hand_joint.py','enerf_hand_joint_model.py'","['train_enerf_hand_fine.py','enerf_hand_fine_model.py','enerf_hand_joint_model.py'")
+s=s.replace('HAND_JOINT','HAND_FINE')
+(D/'train_enerf_hand_fine.py').write_text(s,encoding='utf8')
+for name,commands in [('smoke','python "$L/scripts/dynamic_human/smoke_enerf_hand_fine.py"'),('training','python "$L/scripts/dynamic_human/train_enerf_hand_fine.py" --branch fine_photo\npython "$L/scripts/dynamic_human/train_enerf_hand_fine.py" --branch fine_flow')]:
+    (D/('run_enerf_hand_fine_'+name+'.sh')).write_text('#!/usr/bin/env bash\nset -euo pipefail\nsource /opt/gs-slam-lab/surface-gs/env.sh\nL=/mnt/c/Users/Administrator/Desktop/GS-SLAM-Lab\n'+commands+'\n',encoding='utf8',newline='\n')
+print('085 reviewed protocol and new smoke/training scripts prepared;084 files untouched')
+

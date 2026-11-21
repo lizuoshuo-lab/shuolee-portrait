@@ -1,0 +1,31 @@
+{
+  "fast_livo2_commit": "0d2c0346107b75b59934975adec9a6eeeb913c64",
+  "ros_distribution": "noetic",
+  "ubuntu_codename": "focal",
+  "ros_noetic_eol": "2025-05-31",
+  "ros_key_url": "https://raw.githubusercontent.com/ros/rosdistro/master/ros.key",
+  "ros_key_sha256": "4a91c49af0d6f0016108b93698782b596c27ccd836937e18e0e36c3347dc602f",
+  "ros_key_fingerprint": "C1CF6E31E6BADE8868B172B4F42ED6FBAB17C654",
+  "dependencies": [
+    {
+      "name": "Sophus",
+      "repository": "strasdat/Sophus",
+      "commit": "a621ff2e56c56c839a6c40418d42c3c254424b5c",
+      "url": "https://codeload.github.com/strasdat/Sophus/zip/a621ff2e56c56c839a6c40418d42c3c254424b5c",
+      "archive_prefix": "Sophus-a621ff2e56c56c839a6c40418d42c3c254424b5c",
+      "sha256": "0609552028788fc9dd0a80707e2677b1bc84184a0910b1f72c6bd447a72e4f39",
+      "cached_file": "sophus_archive.zip",
+      "destination": "deps/Sophus"
+    },
+    {
+      "name": "rpg_vikit",
+      "repository": "xuankuzcr/rpg_vikit",
+      "commit": "6c886c8e5d83997806e00294826d528cea3581dd",
+      "url": "https://codeload.github.com/xuankuzcr/rpg_vikit/zip/6c886c8e5d83997806e00294826d528cea3581dd",
+      "archive_prefix": "rpg_vikit-6c886c8e5d83997806e00294826d528cea3581dd",
+      "sha256": "79f2df0c79821b47ab251987b203f54234e78afba4518d2bfcea1b7aae079af1",
+      "cached_file": "vikit_archive.zip",
+      "destination": "catkin_ws/src/rpg_vikit"
+    }
+  ]
+}

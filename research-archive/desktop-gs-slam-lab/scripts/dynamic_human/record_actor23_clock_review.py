@@ -1,0 +1,13 @@
+from pathlib import Path
+from datetime import datetime,timezone
+import json,hashlib,zipfile
+L=Path(__file__).resolve().parents[2];O=L/'outputs/dynamic-human-actor23-independent-106';V=O/'evaluation-time/review'
+save=lambda p,x:p.write_text(json.dumps(x,ensure_ascii=False,indent=2)+'\n',encoding='utf8');read=lambda p:json.loads(p.read_text(encoding='utf8'));sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
+save(V/'visual-review.json',dict(recorded_utc=datetime.now(timezone.utc).isoformat(),inspected=['pair00-03-frame000588.png','pair05-06-frame000588.png','pair11-12-frame000588.png'],selection=read(V/'inventory.json')['selection'],observations=['00/03 sampled face, hair, shirt printing and shoe correspondences appear plausible at native scale.','05/06 sampled clothes, face, plush and shoes mostly align semantically; point11 falls on the background wall in both cameras, demonstrating that source matting does not ensure every correspondence belongs to a moving body.','11/12 sampled print, face, toy and shoes mostly correspond; low-texture skin points do not establish exact anatomical correspondence.'],qualification='Support for the existing robust clock diagnostic only.36sampled correspondences cannot certify all inliers. The separate moving-track audit already excludes near-stationary tracks and gives consistent offsets. No frozen offset, initialization or training changed after this inspection.',goal_complete=False))
+save(V/'preparation-repair.json',dict(initial_failure='Diagnostic image composer expectedbbox in calibration NPZ; calibration files intentionally containRGB/matte/valid/K/w2c only.',repair='Computed displaybbox from existing matte>.05 and valid, padded24pixels. No data/calibration/clockfit changes.',scope='display-only failure, no training run interrupted'))
+registration=read(L/'outputs/dynamic-human-hand-prior-096/mano-registration.json');archive=Path(registration['archive']);assert sha(archive)==registration['archive_sha256']
+with zipfile.ZipFile(archive) as z:
+    for hand in ['RIGHT','LEFT']:
+        name=f'MANO_{hand}.pkl';entry=f'mano_v1_2/models/{name}';installed=Path('D:/GS-SLAM-Data/models/mano_v1_2')/name
+        assert hashlib.sha256(z.read(entry)).hexdigest()==sha(installed)
+save(O/'licensed-template-recheck.json',dict(status='user_archive_and_both_registered_templates_identical',archive=str(archive),sha256=registration['archive_sha256'],runtime='../dynamic-human-hand-prior-096/mano-runtime-check.json',no_new_download_needed=True,local_only=True,clarity_is_not_implied_by_template_availability=True));print('Calibration visual caveats and MANO byte identity recorded.')

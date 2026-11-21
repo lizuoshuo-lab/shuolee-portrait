@@ -1,0 +1,34 @@
+"""Query frozen066 motion for new cameras; preserve every old context exactly."""
+from pathlib import Path
+import json,hashlib,shutil
+import numpy as np,torch,smplx
+from smplx.lbs import lbs
+L=Path('/mnt/c/Users/Administrator/Desktop/GS-SLAM-Lab');R=L/'outputs/dynamic-human-enerf-second-interval-079/heldout';R.mkdir(exist_ok=True);I=L/'outputs/dynamic-human-enerf-heldout-cameras-068';H=L/'outputs/dynamic-human-enerf-second-interval-079/head';B=H
+read=lambda p:json.loads(p.read_text());save=lambda p,x:p.write_text(json.dumps(x,indent=2,allow_nan=False)+'\n');sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest();torch.set_num_threads(4)
+assert not (R/'motion-extension-audit.json').exists();protocol=read(R/'protocol.json');assert sha(H/'motion-fit.npz')==protocol['body_motion_sha256']
+f=dict(np.load(H/'motion-fit.npz'));ref=dict(np.load(B/'reference.npz'));old=dict(np.load(H/'capture-affines.npz'));clocks=protocol['offsets_frames'];tensor=lambda x:torch.tensor(x,dtype=torch.float32)
+model=smplx.SMPL('/opt/gs-slam-lab/dynamic-human/repos/drivestudio/smpl_models/SMPL_NEUTRAL.pkl',num_betas=10,batch_size=1)
+for p in model.parameters():p.requires_grad_(False)
+betas=tensor(f['betas']);scales=tensor(f['scales']);basepose=tensor(f['basepose']);basetrans=tensor(f['basetrans']);coef=tensor(f['posecoef']);trcoef=tensor(f['transcoef']);mask=tensor(f['mask']);v0=tensor(ref['vertices']);inv0=tensor(ref['inverse_linear'])
+@torch.no_grad()
+def query(times):
+ ts=tensor(times);basis=torch.stack([((ts-726)/6)**k for k in range(4)],-1);n=len(ts);pose=basepose[:,None]+torch.einsum('tk,pkd->ptd',basis,coef)*mask;tr=basetrans[:,None]+torch.einsum('tk,pkd->ptd',basis,trcoef)
+ v,j,M=lbs(betas[:,None].expand(-1,n,-1).reshape(-1,10),pose.reshape(-1,72),model.v_template,model.shapedirs,model.posedirs,model.J_regressor,model.parents,model.lbs_weights,return_T=True)
+ v=v.reshape(2,n,6890,3)*scales[:,None,None,None]+tr[:,:,None,:];M=M[:,:,:3,:3].reshape(2,n,6890,3,3)*scales[:,None,None,None,None];A=M@inv0[:,None];b=v-(A@v0[:,None,:,:,None])[...,0]
+ return dict(linear=A.permute(1,0,2,3,4).reshape(n,13780,3,3).numpy(),translation=b.permute(1,0,2,3).reshape(n,13780,3).numpy(),vertices=v.permute(1,0,2,3).reshape(n,13780,3).numpy())
+ids=[i for i,(c,t) in enumerate(zip(old['camera'],old['frame'])) if c=='01' and t in [720,726,732]];check=query(old['capture_time'][ids]);errors={k:float(np.max(abs(v-old[k][ids]))) for k,v in check.items()};assert max(errors.values())<3e-5,errors
+reports={}
+for label in ['estimated']:
+ contexts=[(c,t,float(t+(clocks[c] if label=='estimated' else 0))) for c in ['00','06','12'] for t in range(720,733)];parts={k:[] for k in ['linear','translation','vertices']}
+ for start in range(0,len(contexts),8):
+  out=query([r[2] for r in contexts[start:start+8]])
+  for k in parts:parts[k].append(out[k])
+ new={k:np.concatenate(v) for k,v in parts.items()};new.update(camera=np.array([r[0] for r in contexts]),frame=np.array([r[1] for r in contexts]),capture_time=np.array([r[2] for r in contexts]))
+ combined={k:np.concatenate([old[k],new[k]]) for k in old};assert all(np.array_equal(v[:195],old[k]) for k,v in combined.items())
+ restored=np.einsum('nvij,vj->nvi',new['linear'],ref['vertices'].reshape(-1,3))+new['translation'];reconstruction=float(np.max(abs(restored-new['vertices'])));assert reconstruction<2e-6
+ determinant=np.linalg.det(new['linear']);assert np.isfinite(determinant).all() and determinant.min()>0
+ path=R/f'capture-affines-{label}.npz';np.savez_compressed(path,**combined)
+ reports[label]=dict(contexts=234,old_contexts_unchanged=195,new_contexts=39,min_determinant=float(determinant.min()),reference_vertex_affine_error=reconstruction,sha256=sha(path),new_physical_frame_range=[min(r[2] for r in contexts),max(r[2] for r in contexts)])
+save(R/'motion-extension-audit.json',dict(status='frozen_body_motion_queried_for39newcontexts_old195_preserved_exactly',source_motion_sha256=sha(H/'motion-fit.npz'),source_affines_sha256=sha(H/'capture-affines.npz'),old_CPU_reforward_max_error=errors,branches=reports,licensed_data='Allbodyparameters,meshes,andaffinetablesremainlocal',goal_complete=False))
+
+shutil.copy2(__file__,R/Path(__file__).name);print(json.dumps(reports),flush=True)

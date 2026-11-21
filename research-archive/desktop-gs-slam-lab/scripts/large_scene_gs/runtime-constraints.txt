@@ -1,0 +1,5 @@
+# Existing GPU packages are linked read-only; never resolve a different Torch build.
+torch==2.7.1+cu128
+torchvision==0.22.1+cu128
+numpy==1.26.4
+opencv-python==4.11.0.86
