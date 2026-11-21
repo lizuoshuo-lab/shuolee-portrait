@@ -1,0 +1,156 @@
+--- fit_gaussian_teacher_visible123.py
++++ fit_gaussian_teacher_total_offset123.py
+@@ -1,6 +1,6 @@
+-"""One registered control: original foreground alpha contribution replaces opacity proxy.
+-
+-Same geometry, Laplacian, initialization, optimizer and protection as prior trial.
++"""One reference correction: regularize total offset as original VHAP does.
++
++Same actual contribution weights, geometry, optimizer and guards as the prior trial.
+ """
+ from pathlib import Path
+ import argparse
+@@ -16,10 +16,11 @@
+ from probe_gaussian_surface_guidance123 import ROOT,SNAP,OUT as AUDIT,process,verify
+ 
+ CONTRACT=AUDIT/'frozen-skeleton-contract'
+-OUT=AUDIT/'teacher-visible-surface-100'
++OUT=AUDIT/'teacher-total-offset-100'
+ NATIVE=AUDIT/'native-alpha-contribution'
+ LAP=AUDIT/'upstream-laplacian-contract'
+-PREVIOUS=AUDIT/'teacher-surface-laplacian-100'
++PREVIOUS=AUDIT/'teacher-visible-surface-100'
++BASE_AUDIT=AUDIT/'teacher-base-mesh-audit'
+ HELPER=Path(__file__).with_name('gaussian_surface_guidance123.py')
+ VHAP=Path('/mnt/c/Users/Administrator/Desktop/GS-SLAM-Lab/repos/VHAP_smplx')
+ 
+@@ -27,6 +28,49 @@
+ def active_gpu_pids():
+     value=subprocess.check_output(['nvidia-smi','--query-compute-apps=pid','--format=csv,noheader'],text=True)
+     return {int(x.strip()) for x in value.splitlines() if x.strip().isdigit()}
++
++
++
++def reference_contract():
++    # Execute the existing VHAP method itself as the loss oracle, on CPU.
++    import torch
++    from types import SimpleNamespace
++    from probe_upstream_surface_laplacian123 import original_method
++    torch.set_num_threads(4)
++    assert not torch.cuda.is_initialized()
++    with np.load(CONTRACT/'frozen-lbs-cache.npz',allow_pickle=False) as z:
++        base=torch.tensor(z['base_vertices'][0]);initial=torch.tensor(z['initial_offset'])
++    with np.load(LAP/'original-laplacian.npz',allow_pickle=False) as z:
++        L=torch.sparse_coo_tensor(torch.tensor(z['indices']),torch.tensor(z['values']),tuple(z['shape'])).coalesce()
++    with np.load(PREVIOUS/'candidate-diagnostic-only.npz',allow_pickle=False) as z:
++        learn=torch.tensor(z['learnable_vertices'])
++    d=torch.zeros_like(initial,requires_grad=True)
++    offset=initial+d*learn[:,None]
++    original=original_method(VHAP/'vhap/model/tracker.py','compute_laplacian_smoothing_loss')
++    proxy=SimpleNamespace(flame=SimpleNamespace(laplacian_matrix=L.to_dense()))
++    upstream=original(proxy,base[None],(base+offset)[None]).mean()
++    sparse=torch.sparse.mm(L,offset).square().sum(-1).mean()
++    gu=torch.autograd.grad(upstream,d,retain_graph=True)[0]
++    gs=torch.autograd.grad(sparse,d)[0]
++    relative=float((gu-gs).norm()/gu.norm().clamp_min(1e-20))
++    assert relative<1e-3 and abs(float(upstream-sparse))<1e-9
++    assert not torch.any(gs[~learn]) and torch.isfinite(gs).all()
++    L64=L.double();dd=torch.zeros_like(initial,dtype=torch.float64,requires_grad=True)
++    fn=lambda x:torch.sparse.mm(L64,initial.double()+x*learn[:,None]).square().sum(-1).mean()
++    grad=torch.autograd.grad(fn(dd),dd)[0]
++    records=[]
++    for index in torch.topk(grad.abs().flatten(),3).indices:
++        i,j=divmod(int(index),3);plus=dd.detach().clone();minus=plus.clone()
++        plus[i,j]+=1e-7;minus[i,j]-=1e-7
++        numeric=float((fn(plus)-fn(minus))/2e-7);analytic=float(grad[i,j])
++        assert abs(numeric-analytic)<1e-12
++        records.append(dict(vertex=i,coordinate=j,numeric=numeric,analytic=analytic))
++    assert not torch.cuda.is_initialized()
++    io.save(OUT/'reference-contract.json',dict(state='passed_original_total_offset_reference',
++        upstream_loss=float(upstream),sparse_loss=float(sparse),gradient_relative_L2=relative,
++        finite_differences=records,protected_gradient_zero=True,cuda_initialized=False,
++        original_method_executed=True,optimizer_updates=0,
++        scope='VHAP total static/dynamic offset reference. Original GA FLAME method applies its own dynamic-offset term; this is not evidence that original GA automatically regularizes this shared static offset.'))
+ 
+ 
+ def prepare():
+@@ -37,11 +81,14 @@
+     assert max(x['conservation_relative'] for x in native['frames_result'])<1e-4
+     lap=io.read(LAP/'result.json');assert lap['state']=='passed_original_laplacian_cpu_contract'
+     assert io.sha(LAP/'original-laplacian.npz')==lap['sparse_cache_sha256']
++    assert io.read(BASE_AUDIT/'result.json')['state']=='source_mesh_and_regularizer_reference_audited'
+     OUT.mkdir(exist_ok=False)
++    reference_contract()
+     files=[Path(__file__),HELPER,CONTRACT/'result.json',CONTRACT/'frozen-lbs-cache.npz',
+         VHAP/'vhap/util/render_nvdiffrast.py',VHAP/'vhap/util/vector_ops.py',
+         LAP/'original-laplacian.npz',LAP/'result.json',VHAP/'vhap/model/tracker.py',VHAP/'vhap/config/base.py',
+-        NATIVE/'native-contribution-weights.npz',NATIVE/'result.json']
++        NATIVE/'native-contribution-weights.npz',NATIVE/'result.json',BASE_AUDIT/'result.json',
++        OUT/'reference-contract.json']
+     io.save(OUT/'plan.json',dict(created=io.now(),frames=59,max_steps=100,max_seconds=300,
+         hashes={str(p):io.sha(p) for p in files},source_step=120000,gaussian_parameters_frozen=True,
+         stage='Shared clothing-surface distillation pilot from an immutable Gaussian teacher; NOT Gaussian continuation or pose optimization.',
+@@ -55,16 +102,16 @@
+         protected='Head/neck, hands, feet and original skeleton are frozen. Boundary edges remain in the smoothness term.',
+         optimizer=dict(name='Adam',lr=.0001,betas=[.9,.999],eps=1e-8),
+         guide_beta_m=.005,guide_weight=1.,laplacian_weight=1e6,
+-        loss='mean per-frame robust teacher guide +1e6 original uniform Laplacian-coordinate delta squared, summed XYZ and averaged all10475 vertices',
+-        changed_factor='Only replace opacity proxy by measured foreground T*alpha contribution. Same cache geometry, Gaussian targets/binding, zero delta, Adam, LR,1e6Laplacian,59frames, masks, stopping and admission. Use raw contribution and recompute the original support so the CPU support rounding difference is not imported.',
+-        unit_audit='The strong original1e6Laplacian is deliberately unchanged to isolate visibility weighting. It may still overconstrain; no coefficient sweep or relaxing the existing geometry gate.',
++        loss='mean per-frame robust teacher guide +1e6 original uniform Laplacian of total canonical(initial_offset+delta), squared, summed XYZ and averaged all10475 vertices',
++        changed_factor='Only change regularizer reference from additional delta to initial_offset+additional delta. Original VHAP regularizes total offset. Same actual contribution weights, cache geometry, targets, zero additional delta, Adam, LR,1e6 coefficient,59frames,masks and all existing guards.',
++        unit_audit='Original1e6 coefficient is unchanged. Total offset has nonzero initial energy, so this may straighten old folds or shrink learned shape; existing gates remain unchanged, including the conservative initial-normal gate. This is a reference correction, not a coefficient sweep.',
+         trainable_initialization='zero additional shared canonical10475x3 displacement; empty optimizer',
+         frozen=['source mesh','skeletal transforms','pose','shape','expression','K','w2c','Gaussian center/shape/color/opacity/binding'],
+         checks_every=20,stop=dict(nonfinite=True,new_normal_reversal_count=0,min_face_area_ratio=.1,max_added_offset_m=.02),
+         admission=dict(guide_relative_reduction=.05,max_frame_mask_iou_regression=.005,max_frame_mesh_outside_increase=.005,
+             new_normal_reversal_count=0,actual_all59_visual_review_required=True),
+-        no_alpha_or_RGB_training_term=True,no_SH_change=True,actual_foreground_alpha_contribution_weights=True,no_threshold_sweep=True,no_automatic_new_run=True,quality_accepted=False))
+-    print('TEACHER_VISIBLE_CONTROL_REGISTERED',flush=True)
++        no_alpha_or_RGB_training_term=True,no_SH_change=True,total_offset_reference_corrected=True,actual_foreground_alpha_contribution_weights=True,no_threshold_sweep=True,no_automatic_new_run=True,quality_accepted=False))
++    print('TEACHER_TOTAL_OFFSET_CONTROL_REGISTERED',flush=True)
+ 
+ 
+ def checked():
+@@ -140,6 +187,7 @@
+     L=torch.sparse_coo_tensor(torch.tensor(lap_cache['indices'],device='cuda'),
+         torch.tensor(lap_cache['values'],device='cuda'),tuple(lap_cache['shape']),device='cuda').coalesce()
+     assert np.array_equal(lap_cache['faces'],cache['faces'])
++    initial_offset=torch.tensor(cache['initial_offset'],device='cuda')
+     init_tri=base[:,faces];init_norm=torch.cross(init_tri[:,:,1]-init_tri[:,:,0],init_tri[:,:,2]-init_tri[:,:,0],dim=-1)
+     init_area=init_norm.norm(dim=-1)
+     delta=torch.nn.Parameter(torch.zeros((10475,3),device='cuda'));optimizer=torch.optim.Adam([delta],**{k:v for k,v in p['optimizer'].items() if k!='name'})
+@@ -148,7 +196,7 @@
+         v=verts();surface=(v[:,tri_vid]*barys[:,:,:,None]).sum(2)
+         raw=torch.nn.functional.smooth_l1_loss(surface,targets,beta=p['guide_beta_m'],reduction='none').sum(-1)
+         guide=(raw*weights).sum(1).mean()
+-        lap_delta=torch.sparse.mm(L,delta*learn[:,None])
++        lap_delta=torch.sparse.mm(L,initial_offset+delta*learn[:,None])
+         smooth=lap_delta.square().sum(-1).mean()
+         return guide,smooth,guide+p['laplacian_weight']*smooth
+     def geometry():
+@@ -204,7 +252,7 @@
+             yy,xx=np.where(mask);box=[max(0,int(xx.min())-20),max(0,int(yy.min())-20),min(w,int(xx.max())+21),min(h,int(yy.max())+21)]
+             crops=[Image.fromarray(x).crop(box) for x in panels];sheet=Image.new('RGB',(crops[0].width*3,crops[0].height))
+             for k,img in enumerate(crops):sheet.paste(img,(k*img.width,0))
+-            name=f'SMPL-X_高斯实际贡献引导_{completed}步_{row["frame"]}_原图_原网格_引导网格.png'
++            name=f'SMPL-X_总位移平滑对照_{completed}步_{row["frame"]}_原图_原网格_引导网格.png'
+             path=folder/name;sheet.save(path);destination=record/name;assert not destination.exists();destination.write_bytes(path.read_bytes())
+             images.append(dict(frame=row['frame'],path=str(path),record_path=str(destination),sha256=io.sha(path),crop_integer_xyxy=box,no_resampling=True,no_text_added=True))
+             print('TEACHER_SURFACE_REVIEW',i+1,row['frame'],flush=True)
+@@ -215,13 +263,13 @@
+     result=dict(state='stopped_by_geometry_guard' if stop_reason else 'bounded_pilot_complete_pending_visual_review',updated=io.now(),steps=completed,stop_reason=stop_reason,
+         frames=59,trainable_vertices=int(learn.sum()),protected_vertices=int((~learn).sum()),initial_guide_loss=g0,final_guide_loss=final_losses[0],
+         guide_reduction_fraction=1-final_losses[0]/g0,history=history,geometry=final_geometry,teacher_support=support_records,teacher_normal_support=normal_support,
+-        regularizer_source='Exact original PyTorch3D uniform Laplacian and VHAP coordinate-change squared loss;1e6default. Shared additional static-delta use is a local adapter.',
++        regularizer_source='Exact original VHAP total-offset reference and PyTorch3D uniform Laplacian;1e6default. Shared fixed-skeleton surface adapter remains local, not full official GaussianAvatars static-offset reproduction.',
+         mask_evaluation=evaluation,images=images,numerical_candidate_passed=numerical_pass,actual_visual_review=False,
+         elapsed_seconds=time.monotonic()-start,skeleton_pose_shape_camera_unchanged=True,teacher_Gaussians_unchanged=True,
+         no_Gaussian_training=True,no_production_source_changed=True,PLY_exported=False,quality_accepted=False,
+         interpretation='Surface teacher fit is not physical clothing truth. Original pose errors and protected head/hand/foot geometry are not repaired by this pilot. No held-out reconstruction quality or15-minute E2E acceptance.')
+     io.save(OUT/'result.json',result);io.save(OUT/'progress.json',dict(state=result['state'],pid=None,steps=completed,stop_reason=stop_reason))
+-    print('TEACHER_VISIBLE_CONTROL_FINISHED',result['state'],result['guide_reduction_fraction'],flush=True)
++    print('TEACHER_TOTAL_OFFSET_CONTROL_FINISHED',result['state'],result['guide_reduction_fraction'],flush=True)
+ 
+ 
+ def run(pid):

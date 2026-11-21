@@ -1,0 +1,10 @@
+import fs from 'node:fs/promises';
+import {FileBlob,PresentationFile} from '@oai/artifact-tool';
+const b='C:/Users/Administrator/Documents/New project/shuolee-slide-update';
+const src='C:/Users/Administrator/Desktop/GS-SLAM-Lab/outputs/mini-splatting2-mip-depth-001/shuolee/reports/02_有限视角重建优化路线.pptx';
+const p=await PresentationFile.importPptx(await FileBlob.load(src));
+console.log(JSON.stringify((await p.inspect({kind:'slide'})).records.map(x=>({id:x.id,title:x.title,text:x.text})).slice(-15)));
+const snap=await p.inspect({select:'$.slides[*]',include:['id','elements.id','elements.kind','elements.text','elements.position']});
+await fs.writeFile(b+'/static-deck-before.json',JSON.stringify(snap.records,null,2));
+console.log(JSON.stringify(snap.records.map((x,i)=>({slide:i+1,text:x.elements.filter(e=>e.text).map(e=>e.text).slice(0,2)}))));
+for(const i of [1,19,44,50,54])await fs.writeFile(b+'/static-before-'+(i+1)+'.png',new Uint8Array(await(await p.export({slide:p.slides.items[i],format:'png',scale:1})).arrayBuffer()));

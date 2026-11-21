@@ -1,0 +1,15 @@
+from pathlib import Path
+H=Path(__file__).parent
+s=(H/'update_deck_video10_temporal123.mjs').read_text(encoding='utf-8')
+s=s.replace("tag='video10-temporal123'","tag='video10-semantic123'")
+s=s.replace("b+'/video10-material123-deck-receipt.json'","b+'/video10-temporal123-deck-receipt.json'")
+s=s.replace("replace('三视角循环匹配','人体框内的静止背景被错误排除');","replace('人体框内的静止背景','人体框误排背景：像素遮罩对照');")
+s=s.replace("replace('视频10：审阅','视频10：33帧、104族审阅，定位到区域分类误判。');","replace('视频10：33帧','33帧遮罩已审阅，恢复216组背景候选。');")
+s=s.replace("replace('7条头部框','8个追加案例均在背景，却曾被归入人体／头部框。');","replace('8个追加案例','1帧遮罩失败；相机与SMPL-X尚未重新拟合。');")
+s=s.replace("replace('第0／107','门框同一局部（第242／268／295帧）。尚未通过相机或亚像素验收。');","replace('门框同一局部','门框案例（第242／268／295帧）。候选增加不等于物理对齐通过。');")
+s=s.replace("notes.text=['2026-10-29 视频10时间桥接与区域误分类核验。',review.summary,", "notes.text=['2026-10-29 像素语义对照完成，物理材料复核待执行。','33个SAM2.1tiny单次CPU遮罩用时118.42秒，全部11页实际审阅。32帧仅准作粗人物排除；617帧出现明显棋盘碎裂，完整拒绝且未重试。新语义不用于训练alpha。','在原点坐标、描述子、99对匹配、1732轨迹、1191族和原FIT/HELD划分全部不变时，背景候选族由464变636：新增216、损失44。全部3个混组隔离和6个已知物理矛盾保持不变。第349帧的候选从2增到29，此为语义资格，不是物理匹配准确率。','首轮标签保存的NumPy整数JSON序列化失败已保留日志，仅修复int转换并重算标签；未重复分割或提取/匹配。','原生材料审阅已预登记113族：96个恢复族（64FIT/32HELD）按时间覆盖选取，17个原始背景族用于失败遮罩617的独立控制。此113族裁片已生成但尚未审阅，不作为相机输入。','没有新K、外参、SMPL-X拟合或高斯训练。眼鼻嘴严格逐点小于1原生像素验收仍未通过。','此前时间桥接证据及边界：',review.summary,")
+s=s.replace('02_有限视角重建优化路线_123视频10时间桥接核验.pptx','02_有限视角重建优化路线_123视频10语义遮罩核验.pptx')
+s=s.replace("b+'/preserve_deck_video10_temporal123.py'","b+'/preserve_deck_video10_semantic123.py'")
+(H/'update_deck_video10_semantic123.mjs').write_text(s,encoding='utf-8')
+c=(H/'commit_video10_temporal123_deck.py').read_text(encoding='utf-8').replace('video10-temporal123','video10-semantic123')
+(H/'commit_video10_semantic123_deck.py').write_text(c,encoding='utf-8')

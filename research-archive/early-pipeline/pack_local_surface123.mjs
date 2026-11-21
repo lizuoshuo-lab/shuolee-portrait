@@ -1,0 +1,30 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import {pathToFileURL} from 'node:url';
+import {createHash} from 'node:crypto';
+const args=process.argv.slice(2),explicitReceipt=args[0]==='--receipt';
+const subject=explicitReceipt?null:args[0];
+if(explicitReceipt?(args.length!==2||!args[1]):args.length!==1)throw new Error('Use <subject> or --receipt <actual-staged-delivery.json>');
+const top='C:/Users/Administrator/Desktop/GS-SLAM-Lab/outputs/mini-splatting2-mip-depth-001';
+const rec=top+'/shuolee/current/local-clothed-surface-123';
+const receiptPath=explicitReceipt?path.resolve(args[1]):`${rec}/${subject}-staged-delivery.json`;
+const receipt=JSON.parse(await fs.readFile(receiptPath,'utf8'));
+const model=await fs.readFile(receipt.ply),bytes=model.buffer.slice(model.byteOffset,model.byteOffset+model.byteLength);
+const cameras=JSON.parse(await fs.readFile(receipt.camera_file,'utf8'));
+const context=JSON.parse(await fs.readFile(receipt.context,'utf8'));
+const {scenePackage,unpackSceneZip}=await import(pathToFileURL(top+'/viewer/scene-package.js'));
+const normalizedContext={...context,model:{name:path.basename(receipt.ply),sha256:receipt.source_sha256}};
+const result=await scenePackage(bytes,'ply',cameras,normalizedContext);
+const unpacked=await unpackSceneZip(result.bytes.buffer);
+const manifest=JSON.parse(new TextDecoder().decode(unpacked.find(x=>x.name==='scene.json').data));
+const stored=unpacked.find(x=>x.name===manifest.model.file);
+const hash=createHash('sha256').update(stored.data).digest('hex');
+if(hash!==receipt.source_sha256||manifest.cameras.count!==receipt.camera_count)throw Error('Package roundtrip identity failed');
+await fs.writeFile(receipt.zip,result.bytes);
+const sync=`D:/00/工作/查看器/models/${receipt.modelId}`;
+await fs.mkdir(sync,{recursive:true});await fs.writeFile(path.join(sync,'scene.zip'),result.bytes);
+const check={model_sha256:hash,zip_sha256:createHash('sha256').update(result.bytes).digest('hex'),
+    bytes:result.bytes.length,cameras:manifest.cameras.count,entries:unpacked.map(x=>x.name),
+    original_ply_bytes_preserved:true,UI_verified:false,official_SIBR_GUI_verified:false,independent_Spark_GUI_verified:false};
+await fs.writeFile(explicitReceipt?path.join(path.dirname(receiptPath),'package-check.json'):`${rec}/${subject}-package-check.json`,JSON.stringify(check,null,2)+'\n');
+console.log(JSON.stringify(check));

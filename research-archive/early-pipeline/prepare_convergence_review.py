@@ -1,0 +1,16 @@
+from pathlib import Path
+repo=Path('C:/Users/Administrator/Desktop/GS-SLAM-Lab/repos/GaussianAvatars_SMPLX-shuolee')
+dst=repo/'review_convergence.py'
+assert not dst.exists()
+src=(repo/'review_motion_consistency.py').read_text('utf-8')
+src=src.replace("ROOT=c.BASE/'current/smplx-motion-consistency-fresh-017'", "ROOT=c.BASE/'current/smplx-convergence-fresh-018'")
+src=src.replace("ARMS=['control','shared_lower','stable_feet']", "ARMS=['short_control','control','stable_feet']\nPATHS={'short_control':c.BASE/'current/smplx-motion-consistency-fresh-017/control','control':ROOT/'control','stable_feet':ROOT/'stable_feet'}")
+src=src.replace("LABELS={'control':'A：接触控制','shared_lower':'B：整体与下身共享约束','stable_feet':'C：脚底世界位置稳定'}", "LABELS={'short_control':'A：接触 1400 步','control':'B：接触 5000 步','stable_feet':'C：脚底稳定 5000 步'}")
+src=src.replace("load(ROOT/k/'data/smplx_params_training.npz')", "load(PATHS[k]/'data/smplx_params_training.npz')")
+src=src.replace("load(ROOT/k/'initial-mesh.npz')", "load(PATHS[k]/'initial-mesh.npz')")
+src=src.replace("c.sha(ROOT/arm/'data/smplx_params_training.npz')", "c.sha(PATHS[arm]/'data/smplx_params_training.npz')")
+src=src.replace("'new_fit_steps_per_arm':1400", "'new_fit_steps_per_arm':5000,'comparison_steps_by_arm':{'short_control':1400,'control':5000,'stable_feet':5000}")
+src=src.replace("'control_exactly_reproduces_016_contact':run['control_exactly_reproduces_016_contact']", "'milestone1400':run['milestone1400']")
+src=src.replace("'known_limit':'All initial arrays identical. Three arms share contact and all observation losses; B adds global/lower-body across-frame variance penalty, C adds sole world-position variance penalty. Stable-shoe assumption is limited to this sequence. Fitted temporal metrics and training errors are not independent GT.'", "'known_limit':'A is the read-only 017 short control; B/C are fresh5000-step fits. All initial arrays identical,1400-step states reproduce017 exactly. B/C differ only in world sole-position variance penalty. Detection error and constrained metrics are not independent ground truth.'")
+dst.write_text(src,'utf-8')
+print('Prepared read-only 1400/5000-step same-camera review.')

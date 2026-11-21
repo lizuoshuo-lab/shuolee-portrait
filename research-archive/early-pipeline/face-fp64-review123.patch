@@ -1,0 +1,37 @@
+--- 
++++ 
+@@ -9,7 +9,7 @@
+ 
+ BODY=b.ROOT.parent
+ SOURCE=BODY/'body-weight-guarded-sequence'
+-OUT=BODY/'face-fixed-body-refinement'
++OUT=BODY/'face-fixed-body-fp64'
+ REVIEW=OUT/'review'
+ 
+ 
+@@ -32,7 +32,7 @@
+     images=[]; changes=[]
+     for row in result['rows']:
+         frame=row['frame']
+-        paths=[b.ROOT/'frames'/frame/'winner-camera-space.npz',SOURCE/'frames'/frame/'winner-camera-space.npz',OUT/'frames'/frame/'candidate-camera-space.npz']
++        paths=[SOURCE/'frames'/frame/'winner-camera-space.npz',BODY/'face-fixed-body-refinement/frames'/frame/'candidate-camera-space.npz',OUT/'frames'/frame/'candidate-camera-space.npz']
+         baseline,previous,candidate=[load(path) for path in paths]
+         for name in ('K_integer_centers','camera_translation','betas','global_orient','body_pose_axis_angle','pose_embedding','left_hand_pose','right_hand_pose'):
+             assert np.array_equal(previous[name],candidate[name]),(frame,name)
+@@ -40,13 +40,13 @@
+         crop=next(x['crop_integer_xyxy'] for x in b.read(b.ROOT/'review'/(frame+'_saved-review.json'))['files'] if x['region']=='face')
+         native=raw.crop(crop)
+         panels=[native]+[renderer(native,np.array(crop),data) for data in (baseline,previous,candidate)]
+-        path=REVIEW/(frame+'_face_raw_independent_bodyweight_faceonly.png')
++        path=REVIEW/(frame+'_face_raw_bodyweight_fp32_fp64.png')
+         joined(panels).save(path)
+-        destination=Path('/mnt/d/00/记录/demo')/('SMPL-X_固定身体面部精修_'+path.name)
++        destination=Path('/mnt/d/00/记录/demo')/('SMPL-X_面部双精度对照_'+path.name)
+         assert not destination.exists()
+         destination.write_bytes(path.read_bytes())
+         images.append(dict(frame=frame,path=str(path),record_path=str(destination),sha256=b.sha(path),crop_integer_xyxy=crop,
+-            panel_wh=list(native.size),columns=['raw','independent_baseline','body_weight_selected','face_only_refined'],
++            panel_wh=list(native.size),columns=['raw','body_weight_initial','face_only_fp32','face_only_fp64'],
+             source_sha256={str(path):b.sha(path) for path in paths},no_resampling=True,no_text_added=True))
+         K=candidate['K_integer_centers'].astype(np.float64)
+         v0=previous['vertices_camera'].astype(np.float64); v1=candidate['vertices_camera'].astype(np.float64)

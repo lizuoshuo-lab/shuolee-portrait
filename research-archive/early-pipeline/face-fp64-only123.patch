@@ -1,0 +1,140 @@
+--- refine_smplifyx_face_fixed_body123.py
++++ refine_smplifyx_face_fp64123.py
+@@ -21,57 +21,36 @@
+ 
+ BODY=b.ROOT.parent
+ SOURCE=BODY/'body-weight-guarded-sequence'
+-OUT=BODY/'face-fixed-body-refinement'
+-PLAN=BODY/'face-fixed-body-refinement-plan.json'
+-HANDOFF=BODY/'face-fixed-body-refinement-gpu-handoff.json'
++OUT=BODY/'face-fixed-body-fp64'
++PLAN=BODY/'face-fixed-body-fp64-plan.json'
++HANDOFF=BODY/'face-fixed-body-fp64-gpu-handoff.json'
+ ACTIVE=('expression','jaw_pose','leye_pose','reye_pose')
+ read,save,sha=b.read,b.save,b.sha
+ def now():return datetime.now(timezone.utc).isoformat()
+ 
+ def prepare():
+     assert not PLAN.exists() and not OUT.exists()
+-    close=read(SOURCE/'review/closeout.json');assert close['state']=='rejected_face_protection'
+-    causal=read(SOURCE/'face-coupling-audit/result.json');assert causal['frames']==59 and causal['body_forwards']==196
+-    assert read(SOURCE/'face-coupling-audit/visual-review.json')['actual_visual_review']
+-    entry.adapted_entry_source(b.OFFICIAL)
+-    cfg=entry.load_official_config(b.OFFICIAL);assert cfg['maxiters']==30 and cfg['optim_type']=='lbfgsls'
+-    assert cfg['face_joints_weights'][-1]==2 and cfg['hand_joints_weights'][-1]==2
+-    source=(b.OFFICIAL/'smplifyx/fit_single_frame.py').read_text()
+-    assert 'body_params = list(body_model.parameters())' in source
+-    assert 'final_params.append(pose_embedding)' in source
+-    assert 'final_params.append(camera.translation)' not in source
+-    frames=[f'frame_{i:06d}' for i in range(1,60)]
+-    inputs=[b.ROOT/'fit/fitted.npz',b.ROOT/'data/training-inputs.json',b.ASSETS/'smplx/SMPLX_NEUTRAL.npz',
+-        SOURCE/'selection-audit.json',SOURCE/'review/closeout.json',SOURCE/'face-coupling-audit/result.json',SOURCE/'face-coupling-audit/visual-review.json']
+-    for frame in frames:inputs += [root/'frames'/frame/'winner-camera-space.npz' for root in (b.ROOT,SOURCE)]
+-    sources=[Path(__file__),Path(entry.__file__),Path(b.__file__),Path(metrics.__code__.co_filename),Path(process.__code__.co_filename)]
+-    sources += [b.OFFICIAL/p for p in entry.PINNED]
+-    import smplx.body_models,smplx.lbs
+-    sources += [Path(smplx.body_models.__file__),Path(smplx.lbs.__file__)]
+-    save(PLAN,dict(updated=now(),state='prepared',frames=frames,frame_count=59,
+-        hypothesis='A local face refinement after the body-data pass may recover facial detail without letting the whole body move to trade off regions.',
+-        intervention='Append one original final-stage solve to every saved selected frame, with expression/jaw/eyes active and all pose/shape/camera/hand parameters frozen. This is a local stage-policy adaptation, not a new optimizer or an untouched official pipeline.',
+-        active_parameters=list(ACTIVE),fixed=['K','camera_translation','betas','global_orient','pose_embedding','body_pose_axis_angle','left_hand_pose','right_hand_pose','all observations/confidences'],
+-        stage_index=4,maxiters=30,optimizer='original lbfgsls strong_Wolfe',configuration=cfg,
+-        body_observation_amplitude={'frame_000033':1.,'other_frames':2.},
+-        body_weight_scope='Keep the previously registered body-data policy; selected independent fallback states are merely initial states. Same final-stage rule for all59; no per-frame weight tuning.',
+-        fixed_body_decode='Reuse the saved decoded pose of the frozen VPoser latent. Require full vertex/projection parity first; no VPoser gradient is needed for a frozen variable.',
+-        model_forward_budget='59 original refinement calls, each original monitor maxiters30; no additional retries',
+-        runtime_budget_seconds=600,expected_seconds=180,
+-        protections={'body17_median_delta_max_px':1.,'feet6_median_delta_max_px':1.,'face51_median_delta_max_px':.5,
+-            'elbow_frames':list(range(18,24)),'elbow_remaining_ratio_max':.5},
+-        limits={'initial_vertex_parity_m':2e-6,'initial_projection_parity_px':.002,'frozen_limb_vertex_delta_m':2e-6},
+-        scope=['No face parameter splice or frame selection; all59 outputs retained even if a gate fails.',
+-            'Head/neck remain frozen; this cannot fix a wrong head pose, inaccurate camera or missing physical correspondences.',
+-            'The observation residual is not independent material ground truth.',
+-            'Review all59 face images and frozen-limb invariants before any downstream admission.',
+-            'Fresh-video runtime must include earlier fitting; this extra stage alone is not a15minute pipeline.'],
+-        source_hashes={str(p.resolve()):sha(p) for p in sources},input_hashes={str(p):sha(p) for p in inputs},
+-        original_parameter_audit={'original_body_stage':['trainable body-model parameters','VPoser latent'],
+-          'camera_translation':'Optimized in the original initialization, not included in final body optimizer.',
+-          'new_stage':list(ACTIVE),'direct_pose_or_sequence_solver_added':False},
+-        no_automatic_followup=True,quality_accepted=False,goal_complete=False))
+-    print('PREPARED_FACE_ONLY_ALL59',flush=True)
++    old_plan=BODY/'face-fixed-body-refinement-plan.json'
++    old_result=BODY/'face-fixed-body-refinement/result.json'
++    stationarity=BODY/'face-fixed-body-refinement/stationarity-audit/result.json'
++    p=read(old_plan);s=read(stationarity)
++    assert s['frames']==59 and s['summary']['optimizer_gradient_pass_count']==0
++    assert read(old_result)['frames']==59
++    for f,h in {**p['source_hashes'],**p['input_hashes']}.items():assert sha(f)==h,f
++    p.update(updated=now(),state='prepared',hypothesis='Float32 objective rounding may stop the original local-face LBFGS before its gradient condition. Change only numerical dtype tofloat64, from the same pre-face-stage saved states, to test this.',
++        intervention='Numerical dtype only: original SMPL-X, original final loss and LBFGS, original tolerances/maxiters, same59 initial states and fresh optimizers. This remains a local face-only stage adaptation, not a full official pipeline.',
++        computation_dtype='float64',comparison_dtype='float32',comparison_result=str(old_result),
++        camera_dtype_contract='Full K and camera parameters unchanged. Computation usesfloat64; old rounded K_compute_float32 is retained as input_K_compute_float32, not claimed to be the new computation matrix.',
++        runtime_budget_seconds=600,expected_seconds=240,
++        primary_success='All59 fixed face/body/feet protections, elbow preservation and native visual review. Report numerical limb invariant separately; no gate relaxation or automatic downstream admission.',
++        failure_stop='One completed uniform59 call only. Do not increase iterations, vary tolerances/weights, select frames or rerun to chase success.',
++        source_of_next_hypothesis=str(stationarity))
++    p['input_hashes'].update({str(f):sha(f) for f in (old_plan,old_result,stationarity)})
++    p['source_hashes'].pop(str(Path(__file__).with_name('refine_smplifyx_face_fixed_body123.py').resolve()),None)
++    p['source_hashes'][str(Path(__file__).resolve())]=sha(__file__)
++    p['source_hashes'][str(Path(__file__).with_name('refine_smplifyx_face_fixed_body123.py').resolve())]=sha(Path(__file__).with_name('refine_smplifyx_face_fixed_body123.py'))
++    p['source_hashes'][str(b.OFFICIAL/'smplifyx/optimizers/lbfgs_ls.py')]=sha(b.OFFICIAL/'smplifyx/optimizers/lbfgs_ls.py')
++    save(PLAN,p);print('PREPARED_FP64_FACE_ONLY_ALL59',flush=True)
+ 
+ def verify():
+     p=read(PLAN)
+@@ -91,7 +70,7 @@
+         mapping=utils.smpl_to_openpose(model_type='smplx',use_hands=True,use_face=True,use_face_contour=False,openpose_format='coco25')
+         body=smplx.SMPLX(str(b.ASSETS/'smplx/SMPLX_NEUTRAL.npz'),batch_size=1,num_betas=10,num_expression_coeffs=10,
+             use_pca=True,num_pca_comps=12,flat_hand_mean=False,use_face_contour=False,create_body_pose=False,create_transl=False,
+-            joint_mapper=utils.JointMapper(mapping),dtype=torch.float32).cuda().eval()
++            joint_mapper=utils.JointMapper(mapping),dtype=torch.float64).cuda().eval()
+         body.parents=body.parents.cpu()
+         for name,param in body.named_parameters():param.requires_grad_(name in ACTIVE)
+         parameters=[param for name,param in body.named_parameters() if param.requires_grad]
+@@ -104,13 +83,13 @@
+         l2=lambda:prior.L2Prior().cuda()
+         loss=fitting.create_loss(loss_type='smplify',rho=cfg['rho'],body_pose_prior=l2(),shape_prior=l2(),expr_prior=l2(),
+             angle_prior=prior.SMPLifyAnglePrior().cuda(),jaw_prior=l2(),left_hand_prior=l2(),right_hand_prior=l2(),
+-            use_joints_conf=True,use_face=True,use_hands=True,interpenetration=False,dtype=torch.float32).cuda()
++            use_joints_conf=True,use_face=True,use_hands=True,interpenetration=False,dtype=torch.float64).cuda()
+         for frame in p['frames']:
+             assert time.monotonic()-started < p['runtime_budget_seconds'] and process(pid)[1]=='T'
+             start=time.monotonic();saved=load(SOURCE/'frames'/frame/'winner-camera-space.npz');baseline=load(b.ROOT/'frames'/frame/'winner-camera-space.npz')
+             body.reset_params(**{name:saved[name] for name,_ in body.named_parameters()})
+-            fixed_pose=torch.tensor(saved['body_pose_axis_angle'],device='cuda');latent=torch.tensor(saved['pose_embedding'],device='cuda')
+-            K=torch.tensor(saved['K_integer_centers'],dtype=torch.float32,device='cuda');translation=torch.tensor(saved['camera_translation'],device='cuda')
++            fixed_pose=torch.tensor(saved['body_pose_axis_angle'],dtype=torch.float64,device='cuda');latent=torch.tensor(saved['pose_embedding'],dtype=torch.float64,device='cuda')
++            K=torch.tensor(saved['K_integer_centers'],dtype=torch.float64,device='cuda');translation=torch.tensor(saved['camera_translation'],dtype=torch.float64,device='cuda')
+             class Camera:
+                 def __call__(self,points):
+                     q=(points+translation[:,None])@K.T;return q[...,:2]/q[...,2:]
+@@ -118,8 +97,8 @@
+                 def decode(self,z,output_type='aa'):
+                     assert output_type=='aa' and z is latent;return fixed_pose
+             camera=Camera();decoder=FrozenPose()
+-            target=torch.tensor(aggregate['observed_native_keypoints'][ids.index(frame):ids.index(frame)+1],device='cuda')
+-            weights=torch.full((1,118),1. if frame=='frame_000033' else 2.,device='cuda')
++            target=torch.tensor(aggregate['observed_native_keypoints'][ids.index(frame):ids.index(frame)+1],dtype=torch.float64,device='cuda')
++            weights=torch.full((1,118),1. if frame=='frame_000033' else 2.,dtype=torch.float64,device='cuda')
+             weights[:,[1,9,12]]=0;weights[:,25:67]=cfg['hand_joints_weights'][-1];weights[:,67:]=cfg['face_joints_weights'][-1]
+             final=dict(data_weight=1000/records[frame]['wh'][1],body_pose_weight=cfg['body_pose_prior_weights'][-1],
+                 shape_weight=cfg['shape_weights'][-1],expr_prior_weight=cfg['expr_weights'][-1],bending_prior_weight=3.17*cfg['body_pose_prior_weights'][-1],
+@@ -129,6 +108,9 @@
+             def evaluate():
+                 result=body(body_pose=fixed_pose,return_verts=True,return_full_pose=True)
+                 actual={k:v.copy() for k,v in saved.items()}
++                actual['input_K_compute_float32']=actual.pop('K_compute_float32')
++                actual['K_compute_float64']=K.detach().cpu().numpy().copy()
++                actual['computation_dtype']=np.array('float64')
+                 for name,param in body.named_parameters():actual[name]=param.detach().cpu().numpy().copy()
+                 actual['vertices_camera']=(result.vertices+translation[:,None]).cpu().numpy()
+                 actual['joints_camera']=(result.joints+translation[:,None]).cpu().numpy()
+@@ -157,7 +139,7 @@
+             protections={group:dict(delta_px=current_metrics['groups'][group]['median']-old_metrics['groups'][group]['median'],tolerance_px=tol,
+                 passed=current_metrics['groups'][group]['median']-old_metrics['groups'][group]['median']<=tol)
+                 for group,tol in [('body17',1.),('feet6',1.),('face51',.5)]}
+-            info=dict(frame=frame,source_sha256=sha(SOURCE/'frames'/frame/'winner-camera-space.npz'),parity=parity,
++            info=dict(frame=frame,computation_dtype='float64',source_sha256=sha(SOURCE/'frames'/frame/'winner-camera-space.npz'),parity=parity,
+                 original_objective_before=obj_before,original_objective_after=obj_after,objective_nonincreasing=obj_after<=obj_before+.01,
+                 original_monitor_reported_loss=reported,closure_evaluations=evaluations,elapsed_seconds=time.monotonic()-start,
+                 baseline=old_metrics,previous=prior_metrics,candidate=current_metrics,protections=protections,

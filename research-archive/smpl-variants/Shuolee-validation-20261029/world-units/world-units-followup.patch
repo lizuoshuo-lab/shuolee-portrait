@@ -1,0 +1,227 @@
+--- a/src/shuolee_portrait/sequence_fitting.py
++++ b/src/shuolee_portrait/sequence_fitting.py
+@@ -128,7 +128,7 @@
+         eye = torch.eye(3, dtype=dtype, device=device).expand(n, 3, 3)
+         if not torch.allclose(rot @ rot.transpose(1, 2), eye, atol=1e-6, rtol=0) or not torch.allclose(torch.linalg.det(rot), torch.ones(n, dtype=dtype, device=device), atol=1e-6, rtol=0):
+             raise ValueError('Extrinsic rotation must be proper, with no scale/shear.')
+-        self.register_buffer('K', K.clone())
++        self.register_buffer('K', K.detach().clone())
+         self.register_buffer('source_w2c', source_w2c)
+         self.register_buffer('w2c', w2c.clone())
+         self._camera_constructor_frame_ids = self.frame_ids
+@@ -156,6 +156,32 @@
+         cpu = value.detach().cpu().contiguous()
+         return (tuple(cpu.shape), str(cpu.dtype), cpu.view(torch.uint8).numpy().tobytes())
+ 
++    def _assert_camera_binding(self):
++        if self.frame_ids != self._camera_constructor_frame_ids:
++            raise RuntimeError('Frozen camera frame identities/order changed since construction.')
++        for name, expected in self._camera_constructor_values:
++            value = getattr(self, name)
++            if self._camera_tensor_signature(value) != expected:
++                raise RuntimeError('Frozen camera buffer changed since construction: ' + name)
++            if value.requires_grad:
++                raise RuntimeError('Frozen camera buffer cannot require gradients: ' + name)
++
++    def _apply(self, fn, recurse=True):
++        # Probe before nn.Module visits any body/VPoser/parameter tensors.
++        # Device-only transfers preserve the constructor values and dtypes;
++        # changing precision would break their exact provenance binding.
++        self._assert_camera_binding()
++        for name, _ in self._camera_constructor_values:
++            value = getattr(self, name)
++            probe = fn(torch.empty_like(value, requires_grad=False))
++            if probe.dtype != value.dtype:
++                raise RuntimeError('Camera dtype is fixed at construction; select dtype in the constructor: ' + name)
++            if probe.device.type == 'meta':
++                raise RuntimeError('Frozen camera values cannot move to a data-free meta device.')
++        result = super()._apply(fn, recurse=recurse)
++        self._assert_camera_binding()
++        return result
++
+     def _validate_camera_extra_state(self, state):
+         required = {'schema', 'frame_ids', 'contract'}
+         if not isinstance(state, dict) or set(state) != required:
+@@ -176,6 +202,7 @@
+             raise RuntimeError('Camera checkpoint length factor, unit or provenance differs from the constructor.')
+ 
+     def _validate_camera_checkpoint(self, state_dict, prefix):
++        self._assert_camera_binding()
+         extra_key = prefix + '_extra_state'
+         if extra_key not in state_dict:
+             raise RuntimeError('Missing camera length checkpoint metadata: ' + extra_key)
+@@ -188,8 +215,6 @@
+             value = state_dict[key]
+             if self._camera_tensor_signature(value) != expected:
+                 raise RuntimeError('Frozen camera checkpoint buffer differs from the constructor: ' + key)
+-            if self._camera_tensor_signature(getattr(self, name)) != expected:
+-                raise RuntimeError('Current frozen camera buffer has changed since construction: ' + name)
+             values[name] = value
+         # Check the explicit unit relationship as well as the constructor bind.
+         # Round only to the originally selected model dtype, never infer a scale.
+@@ -204,6 +229,7 @@
+ 
+     def get_extra_state(self):
+         # Pure JSON-compatible values support normal state_dict serialization.
++        self._assert_camera_binding()
+         return dict(schema='shuolee-sequence-camera-length/1',
+                     frame_ids=list(self._camera_constructor_frame_ids),
+                     contract=self.camera_length_contract)
+@@ -222,6 +248,7 @@
+                                      missing_keys, unexpected_keys, error_msgs)
+ 
+     def forward_state(self, state=None):
++        self._assert_camera_binding()
+         state = self.state if state is None else state
+         n = len(self.frame_ids)
+         out = self.body(betas=state['betas'].expand(n, -1),
+@@ -234,9 +261,11 @@
+         return out
+ 
+     def project(self, out):
++        self._assert_camera_binding()
+         return project_complete_k(out.joints, self.K)
+ 
+     def world_vertices(self, out):
++        self._assert_camera_binding()
+         return camera_to_world(out.vertices, self.w2c, translation_unit='meters')
+ 
+     @property
+@@ -263,13 +292,15 @@
+                 self.state[key].copy_(value)
+ 
+     def native_snapshot(self, reference_frame):
++        self._assert_camera_binding()
+         if str(reference_frame) not in self.frame_ids:
+             raise ValueError('Reference frame is not in the observed roster.')
+         i = self.frame_ids.index(str(reference_frame))
+         with torch.no_grad():
+             out = self.forward_state()
+             world = self.world_vertices(out)
+-        return dict(reference_frame=self.frame_ids[i], shared_betas=self.state['betas'].detach().clone(),
++        return dict(frame_ids=list(self._camera_constructor_frame_ids),
++                    reference_frame=self.frame_ids[i], shared_betas=self.state['betas'].detach().clone(),
+                     reference_vertices_world=world[i].detach().clone(),
+                     vertices_world_sequence=world.detach().clone(),
+                     K=self.K.detach().clone(), w2c=self.w2c.detach().clone(),
+@@ -282,7 +313,7 @@
+                     scale_source_evidence=self.camera_length_contract['evidence'],
+                     common_sfm_gauge_validated=False,
+                     root_parameter_domain='camera coordinates in model meters, per frame',
+-                    physical_camera_accepted=False, gaussian_export=False)
++                    physical_camera_accepted=False, training_admitted=False, gaussian_export=False)
+ 
+ 
+ def staged_weights(stage, tensor):
+--- a/tests/test_camera_world_units.py
++++ b/tests/test_camera_world_units.py
+@@ -73,11 +73,23 @@
+         raise AssertionError('No model forward is allowed in this CPU unit check.')
+ 
+ 
+-def sequence(contract=None):
++def sequence(contract=None, *, dtype=torch.float64, input_K=None):
+     _,_,sfm,_,K=scene()
+     initial={k:np.zeros((3,n)) for k,n in [('global_orient',3),('transl',3),('latent',32),('jaw_pose',3),('expression',10)]}
+     return SharedIdentitySequence(Placeholder(),Placeholder(),['source:0','source:155','source:310'],
+-        np.tile(K,(3,1,1)),sfm,initial,camera_length_contract=contract)
++        np.tile(K,(3,1,1)) if input_K is None else input_K,sfm,initial,
++        camera_length_contract=contract,dtype=dtype)
++
++
++def camera_consumers(model):
++    out=SimpleNamespace(joints=torch.tensor(scene()[3],dtype=torch.float64),
++                        vertices=torch.tensor(scene()[3],dtype=torch.float64))
++    return dict(forward=model.forward_state,
++                project=lambda:model.project(out),
++                world_vertices=lambda:model.world_vertices(out),
++                snapshot=lambda:model.native_snapshot('source:0'),
++                extra_state=model.get_extra_state,
++                checkpoint=model.state_dict)
+ 
+ 
+ class UnitChecks(unittest.TestCase):
+@@ -158,17 +170,83 @@
+         np.testing.assert_array_equal(m.K.numpy(),np.tile(K,(3,1,1)))
+         self.assertEqual(m.state['betas'].shape,(1,10))
+ 
++    def test_frozen_K_has_no_upstream_gradient_but_points_do(self):
++        _,_,_,camera,K=scene()
++        input_K=torch.tensor(np.tile(K,(3,1,1)),dtype=torch.float64,requires_grad=True)
++        m=sequence(declaration(),input_K=input_K)
++        points=torch.tensor(camera,dtype=torch.float64,requires_grad=True)
++        m.project(SimpleNamespace(joints=points)).sum().backward()
++        self.assertFalse(m.K.requires_grad)
++        self.assertIsNone(m.K.grad_fn)
++        self.assertIsNone(input_K.grad)
++        q=camera@K.T
++        expected=(K[0]+K[1])/q[...,2,None]-(q[...,0]+q[...,1])[...,None]*K[2]/q[...,2,None]**2
++        np.testing.assert_allclose(points.grad.numpy(),expected,atol=1e-10,rtol=0)
++
++    def test_runtime_camera_mutations_rejected_by_every_consumer(self):
++        for key in ('K','source_w2c','w2c'):
++            m=sequence(declaration())
++            with torch.no_grad():getattr(m,key)[0,0,2 if key=='K' else 3]+=.1
++            for name,consume in camera_consumers(m).items():
++                with self.subTest(buffer=key,consumer=name),self.assertRaisesRegex(RuntimeError,'Frozen camera'):
++                    consume()
++
++    def test_runtime_frame_reordering_rejected_by_every_consumer(self):
++        m=sequence(declaration());m.frame_ids=tuple(reversed(m.frame_ids))
++        for name,consume in camera_consumers(m).items():
++            with self.subTest(consumer=name),self.assertRaisesRegex(RuntimeError,'frame identities/order'):
++                consume()
++
++    def test_runtime_camera_requires_grad_cannot_be_enabled(self):
++        for key in ('K','source_w2c','w2c'):
++            m=sequence(declaration());getattr(m,key).requires_grad_(True)
++            for name,consume in camera_consumers(m).items():
++                with self.subTest(buffer=key,consumer=name),self.assertRaisesRegex(RuntimeError,'cannot require gradients'):
++                    consume()
++
++    def test_dtype_changes_rejected_before_any_child_or_parameter_changes(self):
++        for dtype,convert in ((torch.float64,lambda m:m.float()),
++                              (torch.float64,lambda m:m.half()),
++                              (torch.float32,lambda m:m.double())):
++            m=sequence(declaration(),dtype=dtype)
++            before={name:value.detach().clone() for name,value in
++                    list(m.named_buffers())+list(m.named_parameters())}
++            with self.subTest(dtype=dtype),self.assertRaisesRegex(RuntimeError,'dtype is fixed at construction'):
++                convert(m)
++            for name,value in list(m.named_buffers())+list(m.named_parameters()):
++                self.assertEqual(value.dtype,before[name].dtype,name)
++                self.assertTrue(torch.equal(value,before[name]),name)
++            m.load_state_dict(copy.deepcopy(m.state_dict()))
++
++    def test_constructor_dtype_and_cpu_device_transfer_preserve_source(self):
++        for dtype in (torch.float32,torch.float64):
++            m=sequence(declaration(),dtype=dtype)
++            source=m.source_w2c.clone();K=m.K.clone();meter=m.w2c.clone()
++            self.assertIs(m.to(device='cpu'),m)
++            self.assertEqual(m.source_w2c.dtype,torch.float64)
++            self.assertEqual(m.K.dtype,dtype)
++            self.assertTrue(torch.equal(m.source_w2c,source))
++            self.assertTrue(torch.equal(m.K,K));self.assertTrue(torch.equal(m.w2c,meter))
++            other=sequence(declaration(),dtype=dtype)
++            other.load_state_dict(copy.deepcopy(m.state_dict()))
++            self.assertTrue(torch.equal(other.source_w2c,source))
++
+     def test_reference_snapshot_carries_scale_and_source(self):
+         points,E,sfm,camera,_=scene();m=sequence(declaration())
+         # Bypass neural/body execution: inject only the explicitly known fixture.
+         m.forward_state=lambda:SimpleNamespace(vertices=torch.tensor(camera,dtype=torch.float64))
+         snapshot=m.native_snapshot('source:155')
+         self.assertEqual(snapshot['reference_frame'],'source:155')
++        self.assertEqual(snapshot['frame_ids'],list(m.frame_ids))
+         self.assertEqual(snapshot['coordinate_system'],'opencv_world_meters')
+         self.assertFalse(snapshot['physical_camera_accepted'])
++        self.assertFalse(snapshot['training_admitted'])
++        self.assertFalse(snapshot['gaussian_export'])
+         np.testing.assert_array_equal(snapshot['source_w2c'],sfm)
+         np.testing.assert_allclose(snapshot['reference_vertices_world'],points,atol=1e-14,rtol=0)
+         self.assertEqual(snapshot['camera_length_contract'],declaration())
++        snapshot['frame_ids'].reverse()
++        self.assertEqual(m.frame_ids,('source:0','source:155','source:310'))
+ 
+     def test_checkpoint_serialized_roundtrip_preserves_units(self):
+         m=sequence(declaration())

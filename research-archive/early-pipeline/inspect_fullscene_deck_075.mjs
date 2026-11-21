@@ -1,0 +1,10 @@
+import fs from 'node:fs/promises';
+import crypto from 'node:crypto';
+import {FileBlob, PresentationFile} from '@oai/artifact-tool';
+const build='C:/Users/Administrator/Documents/New project/shuolee-slide-update';
+const source='C:/Users/Administrator/Desktop/GS-SLAM-Lab/outputs/mini-splatting2-mip-depth-001/shuolee/reports/02_有限视角重建优化路线.pptx';
+const p=await PresentationFile.importPptx(await FileBlob.load(source));
+const content=await p.inspect({select:'$.slides[19,50,51]',include:['id','index','layout','elements.id','elements.kind','elements.text','elements.position','notes.text']});
+await fs.writeFile(build+'/fullscene075-before.json',JSON.stringify({source,sha256:crypto.createHash('sha256').update(await fs.readFile(source)).digest('hex'),records:content.records},null,2));
+for(const i of [19,50,51])await fs.writeFile(build+`/fullscene075-before-${i+1}.png`,new Uint8Array(await(await p.export({slide:p.slides.items[i],format:'png',scale:1})).arrayBuffer()));
+console.log(JSON.stringify(content.records.map(s=>({index:s.index,elements:s.elements.map((e,i)=>({i,kind:e.kind,text:e.text,position:e.position}))})),null,2));

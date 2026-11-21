@@ -1,0 +1,30 @@
+import fs from 'node:fs/promises';
+import crypto from 'node:crypto';
+import {pathToFileURL} from 'node:url';
+import {FileBlob,PresentationFile} from '@oai/artifact-tool';
+const work='C:/Users/Administrator/Documents/New project',build=work+'/shuolee-slide-update';
+const base='C:/Users/Administrator/Desktop/GS-SLAM-Lab/outputs/mini-splatting2-mip-depth-001/shuolee';
+const run=base+'/current/person-static-human-surface-init-fresh-083';
+const source=base+'/reports/02_有限视角重建优化路线.pptx';
+const expected='65894459f529974c69874267b897bf5364ea001667cd5bee32e0872223d5f4a3';
+const skill='C:/Users/Administrator/.codex/plugins/cache/openai-primary-runtime/presentations/26.1020.11348/skills/presentations';
+const digest=b=>crypto.createHash('sha256').update(b).digest('hex'),hash=async f=>digest(await fs.readFile(f));
+const read=async f=>JSON.parse((await fs.readFile(f,'utf8')).replace(/^\uFEFF/,''));
+if(await hash(source)!==expected)throw Error('Canonical report changed');
+const d=await read(run+'/review/visual-decision.json'),previous=await read(build+'/human083-deck-receipt.json');
+if(!d.actually_inspected)throw Error('Actual visual review required');
+const p=await PresentationFile.importPptx(await FileBlob.load(source));
+const snaps=(await p.inspect({select:'$.slides[*]',include:['id','elements.id','elements.kind','elements.text','notes.text']})).records;
+const text=(k,value)=>{const e=snaps[51].elements[k];p.resolve(e.id).text.replace(e.text,value);};
+const imgs=snaps[51].elements.filter(e=>e.kind==='image');
+for(let i=0;i<2;i++){let v=p.resolve(imgs[i].id);v.replace({blob:await fs.readFile(run+'/review/below25-'+(i?'083':'077')+'-gray.png'),contentType:'image/png',fit:'contain',alt:'同一下方25度相机，'+(i?'083人体表面初始化':'077对照')});v.crop={left:0,top:0,right:0,bottom:0};}
+text(2,d.ppt_summary);text(4,'同一下方25度相机：左077，右083。均无该视角实拍真值。');text(5,d.ppt_limit);
+p.resolve(snaps[51].id).speakerNotes.text=d.summary+'\n'+d.observed_conclusion+'\n'+d.novel_conclusion+'\n'+d.mechanism_conclusion+'\n'+d.next_step+'\n\n最终300220点，初始200000，全部175帧整图相机，每帧约102至103次采样，共18000步，从零高斯与优化器开始。相较077，只把得到175张掩码支持的1772个中央脸部点投到新配准的中性FLAME表面。其余198228个初始位置逐位相同，初始尺度仍按新的近邻距离自动计算。没有网格绑定、模板距离项或动态网络。本结果只说明这一特定初始化变化不足，不能推论所有人体先验都无效。\n固定717组下半脸框RGB像素中心对应误差中位数6.172462→6.224015，588组上半脸框4.528321→4.556905，覆盖均100%。下半脸框包含下颌与邻近衣领，不是严格鼻口真值。预定20%降低未达到。175帧人物轮廓平均距离2.331082→2.288595训练像素，人物内部RGB MAE0.00625958→0.00627791；该小变化不构成可重复的质量提升。\n140条固定射线完整报告；48个脸外查询只有46个在083还有可测贡献，所以共同可测深度宽度不能脱离覆盖统计。下部纹理24处的深度宽度增加。原生实拍相机渲染与标准模型实现逐像素一致；+Y坐标导出包含位置、协方差、所有阶球谐与相机。5个浮点像素的近等深度排序例外经诊断解释，非逐位相等。实际本地打开文件，看到300220点，高斯与点云模式均通过格式检查；质量仍未通过，未在00部署，不推广为最佳。\n082的100维个体形状拟合触及预设参数上限，未采用。083的首次整块面片重采样0步被掩码预检拒绝，后修订为仅移动全部掩码支持点；这属于初始化构造条件而非独立准确率。\n参考GaussianAvatars https://github.com/ShenhanQian/GaussianAvatars 及PGSR https://github.com/zju3dv/PGSR 。当前不是完整官方GaussianAvatars复现。\n证据：'+run+'/review/visual-decision.json ; review/paired-transfer-comparison.json ; review/depth/result.json ; review/same-camera-result.json ; review/viewer-interaction-review.json ; gaussian-run/viewer-export/delivery.json。';
+const candidatePath=build+'/human083result-candidate.pptx',finalPath=work+'/shuolee-slide-output/02_有限视角重建优化路线_人体表面初始化结果.pptx';
+await(await PresentationFile.exportPptx(p)).save(candidatePath);
+const {finalizePresentation}=await import(pathToFileURL(skill+'/container_tools/artifact_tool_utils.mjs').href);
+await finalizePresentation({workspaceDir:work,candidatePath,finalPath,pythonExecutable:'C:/Users/Administrator/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe',integrityValidatorPath:skill+'/container_tools/inspect_presentation_package_integrity.py',layoutValidatorPath:skill+'/container_tools/inspect_presentation_layout_geometry.py',layoutArgs:['--expected-slide-size-emu','12192000,6858000','--validate-bullet-geometry','--validate-heading-fit'],explicitTotalSlideCount:52,requiredNativeTableOwnerSlides:[],requiredNativeChartOwnerSlides:[],fontPolicy:{basis:'reference',families:['微软雅黑'],referencePath:source,referenceSha256:expected},verifyArtifactToolImport:true,receiptPath:build+'/human083result-validation.json'});
+const q=await PresentationFile.importPptx(await FileBlob.load(finalPath)),renders=[];
+for(let i=0;i<52;i++){const bytes=new Uint8Array(await(await q.export({slide:q.slides.items[i],format:'png',scale:1})).arrayBuffer()),h=digest(bytes);if(i===51)await fs.writeFile(build+'/human083result-final-52.png',bytes);else if(h!==previous.renders[i].render_sha256)throw Error('Unexpected slide change '+(i+1));renders.push({slide:i+1,render_sha256:h,changed:i===51});}
+await fs.writeFile(build+'/human083result-deck-receipt.json',JSON.stringify({source,source_sha256:expected,finalPath,final_sha256:await hash(finalPath),changed_slides:[52],renders,canonical_replaced:false},null,2));
+console.log(JSON.stringify({finalPath,changed:[52],canonical_replaced:false}));

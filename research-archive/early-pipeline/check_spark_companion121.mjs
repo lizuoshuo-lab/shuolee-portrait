@@ -1,0 +1,13 @@
+import fs from 'node:fs';
+import {pathToFileURL} from 'node:url';
+import {execFileSync} from 'node:child_process';
+const H='C:/Users/Administrator/Documents/New project/shuolee-slide-update';
+const V='C:/Users/Administrator/Desktop/GS-SLAM-Lab/outputs/mini-splatting2-mip-depth-001/viewer';
+const {sparkCameraPage}=await import(pathToFileURL(V+'/spark-camera-template.js'));
+const html=sparkCameraPage(),source=html.match(/<script type="module">([\s\S]*?)<\/script>/)[1];
+const check=H+'/viewer-compatibility121/spark-companion-syntax.mjs';fs.writeFileSync(check,source);
+execFileSync(process.execPath,['--check',check]);
+const imports=JSON.parse(html.match(/<script type="importmap">([\s\S]*?)<\/script>/)[1]);
+if(!Object.values(imports.imports).every(s=>s.startsWith('https://sparkjs.dev/')))throw Error('Unexpected dependency origin');
+const result={syntaxPassed:true,dependencyOrigin:'https://sparkjs.dev/',modelUploaded:false,guiTested:false,browserFileUrlBlocked:true};
+fs.writeFileSync(H+'/viewer-compatibility121/spark-companion-check.json',JSON.stringify(result,null,2));console.log(JSON.stringify(result));

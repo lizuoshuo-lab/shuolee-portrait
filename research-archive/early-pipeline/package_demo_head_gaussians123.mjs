@@ -1,0 +1,45 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import {pathToFileURL} from 'node:url';
+const runs=['head-gaussian-first-cycle','head-gaussian-long300k'];
+let run=runs[0],stepArg;
+const args=process.argv.slice(2);
+for(let i=0;i<args.length;i++){
+  if(args[i]==='--run'){
+    if(!runs.includes(args[i+1]))throw Error('Choose --run '+runs.join(' or '));
+    run=args[++i];
+  }else if(stepArg===undefined&&!args[i].startsWith('--'))stepArg=args[i];
+  else throw Error('Usage: node package_demo_head_gaussians123.mjs <step> [--run '+runs.join('|')+']');
+}
+const step=Number(stepArg);
+if(!Number.isInteger(step)||step<1)throw Error('Provide snapshot step.');
+const root='C:/Users/Administrator/Desktop/GS-SLAM-Lab/outputs/mini-splatting2-mip-depth-001';
+const dir=root+'/shuolee/current/local-clothed-surface-123/demo-vhap-initialization/'+run+'/delivery/step-'+String(step).padStart(6,'0');
+const m=await import(pathToFileURL(root+'/viewer/scene-package.js'));
+const f=await import(pathToFileURL(root+'/viewer/camera-formats.js'));
+const bytes=await fs.readFile(dir+'/point_cloud.ply');
+const cameraBytes=await fs.readFile(dir+'/cameras.json');
+const cameras=JSON.parse(cameraBytes.toString('utf8'));
+const context=JSON.parse(await fs.readFile(dir+'/context.json','utf8'));
+const validation=JSON.parse(await fs.readFile(dir+'/validation.json','utf8'));
+if(validation.format_passed!==true||validation.native_rotated_render_parity?.passed!==true||validation.native_source_ply_parity?.passed!==true)throw Error('Native export validation must pass before packaging.');
+if(validation.sha256!==await m.sha256(bytes))throw Error('Validated PLY SHA256 mismatch.');
+if(validation.native_replay_uses_serialized_camera!==true||validation.serialized_camera_sha256!==await m.sha256(cameraBytes))throw Error('Native replay must use the matching serialized camera before packaging.');
+const p=await m.scenePackage(bytes.buffer.slice(bytes.byteOffset,bytes.byteOffset+bytes.byteLength),'ply',cameras,context);
+const unpacked=await m.unpackSceneZip(p.bytes);
+const files=Object.fromEntries(unpacked.map(x=>[x.name,x.data]));
+files['README.txt']=new TextDecoder().decode(files['README.txt'])+`\n本包为 ${step} 步阶段结果，${validation.points} 个高斯，仅面部和帽子。静态导出固定第33帧，仅此帧相机直接对应。59帧训练使用逐帧变形网格，不能当作静态点云的多视角。帽檐边缘、颈部漂浮点和未知视角仍待质量验收。完整K包含偏心主点，不能自动替换成图像中心。\n`;
+files['validation.json']=await fs.readFile(dir+'/validation.json');
+const zip=f.storedZip(files);
+const entries=await m.unpackSceneZip(zip);
+const checkFiles=entries.map(x=>{const file=new File([x.data],path.basename(x.name));file.sceneRelativePath=x.name;return file;});
+const models=await m.primaryModelFiles(checkFiles);
+if(models.length!==1)throw Error('Expected one primary model');
+const paired=await m.pairedCameras(models[0],checkFiles,models);
+if(paired.cameras.length!==1||!paired.verifiedBinding||paired.referenceFrameId!=='frame_000033')throw Error('Camera identity/binding mismatch');
+const prefix=run==='head-gaussian-long300k'?'demo_head_hat_long300k_':'demo_head_hat_';
+const out='D:/00/工作/查看器/exports/'+prefix+String(step).padStart(6,'0')+'_with_camera.zip';
+await fs.mkdir(path.dirname(out),{recursive:true});await fs.writeFile(out,zip,{flag:'wx'});
+const receipt={updated:new Date().toISOString(),run,step,points:validation.points,path:out,zip_sha256:await m.sha256(zip),bytes:zip.length,entries:entries.map(x=>x.name),cameraCount:paired.cameras.length,verifiedBinding:paired.verifiedBinding,referenceFrameId:paired.referenceFrameId,qq_sent:false};
+await fs.writeFile(dir+'/package-receipt.json',JSON.stringify(receipt,null,2),{flag:'wx'});
+console.log(JSON.stringify(receipt,null,2));

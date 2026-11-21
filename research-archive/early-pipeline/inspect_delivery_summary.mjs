@@ -1,0 +1,12 @@
+import fs from 'node:fs/promises';
+import crypto from 'node:crypto';
+import {FileBlob,PresentationFile} from '@oai/artifact-tool';
+const build='C:/Users/Administrator/Documents/New project/shuolee-slide-update';
+const source='D:/00/报告/02_有限视角重建优化路线.pptx';
+const bytes=await fs.readFile(source);
+const deck=await PresentationFile.importPptx(await FileBlob.load(source));
+const snapshot=(await deck.inspect({select:'$.slides[51]',include:['id','layout','elements.id','elements.kind','elements.text','elements.position','elements.style','notes.text']})).records;
+const summary={source,sha256:crypto.createHash('sha256').update(bytes).digest('hex'),count:deck.slides.items.length,slide52:snapshot};
+await fs.writeFile(build+'/server-delivery-before-inspect.json',JSON.stringify(summary,null,2));
+await fs.writeFile(build+'/server-delivery-before-52.png',new Uint8Array(await(await deck.export({slide:deck.slides.items[51],format:'png',scale:1})).arrayBuffer()));
+console.log(JSON.stringify(summary));

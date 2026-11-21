@@ -1,0 +1,589 @@
+"""Bound SH0 covariance limits and supported principal-axis replacements."""
+
+from time import monotonic
+
+import torch
+
+from .render_support import FootprintLimits, classify, replacement_evaluator, source_weights
+from .replacement_selection import select_replacements
+from .shape_refinement import _projection, _screen_visibility, _tangent_distance
+
+
+def scale_config():
+    return dict(global_extent_ratio=.025, minimum_extent_ratio=.016, triangle_scale_multiple=3.,
+                active_opacity=.10, audit_thresholds_m=[.05, .10], near_limit_ratio=.90,
+                axis_ratio_min=2., max_parents=128, child_sigma_ratio=.82, child_opacity_max=.995,
+                unsupported_cap_ratio=.80, small_projected_sigma_px=5., split_steps=[3000, 4800, 6600, 8400],
+                needle=dict(width_over_extent=.008, width_over_face=.65, gap_over_extent=.010, gap_over_face=.75,
+                            max_parents=128, center_move_fraction=.50, max_move_over_extent=.010, width_trim_ratio=.75),
+                render_support=dict(min_equivalent_pixels=1., min_background_bins=2, background_to_foreground=.20,
+                                    coverage_slack_px=2., coverage_loss_fraction=.025, replacement_budget=16,
+                                    coverage_max_trials=32, coverage_tile_px=16,
+                                    coverage_local_deficit_px=1., coverage_region_deficit_px=1.,
+                                    coverage_rgb_mae_increase=1/255,
+                                    coverage_local_rgb_mae_increase=1/255))
+
+
+def _limits(face_scale, extent, options):
+    cap = (options['triangle_scale_multiple']*face_scale).clamp(
+        extent*options['minimum_extent_ratio'], extent*options['global_extent_ratio'])
+    return cap, (cap/face_scale).log()
+
+
+def _off_surface(local, triangle, scale, extent, options):
+    normal = local[:, 1].abs()
+    tangent = _tangent_distance(local[:, [0, 2]], triangle)
+    gap = torch.hypot(normal, tangent)*scale
+    threshold = (options['gap_over_face']*scale).clamp_min(options['gap_over_extent']*extent)
+    return gap, gap > threshold
+
+
+def _source_conflict(fg, bg, min_background):
+    conflicted = (bg >= min_background) & (bg > fg)
+    unobserved = (fg == 0) & (bg == 0)
+    return conflicted, unobserved
+
+
+def _children(parent_sigma, alpha, options):
+    """Match the parent midpoint's alpha and its principal-axis second moment when feasible."""
+    child_sigma = parent_sigma*options['child_sigma_ratio']
+    offset = (parent_sigma.square()-child_sigma.square()).sqrt()
+    midpoint_alpha = alpha/(1+(1-alpha).sqrt())
+    max_distance = child_sigma*(-2*(midpoint_alpha/options['child_opacity_max']).clamp(1e-8, 1).log()).sqrt()
+    offset = torch.minimum(offset, max_distance)
+    opacity = (midpoint_alpha*((offset/child_sigma).square()*.5).exp()).clamp_max(options['child_opacity_max'])
+    return child_sigma, offset, opacity
+
+
+def _summary(values, active, limits, options):
+    def measure(sigma, limit):
+        counts = (sigma > limit+1e-6).count_nonzero()
+        if not len(sigma):
+            return dict(points=0, p50_m=None, p95_m=None, p99_m=None, max_m=None, over_005m=0,
+                        over_010m=0, over_limit=0)
+        p50, p95, p99 = torch.quantile(sigma, sigma.new_tensor([.50, .95, .99])).tolist()
+        a, b = options['audit_thresholds_m']
+        return dict(points=len(sigma), p50_m=p50, p95_m=p95, p99_m=p99, max_m=float(sigma.max()),
+                    over_005m=int((sigma > a).count_nonzero()), over_010m=int((sigma > b).count_nonzero()),
+                    over_limit=int(counts))
+    return dict(all=measure(values, limits), active=measure(values[active], limits[active]))
+
+
+def _projected_widths(xy, depth, K, w2c, world_axes, major):
+    """One-sigma image widths before the renderer's screen low-pass filter."""
+    jacobian = (K[:2]-xy[..., None]*K[2])/depth[:, None, None].clamp_min(.01)
+    projected = jacobian @ w2c[:3, :3] @ world_axes
+    major_axis = projected.gather(2, major[:, None, None].expand(-1, 2, 1)).squeeze(2).norm(dim=1)
+    u, v = projected.unbind(1)
+    a, b, c = u.square().sum(1), (u*v).sum(1), v.square().sum(1)
+    ellipse = ((a+c+((a-c).square()+4*b.square()).sqrt())*.5).clamp_min(0).sqrt()
+    return major_axis, ellipse
+
+
+class WorldScale:
+    def __init__(self, model, extent, reference, options, *, diagnostic_dir=None):
+        self.model, self.extent, self.reference, self.options = model, extent, reference, options
+        self.projections = model._xyz.new_zeros(3, dtype=torch.int64)
+        self.checkpoints, self.splits = [], []
+        self.support_history, self.support_prunes = [], []
+        self.limits = FootprintLimits(model._scaling)
+        model.point_limits = self.limits
+        model.densification_ids = torch.arange(len(model._xyz), device=model._xyz.device)
+        model.next_densification_id = len(model._xyz)
+        self.size_candidate_ids, self.optimized_candidate_ids = set(), set()
+        self.diagnostic_dir = diagnostic_dir
+        self.refresh()
+
+    def refresh(self):
+        from utils.graphics_utils import compute_face_orientation
+
+        verts = self.model.posed_vertices(slice(None))
+        _, scales = compute_face_orientation(verts, self.model.faces, return_scale=True)
+        scales = scales.squeeze(-1).clamp_min(1e-8)
+        self.reference_scale = scales[self.reference]
+        self.maximum_scale = scales.amax(0)
+        self.cap, self.log_cap = _limits(self.maximum_scale, self.extent, self.options)
+
+    def project(self):
+        """Enforce the all-pose metric cap on only the offending local axes."""
+        param = self.model._scaling
+        limit = self.log_cap[self.model.binding, None]
+        hit = param > limit
+        self.projections += torch.stack((hit.count_nonzero(), hit.any(1).count_nonzero(), hit.any().long()))
+        point_limits = getattr(self.model, 'point_limits', None)
+        if point_limits is not None and point_limits.next_lineage:
+            point_limits.apply(param, self.model.optimizer)
+        param.copy_(torch.minimum(param, limit))
+        state = self.model.optimizer.state.get(param)
+        if state is not None:
+            outward = state['exp_avg']
+            outward.masked_fill_(hit & (outward < 0), 0)
+
+    def checkpoint(self, step, stage):
+        model = self.model
+        local = model._scaling.amax(1).exp()
+        if not torch.isfinite(local).all() or not torch.isfinite(self.maximum_scale).all():
+            raise RuntimeError('Nonfinite bound Gaussian covariance or triangle scale.')
+        owner = model.binding
+        active = model.get_opacity[:, 0] >= self.options['active_opacity']
+        axis_hits, point_hits, calls = self.projections.tolist()
+        self.projections.zero_()
+        row = dict(step=step, stage=stage,
+                   reference=_summary(local*self.reference_scale[owner], active, self.cap[owner], self.options),
+                   all_poses_max=_summary(local*self.maximum_scale[owner], active, self.cap[owner], self.options),
+                   hard_projection=dict(axis_hits=axis_hits, point_hits=point_hits, calls_with_hits=calls))
+        if stage in ('initial', 'terminal'):
+            active_log_axes = model._scaling[active].topk(2, dim=1).values
+            ratio = (active_log_axes[:, 0]-active_log_axes[:, 1]).exp()
+            row['needle'] = dict(active_ratio_max=float(ratio.max()) if len(ratio) else None,
+                                 active_ratio_over_20=int((ratio > 20).count_nonzero()),
+                                 active_ratio_over_40=int((ratio > 40).count_nonzero()))
+        if stage == 'terminal':
+            row['render_support'] = self.limits.summary()
+        if stage != 'initial' and row['all_poses_max']['all']['over_limit']:
+            raise RuntimeError('World covariance limit did not hold in all registered poses.')
+        if stage not in ('initial', 'terminal'):
+            self.checkpoints.append(row)
+        return row
+
+    def _votes(self, local, owner, rotation, local_sigma, axis, constraints):
+        model, options = self.model, self.options
+        previous = model.timestep
+        foreground = torch.zeros(local.shape[:2], device=local.device, dtype=torch.int16)
+        background = torch.zeros_like(foreground)
+        small_axis = small_ellipse = visible_count = 0
+        try:
+            for group in sorted(set(constraints.bins)):
+                fg, bg = torch.zeros_like(foreground, dtype=torch.bool), torch.zeros_like(foreground, dtype=torch.bool)
+                for i, view in enumerate(constraints.views):
+                    if constraints.bins[i] != group:
+                        continue
+                    model.select_mesh_by_timestep(constraints.slots[i])
+                    orient = model.face_orien_mat[owner]
+                    scale = model.face_scaling[owner]
+                    world = (local @ orient.transpose(1, 2))*scale[:, None]+model.face_center[owner, None]
+                    K, w2c = constraints.matrices[i]
+                    xy, depth = _projection(world.flatten(0, 1), K, w2c)
+                    xy, depth = xy.reshape(-1, 3, 2), depth.reshape(-1, 3)
+                    visible, x, y = _screen_visibility(xy, depth, view, constraints.options)
+                    fg |= visible & view.inside[y, x]
+                    bg |= visible & view.outside[y, x]
+                    axes = orient @ (rotation*(local_sigma*scale)[:, None])
+                    directional, ellipse = _projected_widths(xy[:, 0], depth[:, 0], K, w2c, axes, axis)
+                    visible_count += visible[:, 0].count_nonzero()
+                    small_axis += (visible[:, 0] & (directional < options['small_projected_sigma_px'])).count_nonzero()
+                    small_ellipse += (visible[:, 0] & (ellipse < options['small_projected_sigma_px'])).count_nonzero()
+                foreground += fg
+                background += bg
+        finally:
+            model.select_mesh_by_timestep(previous)
+        return foreground, background, dict(visible_parent_view_pairs=int(visible_count),
+             small_projected_world_axis_pairs=int(small_axis), small_projected_ellipse_pairs=int(small_ellipse))
+
+    def _replace(self, parents, centers, log_sigma, opacity):
+        model = self.model
+        binding = model.binding[parents].repeat(2)
+        prune = torch.zeros(len(model.binding)+len(binding), device=binding.device, dtype=torch.bool)
+        prune[parents] = True
+        model.binding = torch.cat((model.binding, binding))
+        model.binding_counter.scatter_add_(0, binding, torch.ones_like(binding, dtype=torch.int32))
+        model.densification_postfix(centers.transpose(0, 1).reshape(-1, 3),
+            model._features_dc[parents].repeat(2, 1, 1), model._features_rest[parents].repeat(2, 1, 1),
+            opacity[:, None].repeat(2, 1).logit(), log_sigma.repeat(2, 1), model._rotation[parents].repeat(2, 1),
+            constraint_parents=parents.repeat(2))
+        model.prune_points(prune)
+        if len(model.binding) != len(prune)-len(parents) or int(model.binding_counter.min()) < 1:
+            raise RuntimeError('Principal-axis replacement lost a bound parent or child.')
+
+    def confirm_prune(self, mask, constraints, step):
+        ids = mask.nonzero(as_tuple=True)[0]
+        allowed = torch.zeros_like(mask)
+        if len(ids):
+            weights = source_weights(self.model, constraints, ids)
+            fg, _, conflict = classify(weights, constraints.bins, self.options['render_support'])
+            allowed[ids] = conflict & ~fg
+        self.support_prunes.append(dict(step=step, proposed=len(ids), approved=int(allowed.count_nonzero())))
+        return allowed
+
+    def guard_size_prune(self, screen, world, constraints, step, screen_limit):
+        """Verify only the additional removals and replacements triggered by size."""
+        model = self.model
+        candidates = screen | world
+        candidate_ids = candidates.nonzero(as_tuple=True)[0]
+        self.size_candidate_ids.update(model.densification_ids[candidate_ids].tolist())
+        count = len(candidate_ids)
+        event = dict(size_candidates=count, screen_candidates=int(screen.count_nonzero()),
+                     world_candidates=int(world.count_nonzero()), size_pruned=0, screen_pruned=0,
+                     protected=count, assessed=0, foreground_supported=0, background_conflicted=0,
+                     size_replaced=0, replacement_children=0, removal_trial=None, replacement_trial=None,
+                     optimized_size_replaced=0, optimized_replacement_children=0,
+                     fallback_size_replaced=0, fallback_replacement_children=0)
+        if not count or constraints is None:
+            event['assessment'] = 'no_candidates' if not count else 'retained_before_fixed_surface'
+            return event
+        options = self.options['render_support']
+        ids = candidate_ids
+        # Bound the number of candidate rows evaluated by the same shortlist
+        # limit used for world-size repair. Unassessed rows stay in the scene.
+        priority = torch.maximum(model.max_radii2D[ids]/screen_limit,
+                                 model.get_scaling[ids].amax(1)/(.1*self.extent))
+        ids = ids[priority.argsort(descending=True, stable=True)[:self.options['max_parents']]]
+        weights = source_weights(model, constraints, ids)
+        foreground, _, conflict = classify(weights, constraints.bins, options)
+        event.update(assessment='native_contribution', assessed=len(ids),
+                     foreground_supported=int(foreground.count_nonzero()),
+                     background_conflicted=int(conflict.count_nonzero()))
+        remove = torch.zeros_like(candidates)
+        remove[ids] = conflict & ~foreground
+        model.binding_safe_prune_mask(remove)
+        eligible_removals = remove[ids]
+        if bool(eligible_removals.any()):
+            parents = ids[eligible_removals]
+            with replacement_evaluator(model, constraints, parents, None, None, None,
+                                       weights[:, eligible_removals], options) as evaluate:
+                trial = evaluate(list(range(len(parents))))
+            event['removal_trial'] = trial
+            if trial['accepted']:
+                model.prune_points(remove)
+                event['size_pruned'] = int(remove.count_nonzero())
+                event['screen_pruned'] = int((remove & screen).count_nonzero())
+            else:
+                remove.zero_()
+
+        # Limit size-driven splitting to the existing repair checkpoints.
+        # The selected original rows are remapped through actual removals.
+        if step in self.options['split_steps'] and bool(foreground.any()):
+            eligible = (foreground & screen[ids]).nonzero(as_tuple=True)[0]
+            remap = (~remove).long().cumsum(0)-1
+            self._replace_supported_size(remap[ids[eligible]], weights[:, eligible], constraints, event, screen_limit, step)
+        event['protected'] = count-event['size_pruned']-event['size_replaced']
+        return event
+
+    def _replace_supported_size(self, parents, weights, constraints, event, screen_limit, step):
+        from .size_child_optimization import measure_size_parent_priority
+
+        if not len(parents):
+            return
+        model = self.model
+        options = self.options['render_support']
+        stable_ids = model.densification_ids[parents].tolist()
+        priority = measure_size_parent_priority(model, constraints, parents, weights, screen_limit)
+        ranked = priority.scores.argsort(descending=True, stable=True).tolist()
+        oversized = (priority.peak_radii > screen_limit).tolist()
+        selected = [i for i in ranked if oversized[i] and stable_ids[i] not in self.optimized_candidate_ids]
+        attempts = event['local_optimizations'] = []
+        committed = []
+        for i in selected[:min(8, options['replacement_budget'])]:
+            stable_id = stable_ids[i]
+            self.optimized_candidate_ids.add(stable_id)
+            # Point IDs remain sorted through the stock append/prune operations.
+            parent = torch.searchsorted(model.densification_ids, parents.new_tensor([stable_id]))
+            if model.densification_ids[parent].item() != stable_id:
+                raise RuntimeError('The shortlisted size parent is missing from the live scene.')
+            current_weights = source_weights(model, constraints, parent) if committed else weights[:, i:i+1]
+            audit = self._optimize_size_parent(parent, current_weights, constraints, screen_limit, step,
+                                              stable_id, committed, priority, i)
+            attempts.append(audit)
+            if audit['committed_parent_ids']:
+                committed.append(stable_id)
+                event['optimized_replacement_children'] += audit['commit']['children']
+        event['optimized_size_replaced'] = len(committed)
+
+        # Keep the R15 shortlist in its original order. The legacy path can
+        # handle candidates that survived the isolated optimizations.
+        limit = min(len(parents), options['replacement_budget'])
+        remaining = [i for i in range(limit) if stable_ids[i] not in committed]
+        if remaining:
+            ids = parents.new_tensor([stable_ids[i] for i in remaining])
+            fallback_parents = torch.searchsorted(model.densification_ids, ids)
+            if not torch.equal(model.densification_ids[fallback_parents], ids):
+                raise RuntimeError('The R15 fallback shortlist changed identity.')
+            fallback_weights = source_weights(model, constraints, fallback_parents) if committed else weights[:, remaining]
+            fallback = self._replace_r15_size(fallback_parents, fallback_weights, constraints, screen_limit)
+            event['fallback_replacement'] = fallback
+            event['replacement_trial'] = fallback['trial']
+            event['fallback_size_replaced'] = len(fallback['committed_parent_ids'])
+            event['fallback_replacement_children'] = len(fallback['child_ids'])
+        event['size_replaced'] = event['optimized_size_replaced']+event['fallback_size_replaced']
+        event['replacement_children'] = event['optimized_replacement_children']+event['fallback_replacement_children']
+
+    def _optimize_size_parent(self, parents, weights, constraints, screen_limit, step, stable_id,
+                              committed, priority, index):
+        from utils.general_utils import build_rotation
+        from .size_child_commit import commit_size_children
+        from .size_child_optimization import optimize_size_children, save_size_decisions
+
+        model = self.model
+        options = self.options['render_support']
+        parent_sigma = model._scaling[parents].exp()
+        rotations = build_rotation(model._rotation[parents])
+        axes = parent_sigma.topk(2, dim=1).indices
+        shifts = parent_sigma.gather(1, axes)*.49
+        directions = rotations.gather(2, axes[:, None, :].expand(-1, 3, -1))
+        signs = parent_sigma.new_tensor([[-1., -1.], [-1., 1.], [1., -1.], [1., 1.]])
+        offsets = (signs[None]*shifts[:, None]) @ directions.transpose(1, 2)
+        centers = model._xyz[parents, None]+offsets
+        count = centers.shape[1]
+        initial_ratio, maximum_ratio = .68, .78
+        log_sigma = (parent_sigma*initial_ratio).log()[:, None].expand(-1, count, -1).clone()
+        world_cap = self.log_cap[model.binding, None].expand(-1, 3)
+        upper = torch.minimum(torch.minimum(self.limits.cap[parents], world_cap[parents]),
+                              (parent_sigma*maximum_ratio).log())
+        log_sigma = torch.minimum(log_sigma, upper[:, None])
+        midpoint = 1-(1-model.get_opacity[parents]).pow(1/count)
+        opacity = (midpoint*parent_sigma.new_tensor((.49/initial_ratio)**2).exp()).clamp(.001, .99)
+        logits = opacity.logit()[:, None].expand(-1, count, -1).clone()
+        dc = model._features_dc[parents, None].expand(-1, count, -1, -1).clone()
+        diagnostic_subdir = f'step-{step:06d}/parent-{stable_id:07d}'
+        diagnostic_dir = None if self.diagnostic_dir is None else self.diagnostic_dir/diagnostic_subdir
+        scene_rows = len(model.binding)
+        result = optimize_size_children(model, constraints, parents, centers, log_sigma, logits, dc, upper,
+                                        weights, max_cycles=8, guard_options=options, diagnostic_dir=diagnostic_dir)
+        audit = dict(result.audit, stable_parent_ids=[stable_id], children_per_parent=count,
+                     scene_rows_before=scene_rows, prior_optimized_commits=committed.copy(),
+                     scene_scope='singleton_replacement_in_current_live_scene',
+                     priority=dict(peak_radii_px=float(priority.peak_radii[index]),
+                                   source_residual=float(priority.residuals[index]),
+                                   score=float(priority.scores[index]),
+                                   foreground_equivalent_pixels=float(weights[..., 0].sum())),
+                     initialization=dict(sigma_ratio=initial_ratio, upper_ratio=maximum_ratio, offset_sigma=.49),
+                     diagnostic_subdir=diagnostic_subdir if diagnostic_dir is not None else None,
+                     committed_parent_ids=[], rejected_parent_ids=[stable_id], decision_representatives=[],
+                     verification_seconds=0., replacement_trial=None)
+        if audit['status'] in ('fitted', 'no_feasible_checkpoint') and audit['optimizer_updates'] > 0:
+            started = monotonic()
+            with replacement_evaluator(model, constraints, parents, result.centers, result.log_sigma,
+                                       result.opacity_logits.sigmoid(), weights, options,
+                                       screen_limit_px=screen_limit, child_dc=result.dc) as evaluate:
+                trial = evaluate([0])
+            audit['verification_seconds'] = monotonic()-started
+            audit['replacement_trial'] = trial
+            if trial['accepted']:
+                audit['commit'] = commit_size_children(model, self.limits, parents, result, parents.new_zeros(1), world_cap)
+                audit['committed_parent_ids'] = [stable_id]
+                audit['rejected_parent_ids'] = []
+            audit['decision_reason'] = 'optimized' if trial['accepted'] else 'native_guard_rejected'
+        else:
+            audit['decision_reason'] = 'local_optimization_did_not_finish'
+        audit['decision_representatives'] = save_size_decisions(
+            model, constraints, audit.get('representatives', []), diagnostic_dir)
+        return audit
+
+    def _replace_r15_size(self, parents, weights, constraints, screen_limit):
+        from utils.general_utils import build_rotation
+
+        model = self.model
+        shortlist_ids = model.densification_ids[parents].tolist()
+        owner = model.binding[parents]
+        parent_scale = model._scaling[parents].exp()
+        width, axis = parent_scale.max(1)
+        rotations = build_rotation(model._rotation[parents])
+        direction = rotations.gather(2, axis[:, None, None].expand(-1, 3, 1)).squeeze(2)
+        sigma, shift, opacity = _children(width, model.get_opacity[parents, 0], self.options)
+        center = model._xyz[parents]
+        delta = direction*shift[:, None]
+        probes = torch.stack((center, center-delta, center+delta), dim=1)
+        fg, bg, _ = self._votes(probes, owner, rotations, parent_scale, axis, constraints)
+        supported = (fg[:, 1:] >= constraints.options['required_source_bins']).all(1) & (bg[:, 1:] == 0).all(1)
+        log_sigma = model._scaling[parents].clone()
+        log_sigma.scatter_(1, axis[:, None], sigma[:, None].log())
+        log_sigma = torch.minimum(log_sigma, torch.minimum(self.limits.cap[parents], self.log_cap[owner, None]))
+        parents, children, opacity, log_sigma, weights = (
+            parents[supported], probes[supported, 1:], opacity[supported], log_sigma[supported], weights[:, supported])
+        eligible_ids = model.densification_ids[parents].tolist()
+        chosen, trial = self._verified_subset(constraints, parents, children, log_sigma, opacity, weights,
+                                              screen_limit_px=screen_limit)
+        committed_ids, child_ids = [], []
+        if len(chosen):
+            selected = parents[chosen]
+            committed_ids = model.densification_ids[selected].tolist()
+            self.limits.set(selected, log_sigma[chosen])
+            self._replace(selected, children[chosen], log_sigma[chosen], opacity[chosen])
+            child_ids = model.densification_ids[-2*len(chosen):].tolist()
+        return dict(path='r15_fallback', shortlist_parent_ids=shortlist_ids, eligible_parent_ids=eligible_ids,
+                    committed_parent_ids=committed_ids, child_ids=child_ids, trial=trial)
+
+    def remeasure(self, constraints, step, phase):
+        ids = (self.limits.lineage >= 0).nonzero(as_tuple=True)[0]
+        tracks = {}
+        if len(ids):
+            model = self.model
+            weights = source_weights(model, constraints, ids).sum(0).tolist()
+            sigma = (model._scaling[ids].amax(1).exp()*self.maximum_scale[model.binding[ids]]).tolist()
+            overshoot = self.limits.overshoot[ids].exp().tolist()
+            for lineage, mass, width, growth in zip(self.limits.lineage[ids].tolist(), weights, sigma, overshoot, strict=True):
+                record = tracks.setdefault(lineage, dict(points=0, foreground=0., background=0., total=0.,
+                                                         max_sigma_m=0., max_preprojection_growth_ratio=1.))
+                record['points'] += 1
+                for key, value in zip(('foreground', 'background', 'total'), mass, strict=True):
+                    record[key] += value
+                record['max_sigma_m'] = max(record['max_sigma_m'], width)
+                record['max_preprojection_growth_ratio'] = max(record['max_preprojection_growth_ratio'], growth)
+        self.support_history.append(dict(step=step, phase=phase, tracks=tracks))
+
+    def _verified_subset(self, constraints, parents, centers, scales, opacity, weights, *, screen_limit_px=None):
+        options = self.options['render_support']
+        if not len(parents):
+            return parents, None
+        with replacement_evaluator(self.model, constraints, parents, centers, scales, opacity, weights, options,
+                                   screen_limit_px=screen_limit_px) as evaluate:
+            chosen, trial = select_replacements(evaluate, parents.tolist(), max_trials=options['coverage_max_trials'])
+        trial['initial_proposed'] = trial['proposed']
+        if chosen:
+            trial['proposed'] = len(chosen)
+        return parents.new_tensor(chosen), trial
+
+    def _repair_displaced(self, constraints):
+        """Measure raster support before adjusting broad off-surface rows."""
+        from utils.general_utils import build_rotation
+
+        model, options = self.model, self.options
+        cfg = options['needle']
+        owner = model.binding
+        scale = self.reference_scale[owner]
+        high = model._scaling.amax(1).exp()*scale
+        min_width = (cfg['width_over_face']*scale).clamp_min(cfg['width_over_extent']*self.extent)
+        opacity = model.get_opacity[:, 0]
+        ids = ((high >= min_width) & (opacity >= options['active_opacity'])).nonzero(as_tuple=True)[0]
+        ref_view = constraints.views[constraints.slots.index(self.reference)]
+        gap, displaced = _off_surface(model._xyz[ids], ref_view.triangle[owner[ids]], scale[ids], self.extent, cfg)
+        priority = high[ids]*gap*opacity[ids]
+        ids, priority = ids[displaced], priority[displaced]
+        count = len(ids)
+        if count > cfg['max_parents']:
+            ids = ids[priority.argsort(descending=True, stable=True)[:cfg['max_parents']]]
+        event = dict(displaced_candidates=count, assessed=len(ids), conflicted=0, unobserved=0,
+                     support_replaced=0, children=0, width_trimmed=0, preserved=len(ids))
+        audit = dict(foreground_supported=0, center_conflicted=0, center_unobserved_with_foreground=0, ambiguous=0,
+                     interventions=[], foreground_equivalent_pixels=0., background_equivalent_pixels=0.,
+                     total_equivalent_pixels=0., coverage_trial=None)
+        if not len(ids):
+            return event, audit
+
+        log_sigma = model._scaling[ids]
+        wide_logs, wide_axes = log_sigma.topk(2, dim=1)
+        axis = wide_axes[:, 0]
+        rotation = build_rotation(model._rotation[ids])
+        direction = rotation.gather(2, axis[:, None, None].expand(-1, 3, 1)).squeeze(2)
+        child_sigma, shift, child_opacity = _children(wide_logs[:, 0].exp(), opacity[ids], options)
+        original = model._xyz[ids]
+        travel = original.norm(dim=1)*scale[ids]
+        move = (cfg['max_move_over_extent']*self.extent/travel.clamp_min(1e-8)).clamp_max(cfg['center_move_fraction'])
+        anchor = original*(1-move[:, None])
+        displacement = direction*shift[:, None]
+        proposals = torch.stack((original, anchor-displacement, anchor+displacement), 1)
+        fg, bg, _ = self._votes(proposals, owner[ids], rotation, log_sigma.exp(), axis, constraints)
+        support = options['render_support']
+        weights = source_weights(model, constraints, ids)
+        has_fg, unobserved, conflicted = classify(weights, constraints.bins, support)
+        geometry = (fg[:, 1:] >= constraints.options['required_source_bins']).all(1) & (bg[:, 1:] == 0).all(1)
+        shortlist = (has_fg & conflicted & geometry).nonzero(as_tuple=True)[0][:support['replacement_budget']]
+        children = log_sigma[shortlist].clone()
+        children.scatter_(1, axis[shortlist, None], child_sigma[shortlist, None].log())
+        children = torch.minimum(children, self.limits.cap[ids[shortlist]])
+        chosen, trial = self._verified_subset(constraints, ids[shortlist], proposals[shortlist, 1:],
+                                              children, child_opacity[shortlist], weights[:, shortlist])
+        replace, children = shortlist[chosen], children[chosen]
+        trim = (~has_fg) & (conflicted | unobserved)
+
+        # Retain the center, opacity and smallest width; cap all axes against regrowth.
+        trim_ids, trim_axes = ids[trim], wide_axes[trim]
+        limit = log_sigma[trim].clone()
+        trimmed = wide_logs[trim]+wide_logs.new_tensor(cfg['width_trim_ratio']).log()
+        widest_trimmed = trimmed.amax(1, keepdim=True)
+        limit = torch.maximum(limit, widest_trimmed)
+        limit.scatter_(1, trim_axes, trimmed)
+        parents = ids[replace]
+        lineage = torch.cat((self.limits.set(trim_ids, limit), self.limits.set(parents, children)))
+        rows = torch.cat((trim.nonzero(as_tuple=True)[0], replace))
+        original_sigma = log_sigma[rows].amax(1).exp()*self.maximum_scale[owner[ids[rows]]]
+        mass = weights[:, rows].sum(0)
+        audit['interventions'] = [
+            dict(lineage=key, action='trim' if i < len(trim_ids) else 'replace',
+                 foreground=values[0], background=values[1], total=values[2], max_sigma_m=width)
+            for i, (key, values, width) in enumerate(zip(lineage.tolist(), mass.tolist(), original_sigma.tolist(), strict=True))]
+        if len(parents):
+            self._replace(parents, proposals[replace, 1:], children, child_opacity[replace])
+        self.limits.apply(model._scaling, model.optimizer, measure=False)
+        event.update(conflicted=int(conflicted.count_nonzero()), unobserved=int(unobserved.count_nonzero()),
+                     support_replaced=len(parents), children=2*len(parents), width_trimmed=len(trim_ids),
+                     preserved=len(ids)-len(parents)-len(trim_ids))
+        totals = weights.sum((0, 1)).tolist()
+        center_conflict, center_unobserved = _source_conflict(fg[:, 0], bg[:, 0], constraints.options['prune_bg_bins'])
+        audit.update(foreground_supported=int(has_fg.count_nonzero()),
+                     center_conflicted=int(center_conflict.count_nonzero()),
+                     center_unobserved_with_foreground=int((has_fg & center_unobserved).count_nonzero()),
+                     ambiguous=int((~has_fg & ~conflicted & ~unobserved).count_nonzero()),
+                     foreground_equivalent_pixels=totals[0], background_equivalent_pixels=totals[1],
+                     total_equivalent_pixels=totals[2], coverage_trial=trial)
+        return event, audit
+
+    def repair(self, step, constraints):
+        """Split only near-cap long axes whose two centers have multi-view foreground support."""
+        from utils.general_utils import build_rotation
+
+        model, options = self.model, self.options
+        support = options['render_support']
+        self.remeasure(constraints, step, 'before_repair')
+        high, axes = model._scaling.max(1)
+        relative = high-self.log_cap[model.binding]
+        eligible = (relative >= high.new_tensor(options['near_limit_ratio']).log()) & (
+            (high-model._scaling.amin(1)).exp() >= options['axis_ratio_min']) & (
+            model.get_opacity[:, 0] >= options['active_opacity'])
+        ids = eligible.nonzero(as_tuple=True)[0]
+        if len(ids) > options['max_parents']:
+            ranked = relative[ids].argsort(descending=True, stable=True)
+            ids = ids[ranked[:options['max_parents']]]
+        event = dict(step=step, near_limit_candidates=int(eligible.count_nonzero()), assessed=len(ids),
+                     split_parents=0, children=0, exterior_trimmed=0, retained_without_child_support=0,
+                     visible_parent_view_pairs=0, small_projected_world_axis_pairs=0, small_projected_ellipse_pairs=0)
+        near_trial, near_interventions = None, []
+        if len(ids):
+            axis = axes[ids]
+            local_sigma = model._scaling[ids].exp()
+            rotations = build_rotation(model._rotation[ids])
+            direction = rotations.gather(2, axis[:, None, None].expand(-1, 3, 1)).squeeze(2)
+            child_sigma, shift, opacity = _children(high[ids].exp(), model.get_opacity[ids, 0], options)
+            center = model._xyz[ids]
+            displacement = direction*shift[:, None]
+            probes = torch.stack((center, center-displacement, center+displacement), 1)
+            fg, bg, observation = self._votes(probes, model.binding[ids], rotations, local_sigma, axis, constraints)
+            supported = (fg[:, 1:] >= constraints.options['required_source_bins']).all(1) & (bg[:, 1:] == 0).all(1)
+            shortlist = supported.nonzero(as_tuple=True)[0][:support['replacement_budget']]
+            if len(shortlist):
+                weights = source_weights(model, constraints, ids[shortlist])
+                has_fg, _, _ = classify(weights, constraints.bins, support)
+                shortlist, weights = shortlist[has_fg], weights[:, has_fg]
+                parents = ids[shortlist]
+                log_sigma = model._scaling[parents].clone()
+                log_sigma.scatter_(1, axis[shortlist, None], child_sigma[shortlist, None].log())
+                log_sigma = torch.minimum(log_sigma, self.limits.cap[parents])
+                chosen, near_trial = self._verified_subset(constraints, parents, probes[shortlist, 1:],
+                                                           log_sigma, opacity[shortlist], weights)
+                parents, children = parents[chosen], log_sigma[chosen]
+                if len(parents):
+                    lineage = self.limits.set(parents, children)
+                    mass = weights[:, chosen].sum(0).tolist()
+                    sigma = (model._scaling[parents].amax(1).exp()*self.maximum_scale[model.binding[parents]]).tolist()
+                    near_interventions = [
+                        dict(lineage=key, action='near_limit_replace', foreground=values[0], background=values[1],
+                             total=values[2], max_sigma_m=width)
+                        for key, values, width in zip(lineage.tolist(), mass, sigma, strict=True)]
+                    self._replace(parents, probes[shortlist[chosen], 1:], children, opacity[shortlist[chosen]])
+                    event.update(split_parents=len(parents), children=2*len(parents))
+            event.update(observation, retained_without_child_support=len(ids)-event['split_parents'])
+        event['needle'], event['render_support'] = self._repair_displaced(constraints)
+        event['render_support']['near_limit_trial'] = near_trial
+        event['render_support']['near_limit_interventions'] = near_interventions
+        self.project()
+        self.remeasure(constraints, step, 'after_repair')
+        self.splits.append(event)
+
+    def report(self, initial, terminal=None):
+        return dict(state='completed' if terminal else 'running', config=self.options,
+                    units='model-world meters, principal-axis one-sigma; not radius or diameter',
+                    reference_pose_index=self.reference, pose_count=self.model.num_timesteps, extent_m=self.extent,
+                    limits_m=dict(min=float(self.cap.min()), max=float(self.cap.max())),
+                    initial=initial, checkpoints=self.checkpoints, splits=self.splits, terminal=terminal,
+                    support_history=self.support_history, support_prunes=self.support_prunes)
+

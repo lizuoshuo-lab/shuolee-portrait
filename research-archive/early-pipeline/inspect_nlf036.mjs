@@ -1,0 +1,13 @@
+import fs from 'node:fs/promises';
+import crypto from 'node:crypto';
+import {FileBlob,PresentationFile} from '@oai/artifact-tool';
+const build='C:/Users/Administrator/Documents/New project/shuolee-slide-update';
+const source='C:/Users/Administrator/Desktop/GS-SLAM-Lab/outputs/mini-splatting2-mip-depth-001/shuolee/reports/02_有限视角重建优化路线.pptx';
+const digest=b=>crypto.createHash('sha256').update(b).digest('hex');
+if(digest(await fs.readFile(source))!=='edb8540910df900a24ab74f5713a0771ed84de2f863611837929aebdbb579edb')throw Error('Canonical changed');
+const p=await PresentationFile.importPptx(await FileBlob.load(source));
+const r=await p.inspect({select:'$.slides[54]',include:['id','index','layout','elements.id','elements.kind','elements.text','elements.alt','elements.position','elements.style','notes.text']});
+await fs.writeFile(build+'/nlf036-source-inspection.json',JSON.stringify(r.records,null,2));
+const bytes=new Uint8Array(await(await p.export({slide:p.slides.items[54],format:'png',scale:1})).arrayBuffer());
+await fs.writeFile(build+'/nlf036-source55.png',bytes);
+console.log(JSON.stringify({source_sha256:digest(await fs.readFile(source)),source_render_sha256:digest(bytes),records:r.records.map(x=>({...x,notes:{characters:x.notes.text.length}}))}));

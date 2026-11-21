@@ -1,0 +1,16 @@
+from pathlib import Path
+H=Path(__file__).parent
+s=(H/'update_deck_direct_smplx123_v2.mjs').read_text(encoding='utf-8')
+s=s.replace("tag='direct-smplx123-v2'","tag='field-semantic123'")
+s=s.replace('local-clothed-surface-123/direct-smplx-bindings','local-clothed-surface-123/field-preflight/semantic-face-binding')
+s=s.replace("b+'/camera-entry123-deck-receipt.json'","b+'/direct-smplx123-v2-deck-receipt.json'")
+s=s.replace("root+'/visual-review.json'","root+'/slide-review.json'")
+s=s.replace("replace('错误对应已在相机入口被拒绝'","replace('二维特征点直接约束SMPL-X网格'")
+s=s.replace("replace('原始像素和FIT'","replace('同名解剖点绑定固定三角面'")
+s=s.replace("replace('26项工程检查通过'","replace('已知合成控制'")
+s=s.replace("replace('第335'","replace('同一未参与拟合的相机'")
+s=s.replace('left:240,top:180,width:800,height:800*230/480','left:352,top:180,width:576,height:384')
+s=s.replace('02_有限视角重建优化路线_123二维三维拟合_原生比例修正.pptx','02_有限视角重建优化路线_123实拍二维三维对应.pptx')
+s=s.replace('preserve_deck_direct_smplx123_v2.py','preserve_deck_field_semantic123.py')
+p=H/'update_deck_field_semantic123.mjs';assert not p.exists();p.write_text(s,encoding='utf-8')
+print(p)

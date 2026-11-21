@@ -1,0 +1,10 @@
+import fs from 'node:fs/promises';
+import {FileBlob,PresentationFile} from '@oai/artifact-tool';
+const b='C:/Users/Administrator/Documents/New project/shuolee-slide-update';
+const source='C:/Users/Administrator/Desktop/GS-SLAM-Lab/outputs/mini-splatting2-mip-depth-001/shuolee/reports/02_有限视角重建优化路线.pptx';
+const p=await PresentationFile.importPptx(await FileBlob.load(source));
+const r=await p.inspect({select:'$.slides[54]',include:['id','index','layout','elements.id','elements.kind','elements.text','elements.alt','elements.position','elements.style','notes.text']});
+await fs.writeFile(b+'/multihmr030-source-inspection.json',JSON.stringify(r.records,null,2));
+const png=await p.export({slide:p.slides.items[54],format:'png',scale:1});
+await fs.writeFile(b+'/multihmr030-source.png',new Uint8Array(await png.arrayBuffer()));
+console.log(JSON.stringify(r.records.map(x=>({...x,notes:{characters:x.notes.text.length}})),null,2));

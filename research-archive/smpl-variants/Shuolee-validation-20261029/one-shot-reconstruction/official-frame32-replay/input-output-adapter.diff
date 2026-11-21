@@ -1,0 +1,127 @@
+--- pinned/fit_single_frame
++++ adapter/fit_single_frame
+@@ -137,7 +137,7 @@
+                                      requires_grad=True)
+ 
+         vposer_ckpt = osp.expandvars(vposer_ckpt)
+-        vposer, _ = load_vposer(vposer_ckpt, vp_model='snapshot')
++        vposer = kwargs['_vposer_instance']
+         vposer = vposer.to(device=device)
+         vposer.eval()
+ 
+@@ -219,11 +219,11 @@
+     init_joints_idxs = torch.tensor(init_joints_idxs, device=device)
+ 
+     edge_indices = kwargs.get('body_tri_idxs')
+-    init_t = fitting.guess_init(body_model, gt_joints, edge_indices,
++    init_t = fitting.guess_init(body_model, _normalized_joints(gt_joints, camera.K), edge_indices,
+                                 use_vposer=use_vposer, vposer=vposer,
+                                 pose_embedding=pose_embedding,
+                                 model_type=kwargs.get('model_type', 'smpl'),
+-                                focal_length=focal_length, dtype=dtype)
++                                focal_length=1.0, dtype=dtype)
+ 
+     camera_loss = fitting.create_loss('camera_init',
+                                       trans_estimation=init_t,
+@@ -267,7 +267,7 @@
+ 
+         # Reset the parameters to estimate the initial translation of the
+         # body model
+-        body_model.reset_params(body_pose=body_mean_pose)
++        _reset_body(body_model, kwargs['_shared_betas'], body_pose=body_mean_pose)
+ 
+         # If the distance between the 2D shoulders is smaller than a
+         # predefined threshold then try 2 fits, the initial one and a 180
+@@ -280,7 +280,7 @@
+         # the image center.
+         with torch.no_grad():
+             camera.translation[:] = init_t.view_as(camera.translation)
+-            camera.center[:] = torch.tensor([W, H], dtype=dtype) * 0.5
++            _require_fixed_K(camera, kwargs['_fixed_K'])
+ 
+         # Re-enable gradient calculation for the camera translation
+         camera.translation.requires_grad = True
+@@ -345,7 +345,7 @@
+ 
+             new_params = defaultdict(global_orient=orient,
+                                      body_pose=body_mean_pose)
+-            body_model.reset_params(**new_params)
++            _reset_body(body_model, kwargs['_shared_betas'], **new_params)
+             if use_vposer:
+                 with torch.no_grad():
+                     pose_embedding.fill_(0)
+@@ -434,74 +434,4 @@
+                 min_idx = 0
+             pickle.dump(results[min_idx]['result'], result_file, protocol=2)
+ 
+-    if save_meshes or visualize:
+-        body_pose = vposer.decode(
+-            pose_embedding,
+-            output_type='aa').view(1, -1) if use_vposer else None
+-
+-        model_type = kwargs.get('model_type', 'smpl')
+-        append_wrists = model_type == 'smpl' and use_vposer
+-        if append_wrists:
+-                wrist_pose = torch.zeros([body_pose.shape[0], 6],
+-                                         dtype=body_pose.dtype,
+-                                         device=body_pose.device)
+-                body_pose = torch.cat([body_pose, wrist_pose], dim=1)
+-
+-        model_output = body_model(return_verts=True, body_pose=body_pose)
+-        vertices = model_output.vertices.detach().cpu().numpy().squeeze()
+-
+-        import trimesh
+-
+-        out_mesh = trimesh.Trimesh(vertices, body_model.faces, process=False)
+-        rot = trimesh.transformations.rotation_matrix(
+-            np.radians(180), [1, 0, 0])
+-        out_mesh.apply_transform(rot)
+-        out_mesh.export(mesh_fn)
+-
+-    if visualize:
+-        import pyrender
+-
+-        material = pyrender.MetallicRoughnessMaterial(
+-            metallicFactor=0.0,
+-            alphaMode='OPAQUE',
+-            baseColorFactor=(1.0, 1.0, 0.9, 1.0))
+-        mesh = pyrender.Mesh.from_trimesh(
+-            out_mesh,
+-            material=material)
+-
+-        scene = pyrender.Scene(bg_color=[0.0, 0.0, 0.0, 0.0],
+-                               ambient_light=(0.3, 0.3, 0.3))
+-        scene.add(mesh, 'mesh')
+-
+-        camera_center = camera.center.detach().cpu().numpy().squeeze()
+-        camera_transl = camera.translation.detach().cpu().numpy().squeeze()
+-        # Equivalent to 180 degrees around the y-axis. Transforms the fit to
+-        # OpenGL compatible coordinate system.
+-        camera_transl[0] *= -1.0
+-
+-        camera_pose = np.eye(4)
+-        camera_pose[:3, 3] = camera_transl
+-
+-        camera = pyrender.camera.IntrinsicsCamera(
+-            fx=focal_length, fy=focal_length,
+-            cx=camera_center[0], cy=camera_center[1])
+-        scene.add(camera, pose=camera_pose)
+-
+-        # Get the lights from the viewer
+-        light_nodes = monitor.mv.viewer._create_raymond_lights()
+-        for node in light_nodes:
+-            scene.add_node(node)
+-
+-        r = pyrender.OffscreenRenderer(viewport_width=W,
+-                                       viewport_height=H,
+-                                       point_size=1.0)
+-        color, _ = r.render(scene, flags=pyrender.RenderFlags.RGBA)
+-        color = color.astype(np.float32) / 255.0
+-
+-        valid_mask = (color[:, :, -1] > 0)[:, :, np.newaxis]
+-        input_img = img.detach().cpu().numpy()
+-        output_img = (color[:, :, :-1] * valid_mask +
+-                      (1 - valid_mask) * input_img)
+-
+-        img = pil_img.fromarray((output_img * 255).astype(np.uint8))
+-        img.save(out_img_fn)+    return {'winner': results[min_idx], 'orientation_count': len(results)}

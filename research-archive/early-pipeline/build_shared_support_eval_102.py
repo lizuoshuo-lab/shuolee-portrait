@@ -1,0 +1,21 @@
+from pathlib import Path
+import ast
+L=Path('C:/Users/Administrator/Desktop/GS-SLAM-Lab');P=L/'repos/PGSR-shuolee';W=Path(__file__).parent
+t=(P/'evaluate_shared_face_098.py').read_text()
+t=t.replace('import shared_face_world as shared','import shared_face_support as shared')
+t=t.replace("R=s.B/'current/person-static-shared-face-fresh-098'","R=s.B/'current/person-static-shared-support-fresh-102'")
+t=t.replace("C=s.B/'current/static-ncc-paired-fresh-093/control'","C=s.B/'current/person-static-shared-face-fresh-098'")
+t=t.replace('bank=shared.SharedFaceWorld(', 'bank=shared.SharedFaceSupport(')
+t=t.replace('moment_origin=origin)', 'moment_origin=origin,support_sigma=bank.support_sigma)')
+t=t.replace('plane_rms_world','support_mahalanobis_rms')
+t=t.replace("single_intervention='shared global facial point loss'", "single_intervention='098rankoneplane loss replaced by102fullrankfiniteGaussian support loss; same uniqueXk and all original losses'")
+t=t.replace("reference='093control18000; identical recalculated initial positions and optimizer settings'", "reference='098sharedplane18000; identical freshly recalculated initial positions, targetbank and optimizer settings'")
+t=t.replace("target_metrics_are_training_constraints=True,", "target_metrics_are_training_constraints=True,\n        depth_proxy_limitation='Blendedplane ray hits remain a proxy, sensitive to grazing geometry. They are not true finiteGaussian positions; separate native center/metric diagnostics and actual images are required.',")
+t=t.replace("'093 control | 18,000 steps','098 shared XYZ | 18,000 steps'", "'098 shared plane | 18,000 steps','102 finite 3D support | 18,000 steps'")
+dest=P/'evaluate_shared_support_102.py';assert not dest.exists();ast.parse(t);dest.write_text(t,encoding='utf-8',newline='\n')
+sh=(W/'finish_shared_face_098.sh').read_text()
+sh=sh.replace('person-static-shared-face-fresh-098','person-static-shared-support-fresh-102').replace('static-ncc-paired-fresh-093/control','person-static-shared-face-fresh-098')
+sh=sh.replace('evaluate_shared_face_098.py','evaluate_shared_support_102.py').replace('093 control18k','098 sharedplane18k').replace('098 shared XYZ18k','102 finite support18k')
+sh=sh.replace('093control','098sharedplane').replace('098sharedXYZ','102finiteSupport')
+(W/'finish_shared_support_102.sh').write_text(sh,encoding='utf-8',newline='\n')
+print('Created controlled evaluator and standard export workflow; not run before18k.')

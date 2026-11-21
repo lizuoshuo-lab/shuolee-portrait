@@ -1,0 +1,29 @@
+--- unchanged-core-horizontal-interface
++++ three-exact-vertical-interface-edits
+@@ -7,7 +7,7 @@
+         '-show_frames','-show_streams','-show_entries','frame=best_effort_timestamp_time:stream','-of','json',str(video)]))
+     stream = probe['streams'][0]
+     wh = (int(stream['width']), int(stream['height']))
+-    assert wh == (2704,1520)
++    assert wh == (1520,2704)
+     assert not stream.get('tags',{}).get('rotate')
+     assert all(float(x.get('rotation',0)) == 0 for x in stream.get('side_data_list',[]))
+     assert stream.get('color_transfer') not in ('smpte2084','arib-std-b67')
+@@ -17,7 +17,7 @@
+     K0 = f.getNode('camera_matrix').mat()
+     assert (int(f.getNode('image_width').real()), int(f.getNode('image_height').real())) == (4000,3000)
+     f.release()
+-    A = integer_resize_matrix((4000,3000),(2704,2028)); A[1,2] -= 254
++    A = vertical_affine()
+     Ki = A @ K0
+     K = Ki.copy(); K[:2,2] += .5
+     report.mkdir(parents=True)
+@@ -32,7 +32,7 @@
+         reused_sampler=str(Path(__file__).with_name('preprocess_demo_fps3_123.py')),
+         sampler_sha256=sha(Path(__file__).with_name('preprocess_demo_fps3_123.py')),
+         source_script_sha256=sha(__file__),calibration_sha256=sha(CALIB),
+-        calibration='Same first YAML camera_matrix, conditional4000x3000 ->2704x2028 half-pixel resize -> centered y crop254. No K fitting or second undistortion.',
++        calibration='Same first YAML camera_matrix, conditional4000x3000 -> height2704 half-pixel isotropic resize -> ideal centered1520 horizontal crop. Fractional intermediate width/crop are assumptions, not measured export integers. No K fitting or second undistortion.',
+         full_K_integer_centers=Ki.tolist(),full_K_corner=K.tolist(),source_to_native_integer=A.tolist(),
+         camera_scope='Camera-relative SMPL-X fitting; identity E is not a reconstructed static camera trajectory.',
+         original_smaller_inputs_preserved=True,old_individual_geometry_used=False,physical_calibration_accepted=False,

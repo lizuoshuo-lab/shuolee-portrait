@@ -1,0 +1,100 @@
+"""Regression controls for independent SH0 foreground color and coverage."""
+from pathlib import Path
+import sys
+import unittest
+
+import torch
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
+from shuolee_portrait.training import _fixed_sh0_target, _sh0_foreground_alpha_loss, foreground_loss, smpl_sh0_effective_config
+
+
+class SH0ForegroundAlphaTests(unittest.TestCase):
+    def test_opacity_resets_leave_the_terminal_interval_for_recovery(self):
+        config = smpl_sh0_effective_config()
+        self.assertEqual(config['iterations'], 10_000)
+        self.assertEqual(config['optimization']['opacity_reset_interval'], 1_800)
+        self.assertEqual(config['opacity_reset_steps'], [1_800, 3_600, 5_400, 7_200])
+
+    def setUp(self):
+        self.mask = torch.zeros(1, 64, 64)
+        self.mask[:, 8:56, 8:56] = 1
+        self.box = (8, 8, 56, 56)
+        self.black = torch.zeros(3, 64, 64)
+
+    def loss(self, rendered, alpha, target):
+        return _sh0_foreground_alpha_loss(rendered, alpha, target, self.mask, self.box)
+
+    def test_black_foreground_differs_from_a_hole(self):
+        target = self.black[:, 8:56, 8:56]
+        opaque = self.mask.clone()
+        hole = self.mask.clone()
+        hole[:, 27:37, 27:37] = 0
+        opaque_loss = self.loss(self.black, opaque, target)
+        hole_loss = self.loss(self.black, hole, target)
+        torch.testing.assert_close(hole_loss[0], opaque_loss[0], rtol=0, atol=0)
+        self.assertEqual(opaque_loss[3].item(), 0.)
+        self.assertAlmostEqual(hole_loss[3].item(), .5 * 100 / (48 * 48))
+
+    def test_background_rgb_does_not_affect_color(self):
+        self.mask[:, 21:25, 8:16] = 0
+        target = torch.full((3, 48, 48), .6)
+        alpha = .7 * self.mask
+        rendered = torch.full_like(self.black, .4) * alpha
+        base = self.loss(rendered, alpha, target)
+        target[:, 13:17, :8] = 1.
+        rendered[:, 21:25, 8:16] = .05
+        changed = self.loss(rendered, alpha, target)
+        for before, after in zip(base, changed, strict=True):
+            torch.testing.assert_close(after, before, rtol=0, atol=0)
+
+    def test_crop_keeps_original_ssim_support(self):
+        self.mask[:, 21:25, 8:16] = 0
+        im = torch.rand((3, 64, 64), generator=torch.Generator().manual_seed(8))
+        gt = torch.rand((3, 64, 64), generator=torch.Generator().manual_seed(9))
+        old = foreground_loss(im, gt, self.mask)
+        new = self.loss(im*self.mask, self.mask, gt[:, 8:56, 8:56])
+        for before, after in zip(old, new[:3], strict=True):
+            torch.testing.assert_close(after, before)
+
+    def test_coverage_gradients_respect_soft_targets(self):
+        self.mask[:, 7, 8:56] = .4
+        alpha = .7 * self.mask
+        alpha[:, 3, 3] = .8
+        alpha.requires_grad_(True)
+        target = self.black[:, 8:56, 8:56]
+        self.loss(self.black, alpha, target)[3].backward()
+        self.assertTrue(torch.isfinite(alpha.grad).all())
+        self.assertLess(alpha.grad[0, 32, 32].item(), 0.)
+        self.assertLess(alpha.grad[0, 7, 30].item(), 0.)
+        self.assertGreater(alpha.grad[0, 3, 3].item(), 0.)
+
+    def test_spill_penalty_does_not_shrink_with_background_size(self):
+        alpha = self.mask.clone()
+        alpha[:, 3, 3] = .8
+        target = self.black[:, 8:56, 8:56]
+        small = self.loss(self.black, alpha, target)[3]
+        pad = lambda x: torch.nn.functional.pad(x, (0, 64, 0, 64))
+        large = _sh0_foreground_alpha_loss(pad(self.black), pad(alpha), target, pad(self.mask), self.box)[3]
+        torch.testing.assert_close(large, small, rtol=0, atol=0)
+        self.assertAlmostEqual(small.item(), .5*.8/(48*48))
+
+    def test_fixed_target_matches_live_losses_and_both_gradients(self):
+        self.mask[:, 7, 8:56] = .4  # Soft target outside the RGB crop.
+        self.mask[:, 15:21, 12:19] = .98  # Changes foreground SSIM support.
+        rng = torch.Generator().manual_seed(14)
+        target = torch.rand((48, 48, 3), generator=rng).permute(2, 0, 1)
+        rgb = torch.rand((3, 64, 64), generator=rng).requires_grad_()
+        alpha = torch.rand((1, 64, 64), generator=rng)
+        alpha[:, 34:37, 38:42] = 0
+        alpha.requires_grad_()
+        cached = _fixed_sh0_target(target, self.mask, self.box)
+        baseline = self.loss(rgb, alpha, target)
+        observed = _sh0_foreground_alpha_loss(rgb, alpha, target, self.mask, self.box, fixed_target=cached)
+        grad = lambda parts: torch.autograd.grad(parts[0]+.1*parts[3], (rgb, alpha))
+        for actual, expected in zip((*observed, *grad(observed)), (*baseline, *grad(baseline)), strict=True):
+            torch.testing.assert_close(actual, expected, rtol=0, atol=0)
+
+
+if __name__ == '__main__':
+    unittest.main()

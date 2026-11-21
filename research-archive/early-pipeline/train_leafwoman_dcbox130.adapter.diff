@@ -1,0 +1,10 @@
+--- same129-profile-and-complete-checkpoint
++++ one-post-Adam-DC-projection-hook
+@@ -85,6 +85,7 @@
+         def training_setup(self, training_args):
+             super().training_setup(training_args)
+             self.optimizer.add_param_group({'params': [self.static_offset], 'lr': 1e-06, 'name': 'static_offset'})
++            _install_dc_projection(self)
+         select_mesh_by_timestep = SMPLXGaussianModel.select_mesh_by_timestep
+         densify_and_split = SMPLXGaussianModel.densify_and_split
+         get_covariance = SMPLXGaussianModel.get_covariance
